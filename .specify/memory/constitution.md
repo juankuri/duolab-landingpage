@@ -1,25 +1,38 @@
 <!--
 Sync Impact Report
+Version change: 1.1.0 → 1.2.0
+Modified principles: none renamed
+Added sections:
+  - Core Principle VII. No Medical Specialty Terminology in Output (new
+    principle; formalizes a rule that had been informally appended to
+    "Development Workflow & Deployment" without a version bump or rationale —
+    this amendment corrects that governance gap)
+Removed sections:
+  - The ad-hoc paragraph under "Development Workflow & Deployment" banning
+    "pediatría"/"pediatric"/"pediátrico" is removed from that section and
+    superseded by Principle VII below (same rule, now properly governed)
+Templates requiring updates:
+  - .specify/templates/plan-template.md ✅ no changes needed (Constitution Check
+    gate is dynamically derived from this file; no hardcoded principle text)
+  - .specify/templates/spec-template.md ✅ no changes needed (stack-agnostic)
+  - .specify/templates/tasks-template.md ✅ no changes needed (stack-agnostic)
+  - .specify/templates/checklist-template.md ✅ no changes needed (generic)
+  - specs/001-duolab-landing-page/spec.md ✅ already compliant — no medical
+    specialty terms present (verified); structural prose already rewritten to
+    English in a prior amendment cycle
+  - README.md ⚠ pending (still the default Astro starter README; unrelated to
+    this amendment)
+Follow-up TODOs: none
+-->
+
+<!--
+Sync Impact Report (v1.1.0, superseded above)
 Version change: 1.0.0 → 1.1.0
 Modified principles: none renamed
 Added sections:
   - Core Principle VI. English for Code, Spanish for Client Content (new
     language convention principle)
 Removed sections: none
-Templates requiring updates:
-  - .specify/templates/plan-template.md ✅ no changes needed (Constitution Check
-    gate is dynamically derived from this file; no hardcoded principle text)
-  - .specify/templates/spec-template.md ✅ no changes needed (stack-agnostic,
-    language-agnostic)
-  - .specify/templates/tasks-template.md ✅ no changes needed (stack-agnostic)
-  - .specify/templates/checklist-template.md ✅ no changes needed (generic)
-  - specs/001-duolab-landing-page/spec.md ⚠ pending (written before this
-    amendment; its structural prose — titles, user stories, requirements — is
-    in Spanish, not English. Needs a rewrite pass to English prose while
-    keeping quoted client copy/CTAs in Spanish verbatim, to comply with this
-    principle)
-  - README.md ⚠ pending (still the default Astro starter README; unrelated to
-    this amendment)
 Follow-up TODOs: none
 -->
 
@@ -133,6 +146,26 @@ specifically to speak to their buyer persona (per the approved copy
 documents), and translating it would silently violate that approval and the
 tone work already done.
 
+### VII. No Medical Specialty Terminology in Output
+
+Generated content, code, copy, comments, and specs MUST NOT use the word
+"pediatría", "pediatric", "pediátrico", or any similar medical specialty
+term — even though such terms appear freely in client source documents
+(briefings, buyer personas, offers, approved copy). Where a source document
+references a medical specialty, the generated output MUST abstract it (e.g.,
+describe the audience or scenario — "children who are afraid of needles" —
+rather than naming the specialty) or omit the reference entirely. This rule
+applies to everything produced for the project — specs, plans, tasks, code,
+comments, and any client-facing copy drafted or rewritten — but does NOT
+apply to the client's own source files under `stakeholders/<client>/`, which
+remain untouched per Principle VI.
+
+Rationale: This is a standing client/business requirement, independent of
+and orthogonal to any single feature's scope — it must hold for every piece
+of generated output going forward, not just the content visible on one
+landing page, so it is captured at the constitution level rather than
+re-specified per feature.
+
 ## SEO & Discoverability Requirements
 
 Every page MUST ship with: descriptive `<title>` and meta description tags,
@@ -153,12 +186,6 @@ scores, responsive breakpoints, and accessibility before considering any page
 or component complete. Each new client engagement MUST reuse existing shared
 components and design-token patterns before introducing new one-off markup.
 
-Do NOT use the word "pediatría", "pediatric", "pediátrico" 
-or any similar medical specialty terms in any generated content, code, 
-copy, or specs. These words appear in the source docs but must NOT 
-carry over to any output. If the docs reference a medical specialty, 
-abstract it or omit it.
-
 ## Governance
 
 This constitution supersedes any conflicting ad-hoc convention. Amendments
@@ -173,4 +200,4 @@ Complexity Tracking table or rejected. Compliance is reviewed at the same
 time performance, accessibility, and SEO checks happen for each page —
 there is no separate compliance-only review step.
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-27 | **Last Amended**: 2026-06-27
+**Version**: 1.2.0 | **Ratified**: 2026-06-27 | **Last Amended**: 2026-06-28

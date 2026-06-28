@@ -1,4 +1,4 @@
-# Implementation Plan: Landing Page de Conversión — DúoLab
+# Implementation Plan: DúoLab Conversion Landing Page
 
 **Branch**: `001-duolab-landing-page` | **Date**: 2026-06-28 | **Spec**: [spec.md](./spec.md)
 
@@ -42,6 +42,7 @@ A single static, mobile-first landing page for DúoLab (a clinical lab in Ciudad
 | IV. Lean JavaScript | Only the WhatsApp link (`<a href>`) and at most a tiny vanilla `<script>` for any mobile-nav toggle; no UI framework added | PASS |
 | V. Reusable, White-Labelable Components | Section components (`Hero.astro`, `Problem.astro`, etc.) take content as props/slots, not hard-coded DúoLab text; brand tokens isolated in a per-client CSS file | PASS |
 | VI. English for Code, Spanish for Client Content | All file/component/variable names in English; client copy file holds the Spanish text verbatim from `copy.md` | PASS — see naming resolution below |
+| VII. No Medical Specialty Terminology in Output | `childCareDifferentiator` content (data-model.md) and all component contracts describe the children-care experience without naming any medical specialty | PASS — verified, no such term appears anywhere in spec.md, data-model.md, or contracts/ |
 
 **Naming resolution**: The original stack note used `/public/clientes/[nombre]/` (Spanish). Per user decision, this plan uses `/public/clients/[name]/` (English) to comply with Principle VI; no exception needed.
 

@@ -1,4 +1,4 @@
-# Feature Specification: Landing Page de Conversión — DúoLab
+# Feature Specification: DúoLab Conversion Landing Page
 
 **Feature Branch**: `001-duolab-landing-page`
 
@@ -17,97 +17,97 @@
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Madre con hijos pequeños busca un laboratorio de confianza (Priority: P1)
+### User Story 1 - Mother with young children looking for a trustworthy lab (Priority: P1)
 
-Carla llega a la página después de buscar "laboratorio de análisis Ciudad del Carmen" en Google o de que alguien lo recomendara en un grupo de WhatsApp. Trae dudas concretas: si necesita cita, cuánto va a costar, y sobre todo si el personal sabe tratar a su hijo, que le tiene miedo a las agujas. Lee la página de arriba a abajo buscando esa tranquilidad antes de decidir ir, y termina escribiendo por WhatsApp para confirmar que puede llevar a su hijo.
+Carla lands on the page after searching "laboratorio de análisis Ciudad del Carmen" on Google, or because someone recommended it in a WhatsApp group. She brings concrete doubts: whether she needs an appointment, how much it will cost, and above all whether the staff knows how to handle her child, who is afraid of needles. She reads the page top to bottom looking for that reassurance before deciding to go, and ends up writing on WhatsApp to confirm she can bring her child.
 
-**Why this priority**: Es el buyer persona principal identificado en la investigación (buyer-persona.md) y el diferenciador de experiencia atendiendo niños es, según offer.md, la ventaja competitiva más fuerte del negocio. Si la página no convierte a esta persona, no cumple su propósito principal.
+**Why this priority**: This is the primary buyer persona identified in the research (buyer-persona.md), and the experience-with-children differentiator is, per offer.md, the business's strongest competitive advantage. If the page doesn't convert this persona, it fails its main purpose.
 
-**Independent Test**: Se puede probar mostrando la página a una madre con hijos pequeños y verificando que, sin ayuda externa, identifica que el laboratorio atiende niños con experiencia, que no necesita cita, y que sabe cómo contactar a un especialista por WhatsApp.
+**Independent Test**: Can be tested by showing the page to a mother with young children and verifying that, without external help, she identifies that the lab has experience caring for children, that no appointment is needed, and that she knows how to contact a specialist via WhatsApp.
 
 **Acceptance Scenarios**:
 
-1. **Given** Carla abre la landing en su celular, **When** revisa la sección de solución, **Then** encuentra una mención explícita y visible de la experiencia en toma de muestras a niños antes de llegar al CTA final.
-2. **Given** Carla tiene dudas sobre cita y precio, **When** lee la sección de problema, **Then** reconoce su propia duda reflejada en el texto (en su mismo lenguaje, no en jerga médica).
-3. **Given** Carla decide contactar al laboratorio, **When** toca el botón de CTA principal, **Then** se abre WhatsApp con un mensaje pre-llenado relacionado a su consulta.
+1. **Given** Carla opens the landing page on her phone, **When** she reviews the solution section, **Then** she finds an explicit, visible mention of experience taking samples from children before reaching the final CTA.
+2. **Given** Carla has doubts about appointments and price, **When** she reads the problem section, **Then** she recognizes her own doubt reflected in the text (in her own language, not medical jargon).
+3. **Given** Carla decides to contact the lab, **When** she taps the primary CTA button, **Then** WhatsApp opens with a prefilled message related to her question.
 
 ---
 
-### User Story 2 - Adulto que posterga su salud necesita resolver rápido (Priority: P2)
+### User Story 2 - Adult who keeps putting off their health needs a quick resolution (Priority: P2)
 
-Roberto llega porque el médico le pidió estudios y quiere "quitárselos de encima" sin perder tiempo. No quiere preguntar de más: busca saber rápido si puede llegar sin cita, qué tan confiable es el laboratorio, y cómo contactar para confirmar antes de ir.
+Roberto comes because his doctor ordered studies and he wants to "get it over with" without wasting time. He doesn't want to ask too many questions: he wants to quickly know whether he can walk in without an appointment, how reliable the lab is, and how to contact them to confirm before going.
 
-**Why this priority**: Es el buyer persona secundario (buyer-persona.md). Su conversión es valiosa pero secundaria frente al diferenciador de experiencia atendiendo niños que es el ángulo principal de marketing.
+**Why this priority**: This is the secondary buyer persona (buyer-persona.md). Converting him is valuable but secondary to the experience-with-children differentiator, which is the main marketing angle.
 
-**Independent Test**: Se puede probar mostrando la página a un adulto sin hijos pequeños y verificando que igual encuentra, sin sentirse excluido por el mensaje enfocado en niños, la información de confianza (años de experiencia, sin cita, resultados confiables) y el CTA para hablar con un especialista.
+**Independent Test**: Can be tested by showing the page to an adult without young children and verifying that he still finds, without feeling excluded by the children-focused messaging, the trust information (years of experience, no appointment needed, reliable results) and the CTA to talk to a specialist.
 
 **Acceptance Scenarios**:
 
-1. **Given** Roberto entra a la página, **When** revisa la sección de prueba social, **Then** encuentra señales de confianza (años de experiencia, número de estudios, resultados el mismo día) sin necesidad de leer la sección dedicada a niños.
-2. **Given** Roberto quiere confirmar antes de ir, **When** llega al CTA final, **Then** encuentra un mensaje claro y sin tecnicismos que lo invita a hablar con un especialista por WhatsApp.
+1. **Given** Roberto enters the page, **When** he reviews the social-proof section, **Then** he finds trust signals (years of experience, number of studies, same-day results) without needing to read the section dedicated to children.
+2. **Given** Roberto wants to confirm before going, **When** he reaches the final CTA, **Then** he finds a clear, jargon-free message inviting him to talk to a specialist via WhatsApp.
 
 ---
 
-### User Story 3 - Visitante que compara antes de decidir busca validación social (Priority: P3)
+### User Story 3 - Visitor comparing options before deciding looks for social validation (Priority: P3)
 
-Un visitante que encontró el laboratorio en Google Maps o por recomendación quiere confirmar, antes de escribir, que otras personas han tenido buenas experiencias y que el negocio es legítimo y establecido.
+A visitor who found the lab on Google Maps or through a recommendation wants to confirm, before writing in, that other people have had good experiences and that the business is legitimate and established.
 
-**Why this priority**: Refuerza la decisión de conversión pero no es, por sí sola, suficiente para producir la acción principal — funciona en conjunto con las secciones de problema/solución.
+**Why this priority**: Reinforces the conversion decision but is not, on its own, sufficient to drive the primary action — it works in conjunction with the problem/solution sections.
 
-**Independent Test**: Se puede probar verificando que un visitante, viendo solo la sección de prueba social de forma aislada, puede nombrar al menos dos señales de confianza del laboratorio (años de experiencia, cantidad de estudios, evidencia de buen trato).
+**Independent Test**: Can be tested by verifying that a visitor, viewing only the social-proof section in isolation, can name at least two concrete trust signals about the lab (years of experience, number of studies, evidence of good treatment).
 
 **Acceptance Scenarios**:
 
-1. **Given** el visitante llega a la sección de prueba social, **When** la lee, **Then** identifica al menos dos datos de confianza concretos (por ejemplo: "11 años de experiencia", "+50 estudios disponibles").
+1. **Given** the visitor reaches the social-proof section, **When** they read it, **Then** they identify at least two concrete trust data points (for example: "11 años de experiencia", "+50 estudios disponibles").
 
 ---
 
 ### Edge Cases
 
-- ¿Qué pasa si el visitante abre la página en un dispositivo sin WhatsApp instalado? El CTA debe seguir funcionando vía WhatsApp Web.
-- ¿Qué pasa si el visitante es del buyer persona secundario y la página enfatiza demasiado el mensaje de atención para niños? La sección de atención para niños debe estar claramente delimitada como una sección propia, sin dominar el resto del contenido ni hacer sentir excluido a quien no tiene hijos.
-- ¿Qué pasa si el visitante llega con una conexión móvil lenta? El contenido esencial (propuesta de valor y CTA) debe ser visible y utilizable antes de que cargue cualquier elemento secundario.
-- ¿Qué pasa si todavía no se tiene el número real de WhatsApp del laboratorio al momento de publicar? La página no debe publicarse con un número de marcador de posición.
-- ¿Qué pasa si todavía no se tienen reseñas o testimonios reales del laboratorio al momento de publicar? La sección de prueba social se publica solo con señales de confianza cuantitativas (años de operación, cantidad de estudios, tiempo de entrega); no se rellena con testimonios genéricos o no verificados.
+- What happens if the visitor opens the page on a device without WhatsApp installed? The CTA must still work via WhatsApp Web.
+- What happens if the visitor is the secondary buyer persona and the page overemphasizes the children-focused message? The children-focused section must be clearly delimited as its own section, without dominating the rest of the content or making someone without children feel excluded.
+- What happens if the visitor arrives on a slow mobile connection? The essential content (value proposition and CTA) must be visible and usable before any secondary element loads.
+- What happens if the lab's real WhatsApp number isn't available yet at publish time? The page must not be published with a placeholder number.
+- What happens if no real reviews or testimonials from the lab are available yet at publish time? The social-proof section is published with only quantitative trust signals (years of operation, number of studies, turnaround time); it is not filled in with generic or unverified testimonials.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: La landing MUST incluir una sección "hero" visible sin necesidad de scroll que comunique en una frase la propuesta de valor central de la oferta (resultados confiables + trato humano) y MUST incluir el CTA principal en el mismo viewport.
-- **FR-002**: La sección "hero" MUST usar como H1 el texto exacto y aprobado en copy.md ("Tus análisis clínicos, con resultados en los que confías.") palabra por palabra, sin paráfrasis, junto con un subtítulo de apoyo, sin mezclar múltiples propuestas de valor que compitan entre sí.
-- **FR-003**: La landing MUST incluir una sección "problema" que nombre, en el lenguaje real del buyer persona (no en jerga médica ni institucional), las dudas y miedos identificados en la investigación: necesidad de cita, incertidumbre de precio, miedo al trato hacia los hijos, y desconfianza en los resultados.
-- **FR-004**: La landing MUST incluir una sección "solución" que presente la oferta del laboratorio (más de 50 estudios, atención sin cita, orientación previa por WhatsApp, precios claros desde el primer contacto) como respuesta directa a cada duda planteada en la sección "problema".
-- **FR-005**: La sección "solución" MUST dar prominencia visual y de contenido diferenciada al diferenciador en atención para niños (experiencia en toma de muestras para niños), por ser el factor de decisión más fuerte identificado para el buyer persona principal.
-- **FR-006**: La landing MUST incluir una sección "prueba social" que muestre señales de confianza verificables: años de operación, cantidad de tipos de estudios disponibles, y tiempo de entrega de resultados. Si al momento de publicar el cliente ya proporcionó reseñas o testimonios reales y verificables (p. ej. capturas o enlaces a reseñas de Google), la sección MUST incluirlos. Si todavía no se han obtenido, la sección MUST publicarse solo con las señales de confianza cuantitativas — MUST NOT incluir testimonios o citas de pacientes genéricas o no verificadas como relleno.
-- **FR-007**: La landing MUST incluir una sección "CTA final" cerca del final de la página que repita el llamado a la acción principal sin introducir información nueva, reforzando la urgencia de manera no agresiva.
-- **FR-008**: Todo CTA principal o secundario en la página MUST tener como objetivo permitir al visitante "hablar con un especialista", realizado a través de un botón que abre WhatsApp con un mensaje pre-llenado relevante al contexto de la sección donde aparece.
-- **FR-009**: Todo el copy visible en la página MUST seguir el tono de marca aprobado (cercano, claro, profesional, tranquilizador), MUST usar la forma "tú" en lugar de "usted", y MUST evitar tecnicismos médicos que el paciente promedio no entendería.
-- **FR-010**: El copy MUST evitar explícitamente: la palabra "Contáctenos", cifras de precio sin contexto, y cualquier mención de convenios con aseguradoras o IMSS (el laboratorio no maneja estos convenios actualmente).
-- **FR-011**: Todos los elementos visuales (colores, tipografía, logo) MUST seguir los Brand Guidelines aprobados: paleta de morados/lilas con Plus Jakarta Sans como tipografía única, y reglas de uso del logo (tamaño mínimo, espacio de respeto, fondos permitidos).
-- **FR-012**: La landing MUST estar diseñada mobile-first, dado que la mayoría del tráfico del buyer persona principal navega desde celular según la investigación de comportamiento digital.
-- **FR-013**: La landing MUST ser una página estática de una sola vista (sin autenticación ni backend), accesible mediante una única URL pública.
+- **FR-001**: The landing page MUST include a "hero" section visible without scrolling that communicates, in one phrase, the offer's central value proposition (reliable results + human treatment) and MUST include the primary CTA in the same viewport.
+- **FR-002**: The "hero" section MUST use, as its H1, the exact approved text from copy.md ("Tus análisis clínicos, con resultados en los que confías.") word for word, with no paraphrasing, along with a supporting subheadline, without mixing in multiple competing value propositions.
+- **FR-003**: The landing page MUST include a "problem" section that names, in the buyer persona's own language (not medical or institutional jargon), the doubts and fears identified in the research: need for an appointment, price uncertainty, fear about how children will be treated, and distrust of results.
+- **FR-004**: The landing page MUST include a "solution" section that presents the lab's offer (more than 50 types of studies, no-appointment service, prior guidance via WhatsApp, clear pricing from first contact) as a direct answer to each doubt raised in the "problem" section.
+- **FR-005**: The "solution" section MUST give distinct visual and content prominence to the experience-with-children differentiator (experience taking samples from children), as it is the strongest decision factor identified for the primary buyer persona.
+- **FR-006**: The landing page MUST include a "social proof" section showing verifiable trust signals: years of operation, number of types of studies available, and results turnaround time. If, by publish time, the client has already provided real and verifiable reviews or testimonials (e.g., screenshots or links to Google reviews), the section MUST include them. If they have not yet been obtained, the section MUST be published with only the quantitative trust signals — it MUST NOT include generic or unverified patient testimonials or quotes as filler.
+- **FR-007**: The landing page MUST include a "final CTA" section near the end of the page that repeats the primary call to action without introducing new information, reinforcing urgency in a non-aggressive way.
+- **FR-008**: Every primary or secondary CTA on the page MUST have the goal of letting the visitor "talk to a specialist," implemented via a button that opens WhatsApp with a prefilled message relevant to the context of the section where it appears.
+- **FR-009**: All visible copy on the page MUST follow the approved brand tone (warm, clear, professional, reassuring), MUST use the "tú" form rather than "usted", and MUST avoid medical jargon the average patient wouldn't understand.
+- **FR-010**: The copy MUST explicitly avoid: the word "Contáctenos", pricing figures without context, and any mention of insurance or IMSS agreements (the lab does not currently have these arrangements).
+- **FR-011**: All visual elements (colors, typography, logo) MUST follow the approved Brand Guidelines: the purple/lilac palette with Plus Jakarta Sans as the sole typeface, and the logo usage rules (minimum size, safe area, permitted backgrounds).
+- **FR-012**: The landing page MUST be designed mobile-first, since most of the primary buyer persona's traffic browses from a phone, per the digital-behavior research.
+- **FR-013**: The landing page MUST be a single static page (no authentication, no backend), reachable via a single public URL.
 
 ### Key Entities
 
-*(No aplica — esta página no involucra entidades de datos persistentes; todo el contenido es estático y editorial.)*
+*(Not applicable — this page involves no persistent data entities; all content is static and editorial.)*
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Un visitante nuevo puede identificar qué ofrece el laboratorio y cuál es la acción esperada (hablar con un especialista) viendo únicamente la sección "hero", sin hacer scroll.
-- **SC-002**: Al menos el 95% de los visitantes que deciden actuar pueden localizar y activar el botón de contacto principal sin tener que buscarlo fuera de la vista inmediata de cada sección.
-- **SC-003**: Las tres dudas más frecuentes del buyer persona ("¿necesito cita?", "¿cuánto cuesta?", "¿son buenos con niños?") quedan respondidas en el contenido visible antes de que el visitante llegue a la sección "CTA final".
-- **SC-004**: Un visitante del buyer persona secundario (sin hijos pequeños) puede encontrar al menos dos señales de confianza relevantes para él sin sentir que la página está dirigida exclusivamente a familias con niños.
-- **SC-005**: La página es completamente utilizable y legible en un dispositivo móvil de gama media sin necesidad de zoom o scroll horizontal.
+- **SC-001**: A new visitor can identify what the lab offers and what the expected action is (talk to a specialist) by viewing only the "hero" section, without scrolling.
+- **SC-002**: The primary CTA is reachable without scrolling out of the section's viewport on both mobile and desktop.
+- **SC-003**: The buyer persona's three most frequent doubts ("¿necesito cita?", "¿cuánto cuesta?", "¿son buenos con niños?") are answered in the visible content before the visitor reaches the "final CTA" section.
+- **SC-004**: A visitor matching the secondary buyer persona (without young children) can find at least two trust signals relevant to them without feeling the page is aimed exclusively at families with children.
+- **SC-005**: The page is fully usable and legible on a mid-range mobile device without needing to zoom or scroll horizontally.
 
 ## Assumptions
 
-- "Hablar con un especialista" se cumple a través de WhatsApp como único canal de contacto inmediato; no se incluyen en este alcance llamada telefónica, formulario web, ni chat en vivo.
-- Las cinco secciones solicitadas (hero, problema, solución, prueba social, CTA final) son el alcance mínimo de esta especificación. Contenido adicional ya aprobado en copy.md (detalle de estudios disponibles, pasos del proceso, FAQ extendido, mapa y horarios, footer) puede integrarse dentro de las secciones "solución" o "prueba social", o tratarse como una iteración posterior — no es bloqueante para esta especificación.
-- La página se publica en español (México), sin requerimiento de soporte multi-idioma.
-- El número de WhatsApp real del laboratorio se confirma con el cliente antes de publicación; hasta entonces se usa un marcador de posición que MUST NOT llegar a producción.
-- Reseñas o testimonios reales del laboratorio (p. ej. capturas o enlaces a Google Maps) son una tarea de sourcing con el cliente previa al lanzamiento, no un bloqueante para el resto de la especificación; si no se obtienen a tiempo, la sección de prueba social se publica solo con señales cuantitativas.
-- No se incluye en este alcance la funcionalidad de descarga de resultados ni ningún sistema de autenticación, conforme a lo indicado en briefing.md como "fase futura" separada.
-- El mapa de ubicación, horarios detallados y FAQ extendido, aunque están aprobados en copy.md, no son obligatorios para cumplir esta especificación de 5 secciones; se recomienda incluirlos si el plan de implementación lo permite, pero no son criterio de aceptación aquí.
+- "Talk to a specialist" is fulfilled through WhatsApp as the sole immediate contact channel; phone calls, a web form, and live chat are not included in this scope.
+- The five requested sections (hero, problem, solution, social proof, final CTA) are the minimum scope of this specification. Additional content already approved in copy.md (detailed study list, process steps, extended FAQ, map and hours, footer) can be folded into the "solution" or "social proof" sections, or treated as a later iteration — it is not blocking for this specification.
+- The page is published in Spanish (Mexico), with no requirement for multi-language support.
+- The lab's real WhatsApp number is confirmed with the client before publication; until then, a placeholder is used that MUST NOT reach production.
+- Real reviews or testimonials from the lab (e.g., screenshots or links to Google Maps) are a client-sourcing task prior to launch, not a blocker for the rest of this specification; if they aren't obtained in time, the social-proof section is published with only quantitative signals.
+- Results-download functionality and any authentication system are out of this scope, per briefing.md's indication that this is a separate "future phase."
+- The location map, detailed hours, and extended FAQ, although already approved in copy.md, are not mandatory to satisfy this 5-section specification; including them is recommended if the implementation plan allows, but they are not an acceptance criterion here.
