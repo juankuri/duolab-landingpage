@@ -15,6 +15,10 @@
 - Q: Should the hero H1 be the exact approved text from copy.md verbatim, or can it be adapted during implementation? → A: Use the H1 from copy.md verbatim, word-for-word, no paraphrasing allowed.
 - Q: What should happen in the "prueba social" section given no real DúoLab testimonial/review is sourced yet in the client docs? → A: Require real Google reviews/testimonials sourced from the client before launch; until sourced, ship with only quantitative trust signals (years, # of studies) — no placeholder quotes.
 
+### Session 2026-06-28
+
+- Q: copy.md frames itself as "el texto exacto" for every section, but FR-002 only locks the hero H1 as word-for-word verbatim, while FR-003/FR-004 describe other sections more loosely ("in the buyer persona's own language"). Is copy.md's text verbatim-required for every listed section, or only the hero H1? → A: copy.md's approved text is the verbatim source for every section it covers (eyebrow, CTA labels, trust-bar labels, FAQ answers, etc.), not just the hero H1. FR-003/FR-004's "buyer persona's own language" describes the *voice* copy.md already writes in, not license to rewrite it; implementers use copy.md text as-is and only adapt wording where copy.md is itself silent (e.g. dynamic data like a study count pulled from data-model.md).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Mother with young children looking for a trustworthy lab (Priority: P1)
@@ -82,11 +86,14 @@ A visitor who found the lab on Google Maps or through a recommendation wants to 
 - **FR-006**: The landing page MUST include a "social proof" section showing verifiable trust signals: years of operation, number of types of studies available, and results turnaround time. If, by publish time, the client has already provided real and verifiable reviews or testimonials (e.g., screenshots or links to Google reviews), the section MUST include them. If they have not yet been obtained, the section MUST be published with only the quantitative trust signals — it MUST NOT include generic or unverified patient testimonials or quotes as filler.
 - **FR-007**: The landing page MUST include a "final CTA" section near the end of the page that repeats the primary call to action without introducing new information, reinforcing urgency in a non-aggressive way.
 - **FR-008**: Every primary or secondary CTA on the page MUST have the goal of letting the visitor "talk to a specialist," implemented via a button that opens WhatsApp with a prefilled message relevant to the context of the section where it appears.
-- **FR-009**: All visible copy on the page MUST follow the approved brand tone (warm, clear, professional, reassuring), MUST use the "tú" form rather than "usted", and MUST avoid medical jargon the average patient wouldn't understand.
+- **FR-009**: All visible copy on the page MUST follow the approved brand tone (warm, clear, professional, reassuring), MUST use the "tú" form rather than "usted", and MUST avoid medical jargon the average patient wouldn't understand (e.g. clinical/diagnostic terminology, equipment or method names, or specialty labels) — describe in the everyday terms a patient would use instead, per the "no decir / sí decir" examples in branding.md.
 - **FR-010**: The copy MUST explicitly avoid: the word "Contáctenos", pricing figures without context, and any mention of insurance or IMSS agreements (the lab does not currently have these arrangements).
 - **FR-011**: All visual elements (colors, typography, logo) MUST follow the approved Brand Guidelines: the purple/lilac palette with Plus Jakarta Sans as the sole typeface, and the logo usage rules (minimum size, safe area, permitted backgrounds).
 - **FR-012**: The landing page MUST be designed mobile-first, since most of the primary buyer persona's traffic browses from a phone, per the digital-behavior research.
 - **FR-013**: The landing page MUST be a single static page (no authentication, no backend), reachable via a single public URL.
+- **FR-014**: The landing page MUST meet the project constitution's performance requirements: a Lighthouse Performance score of 90 or higher, with essential content (hero value proposition and primary CTA) visible within 3 seconds on a simulated mid-range mobile connection.
+- **FR-015**: The landing page MUST meet WCAG 2.1 AA requirements for color contrast, visible focus states on interactive elements, and descriptive alt text on all images.
+- **FR-016**: The landing page MUST emit valid SEO metadata (title, meta description, canonical link, Open Graph/Twitter Card tags) and a `LocalBusiness` schema.org JSON-LD block, per the project constitution's SEO & Discoverability requirements.
 
 ### Key Entities
 
@@ -107,7 +114,7 @@ A visitor who found the lab on Google Maps or through a recommendation wants to 
 - "Talk to a specialist" is fulfilled through WhatsApp as the sole immediate contact channel; phone calls, a web form, and live chat are not included in this scope.
 - The five requested sections (hero, problem, solution, social proof, final CTA) are the minimum scope of this specification. Additional content already approved in copy.md (detailed study list, process steps, extended FAQ, map and hours, footer) can be folded into the "solution" or "social proof" sections, or treated as a later iteration — it is not blocking for this specification.
 - The page is published in Spanish (Mexico), with no requirement for multi-language support.
-- The lab's real WhatsApp number is confirmed with the client before publication; until then, a placeholder is used that MUST NOT reach production.
+- The lab's real WhatsApp number has been confirmed by the client (+52 938 383 0700, Ciudad del Carmen / Campeche) and MUST be used in all CTA links; no placeholder number reaches production.
 - Real reviews or testimonials from the lab (e.g., screenshots or links to Google Maps) are a client-sourcing task prior to launch, not a blocker for the rest of this specification; if they aren't obtained in time, the social-proof section is published with only quantitative signals.
 - Results-download functionality and any authentication system are out of this scope, per briefing.md's indication that this is a separate "future phase."
 - The location map, detailed hours, and extended FAQ, although already approved in copy.md, are not mandatory to satisfy this 5-section specification; including them is recommended if the implementation plan allows, but they are not an acceptance criterion here.

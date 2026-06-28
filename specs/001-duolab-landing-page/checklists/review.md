@@ -8,28 +8,28 @@
 
 ## Content & Copy Fidelity
 
-- [ ] CHK001 Are all client-approved copy blocks (hero H1, CTAs, FAQ-style answers) consistently marked as verbatim-required versus paraphrase-allowed across every FR that references copy.md? [Consistency, Spec §FR-002, §FR-009]
-- [ ] CHK002 Is "tecnicismos médicos que el paciente promedio no entendería" (FR-009) given any concrete example list, or left entirely to implementer judgment? [Clarity, Spec §FR-009]
-- [ ] CHK003 Is the list of explicit copy exclusions in FR-010 ("Contáctenos", bare prices, insurance/IMSS mentions) confirmed complete against copy.md's "nunca debe decir" guidance, or could other excluded phrases be missing? [Completeness, Spec §FR-010]
-- [ ] CHK004 Does FR-006's fallback behavior (quantitative-only social proof, no placeholder testimonials) read as an unambiguous MUST NOT, or could an implementer still justify adding generic quotes? [Consistency, Spec §FR-006]
+- [x] CHK001 Are all client-approved copy blocks (hero H1, CTAs, FAQ-style answers) consistently marked as verbatim-required versus paraphrase-allowed across every FR that references copy.md? [Consistency, Spec §FR-002, §FR-009] — Resolved via Clarifications Session 2026-06-28: copy.md's text is verbatim-required for every section it covers, not just the H1; FR-003/FR-004's "buyer persona's own language" describes copy.md's existing voice, not license to rewrite it.
+- [x] CHK002 Is "tecnicismos médicos que el paciente promedio no entendería" (FR-009) given any concrete example list, or left entirely to implementer judgment? [Clarity, Spec §FR-009] — Resolved: FR-009 now names the categories (clinical/diagnostic terminology, equipment/method names, specialty labels) and points to branding.md's "no decir / sí decir" examples.
+- [x] CHK003 Is the list of explicit copy exclusions in FR-010 ("Contáctenos", bare prices, insurance/IMSS mentions) confirmed complete against copy.md's "nunca debe decir" guidance, or could other excluded phrases be missing? [Completeness, Spec §FR-010] — Confirmed complete: copy.md's "Lo que nunca debe decir la página" lists exactly these three categories (jargon is covered separately by FR-009); no other exclusions found.
+- [x] CHK004 Does FR-006's fallback behavior (quantitative-only social proof, no placeholder testimonials) read as an unambiguous MUST NOT, or could an implementer still justify adding generic quotes? [Consistency, Spec §FR-006] — Confirmed unambiguous: FR-006 already states "it MUST NOT include generic or unverified patient testimonials or quotes as filler."
 
 ## Brand & Visual Compliance
 
-- [ ] CHK005 Does FR-011 give enough detail for an implementer to apply brand colors/typography without reopening branding.md, or does it only reference the document by name? [Completeness, Spec §FR-011]
-- [ ] CHK006 Are logo usage constraints from branding.md (minimum size, safe area, permitted backgrounds) reflected as requirements anywhere in the spec, or only implied by "MUST seguir los Brand Guidelines aprobados"? [Gap, Spec §FR-011]
-- [ ] CHK007 Is there a requirement defining which sections use the dark/purple background treatment versus light backgrounds, or is that visual rhythm left unspecified? [Gap]
+- [x] CHK005 Does FR-011 give enough detail for an implementer to apply brand colors/typography without reopening branding.md, or does it only reference the document by name? [Completeness, Spec §FR-011] — Resolved: root DESIGN.md (generated 2026-06-28 from branding.md) now carries the literal hex values, type scale, and component tokens as the canonical implementation reference; FR-011 correctly stays at the requirement level and defers exact values to DESIGN.md.
+- [x] CHK006 Are logo usage constraints from branding.md (minimum size, safe area, permitted backgrounds) reflected as requirements anywhere in the spec, or only implied by "MUST seguir los Brand Guidelines aprobados"? [Gap, Spec §FR-011] — Confirmed: FR-011 already explicitly names "the logo usage rules (minimum size, safe area, permitted backgrounds)" as a MUST, not just an implied reference; tasks.md T028 implements it.
+- [x] CHK007 Is there a requirement defining which sections use the dark/purple background treatment versus light backgrounds, or is that visual rhythm left unspecified? [Gap] — Intentionally left to the design layer, not the spec: FR-005 already requires the children-care section to have "distinct visual and content prominence" (the functional requirement); the specific background alternation is a design decision, now captured in DESIGN.md's "Tint-Not-Shadow" rule and copy.md's per-section design notes. Specs describe WHAT, not exact visual treatment.
 
 ## Non-Functional / Constitution Compliance
 
-- [ ] CHK008 Are the constitution's performance targets (Lighthouse 90+, <3s load) restated as a testable success criterion in this spec, or only loosely implied by FR-012/SC-005? [Traceability, Spec §SC-005]
-- [ ] CHK009 Are WCAG AA accessibility requirements (contrast, focus states, alt text) represented anywhere in this spec's Functional Requirements, or only inherited implicitly from the constitution? [Gap]
-- [ ] CHK010 Are the constitution's mandatory SEO requirements (meta tags, Open Graph, schema markup) reflected as a requirement in this spec, given they're absent from FR-001–FR-013? [Gap]
-- [ ] CHK011 Is "mobile-first" (FR-012) accompanied by any measurable breakpoint/viewport criteria, or is it a qualitative statement only? [Measurability, Spec §FR-012]
+- [x] CHK008 Are the constitution's performance targets (Lighthouse 90+, <3s load) restated as a testable success criterion in this spec, or only loosely implied by FR-012/SC-005? [Traceability, Spec §SC-005] — Resolved: added FR-014 (Lighthouse Performance ≥90, essential content visible within 3s on simulated mid-range mobile).
+- [x] CHK009 Are WCAG AA accessibility requirements (contrast, focus states, alt text) represented anywhere in this spec's Functional Requirements, or only inherited implicitly from the constitution? [Gap] — Resolved: added FR-015 (WCAG 2.1 AA contrast, focus visibility, alt text).
+- [x] CHK010 Are the constitution's mandatory SEO requirements (meta tags, Open Graph, schema markup) reflected as a requirement in this spec, given they're absent from FR-001–FR-013? [Gap] — Resolved: added FR-016 (meta/OG/Twitter tags + LocalBusiness JSON-LD).
+- [x] CHK011 Is "mobile-first" (FR-012) accompanied by any measurable breakpoint/viewport criteria, or is it a qualitative statement only? [Measurability, Spec §FR-012] — Confirmed appropriate as-is: FR-012 + SC-005 set the qualitative bar (usable on a mid-range device, no zoom/horizontal scroll) at spec level; the concrete breakpoints (360/768/1024/1440px) correctly live one level down, in tasks.md T031.
 
 ## Dependencies & Assumptions
 
-- [ ] CHK012 Is the dependency on the client supplying a real WhatsApp number and real testimonials before launch tracked as one consistent pre-launch gate, or stated as two separately-worded conditions that could drift? [Consistency, Spec §Assumptions]
-- [ ] CHK013 Is ownership of sourcing the real Google reviews referenced in FR-006 (client vs. agency) specified, or left undefined? [Gap, Spec §FR-006]
+- [x] CHK012 Is the dependency on the client supplying a real WhatsApp number and real testimonials before launch tracked as one consistent pre-launch gate, or stated as two separately-worded conditions that could drift? [Consistency, Spec §Assumptions] — Resolved for the WhatsApp number: the client has now provided the real number (+52 938 383 0700); Assumptions updated to reflect this is no longer an open gate. Testimonials remain a separate, intentionally independent gate (different owner/timeline) and are already cross-referenced together in tasks.md's Notes section.
+- [x] CHK013 Is ownership of sourcing the real Google reviews referenced in FR-006 (client vs. agency) specified, or left undefined? [Gap, Spec §FR-006] — Confirmed specified: Assumptions already states this is "a client-sourcing task prior to launch."
 
 ## Notes
 
