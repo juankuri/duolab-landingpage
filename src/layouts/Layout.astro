@@ -91,6 +91,15 @@ const localBusinessSchema = {
 
   html {
     -webkit-text-size-adjust: 100%;
+    /* Smooth in-page nav; scroll-padding offsets the sticky header on anchor jumps */
+    scroll-behavior: smooth;
+    scroll-padding-top: 72px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   body {
