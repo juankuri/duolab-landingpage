@@ -82,12 +82,12 @@ Single static Astro project (no backend). All paths under `src/`, `public/client
 
 ### Implementation for User Story 2
 
-- [ ] T017 [P] [US2] Add `socialProof.trustSignals` content (years of operation, study count, same-day turnaround) to `src/content/clients/duolab.js`
-- [ ] T018 [P] [US2] Add `finalCta` content (headline, subheadline, CTA message key, microcopy) to `src/content/clients/duolab.js`
-- [ ] T019 [US2] Create `SocialProof.astro` in `src/components/landing/SocialProof.astro` per contracts/component-props.md, rendering `trustSignals`; accept a `testimonials` prop but render nothing for it yet (depends on T017)
-- [ ] T020 [US2] Create `FinalCta.astro` in `src/components/landing/FinalCta.astro` per contracts/component-props.md (depends on T018)
-- [ ] T021 [US2] Compose `SocialProof` and `FinalCta` into `src/pages/index.astro`, after the Solution section
-- [ ] T022 [US2] Run quickstart.md scenarios 4–5 manually; confirm copy has no medical jargon and the final CTA introduces no new claims. Confirm none of FR-010's excluded phrases appear in any rendered content.
+- [X] T017 [P] [US2] Add `socialProof.trustSignals` content (years of operation, study count, same-day turnaround) to `src/content/clients/duolab.js`
+- [X] T018 [P] [US2] Add `finalCta` content (headline, subheadline, CTA message key, microcopy) to `src/content/clients/duolab.js`
+- [X] T019 [US2] Create `SocialProof.astro` in `src/components/landing/SocialProof.astro` per contracts/component-props.md, rendering `trustSignals`; accept a `testimonials` prop but render nothing for it yet (depends on T017)
+- [X] T020 [US2] Create `FinalCta.astro` in `src/components/landing/FinalCta.astro` per contracts/component-props.md (depends on T018)
+- [X] T021 [US2] Compose `SocialProof` and `FinalCta` into `src/pages/index.astro`, after the Solution section
+- [X] T022 [US2] Run quickstart.md scenarios 4–5 manually; confirm copy has no medical jargon and the final CTA introduces no new claims. Confirm none of FR-010's excluded phrases appear in any rendered content.
 
 **Checkpoint**: User Stories 1 AND 2 both work independently — the full page now has all five sections
 
@@ -101,9 +101,9 @@ Single static Astro project (no backend). All paths under `src/`, `public/client
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Add `socialProof.testimonials: null` (with the `Testimonial` shape documented from data-model.md ready to populate later) to `src/content/clients/duolab.js`
-- [ ] T024 [US3] Update `SocialProof.astro` (`src/components/landing/SocialProof.astro`) so that when `testimonials` is `null`/empty it renders no testimonial block at all, and when populated it renders each with its `source` attribution — per the hard branch in contracts/component-props.md (depends on T019, T023)
-- [ ] T025 [US3] Run quickstart.md scenario 4's both branches (empty and populated `testimonials`) and confirm no placeholder/generic quote ever renders
+- [X] T023 [US3] Add `socialProof.testimonials: null` (with the `Testimonial` shape documented from data-model.md ready to populate later) to `src/content/clients/duolab.js`
+- [X] T024 [US3] Update `SocialProof.astro` (`src/components/landing/SocialProof.astro`) so that when `testimonials` is `null`/empty it renders no testimonial block at all, and when populated it renders each with its `source` attribution — per the hard branch in contracts/component-props.md (depends on T019, T023)
+- [X] T025 [US3] Run quickstart.md scenario 4's both branches (empty and populated `testimonials`) and confirm no placeholder/generic quote ever renders
 
 **Checkpoint**: All three user stories are independently functional — the page is feature-complete pending real content (WhatsApp number, testimonials)
 
