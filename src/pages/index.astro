@@ -1,11 +1,63 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
+/**
+ * DúoLab conversion landing page (single static route, spec FR-013).
+ *
+ * Composes the User Story 1 sections (hero → problem → solution) with content
+ * from the per-client content file. Every CTA resolves to a context-specific
+ * prefilled WhatsApp message (spec FR-008).
+ */
+import Layout from "../layouts/Layout.astro";
+import content from "../content/clients/duolab.js";
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+import Hero from "../components/landing/Hero.astro";
+import Problem from "../components/landing/Problem.astro";
+import Solution from "../components/landing/Solution.astro";
+
+const { seo, business, whatsapp, hero, problem, solution } = content;
+
+/**
+ * Resolve a context-keyed prefilled WhatsApp message into a CTA prop object.
+ * @param {string} context
+ * @param {string} label
+ */
+const ctaFor = (context, label) => ({
+  phoneNumber: whatsapp.phoneNumber,
+  message:
+    whatsapp.messages.find((m) => m.context === context)?.text ??
+    whatsapp.messages[0].text,
+  label,
+});
+
+const childCare = {
+  ...solution.childCareDifferentiator,
+  cta: ctaFor(
+    solution.childCareDifferentiator.ctaMessageContext,
+    solution.childCareDifferentiator.ctaLabel,
+  ),
+};
 ---
 
-<Layout>
-	<Welcome />
+<Layout seo={seo} business={business}>
+  <main>
+    <Hero
+      eyebrow={hero.eyebrow}
+      headline={hero.headline}
+      subheadline={hero.subheadline}
+      cta={ctaFor(hero.primaryCtaMessageContext, hero.ctaLabel)}
+      secondaryCta={hero.secondaryCta}
+    />
+
+    <Problem
+      eyebrow={problem.eyebrow}
+      headline={problem.headline}
+      concerns={problem.concerns}
+    />
+
+    <Solution
+      eyebrow={solution.eyebrow}
+      headline={solution.headline}
+      offerPoints={solution.offerPoints}
+      childCareDifferentiator={childCare}
+    />
+  </main>
 </Layout>
