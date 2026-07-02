@@ -21,7 +21,7 @@ const { eyebrow, headline, subheadline, cta, secondaryCta } = Astro.props;
 // Two-line display of the headline without changing any words: split on the
 // first ", " so the comma stays and only the following space becomes a break.
 // (headlineLineOne + ", " + headlineLineTwo) is identical to `headline` (FR-002).
-const [headlineLineOne, ...headlineRest] = headline.split(", ");
+const [headlineLineOne, ...headlineRest] = headline.split("\u200B");
 const headlineLineTwo = headlineRest.join(", ");
 ---
 
@@ -30,7 +30,7 @@ const headlineLineTwo = headlineRest.join(", ");
     <div class="hero__copy">
       <p class="hero__eyebrow">{eyebrow}</p>
       <h1 class="hero__headline" id="hero-heading">
-        {headlineLineOne}, <br /><span>{headlineLineTwo}</span>
+        {headlineLineOne} <br /><span>{headlineLineTwo}</span>
       </h1>
       <p class="hero__subheadline">{subheadline}</p>
       <div class="hero__actions">

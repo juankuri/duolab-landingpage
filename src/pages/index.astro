@@ -12,8 +12,11 @@ import content from "../content/clients/duolab.js";
 import Hero from "../components/landing/Hero.astro";
 import Problem from "../components/landing/Problem.astro";
 import Solution from "../components/landing/Solution.astro";
+import SocialProof from "../components/landing/SocialProof.astro";
+import FinalCta from "../components/landing/FinalCta.astro";
 
-const { seo, business, whatsapp, hero, problem, solution } = content;
+const { seo, business, whatsapp, hero, problem, solution, socialProof, finalCta } =
+  content;
 
 /**
  * Resolve a context-keyed prefilled WhatsApp message into a CTA prop object.
@@ -58,6 +61,18 @@ const childCare = {
       headline={solution.headline}
       offerPoints={solution.offerPoints}
       childCareDifferentiator={childCare}
+    />
+
+    <SocialProof
+      trustSignals={socialProof.trustSignals}
+      testimonials={socialProof.testimonials}
+    />
+
+    <FinalCta
+      headline={finalCta.headline}
+      subheadline={finalCta.subheadline}
+      cta={ctaFor(finalCta.ctaMessageContext, finalCta.ctaLabel)}
+      microcopy={finalCta.microcopy}
     />
   </main>
 </Layout>
