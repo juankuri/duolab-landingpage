@@ -1,0 +1,211 @@
+---
+/**
+ * Solution — answers each doubt and spotlights the children-care differentiator
+ * (spec FR-004, FR-005).
+ *
+ * Contract: contracts/component-props.md → Solution.astro
+ *   eyebrow, headline          string
+ *   offerPoints                string[]  — direct answers to the Problem concerns
+ *   childCareDifferentiator     { headline, body, bullets[], cta:{phoneNumber,message,label} }
+ *
+ * FR-005: childCareDifferentiator MUST read as visually distinct. It is rendered
+ * as a dark Morado Oscuro panel (copy.md sanctioned) that deliberately breaks the
+ * page's light rhythm — the strongest decision driver for the primary persona.
+ * No medical specialty term appears here (Constitution Principle VII).
+ */
+import WhatsAppButton from "./WhatsAppButton.astro";
+
+const { eyebrow, headline, offerPoints, childCareDifferentiator } = Astro.props;
+const childCare = childCareDifferentiator;
+---
+
+<section class="solution" aria-labelledby="solution-heading">
+  <div class="solution__inner">
+    <header class="solution__head">
+      <p class="solution__eyebrow">{eyebrow}</p>
+      <h2 class="solution__headline" id="solution-heading">{headline}</h2>
+    </header>
+
+    <ul class="solution__offer">
+      {
+        offerPoints.map((point) => (
+          <li class="solution__offer-item">
+            <svg class="solution__check" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M5 12.5l4.5 4.5L19 7"
+              />
+            </svg>
+            <span>{point}</span>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="childcare">
+      <h3 class="childcare__headline">{childCare.headline}</h3>
+      <p class="childcare__body">{childCare.body}</p>
+      <ul class="childcare__bullets">
+        {
+          childCare.bullets.map((bullet) => (
+            <li class="childcare__bullet">
+              <svg class="childcare__check" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M5 12.5l4.5 4.5L19 7"
+                />
+              </svg>
+              <span>{bullet}</span>
+            </li>
+          ))
+        }
+      </ul>
+      <div class="childcare__action">
+        <WhatsAppButton
+          phoneNumber={childCare.cta.phoneNumber}
+          message={childCare.cta.message}
+          label={childCare.cta.label}
+          variant="outline"
+        />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .solution {
+    background-color: var(--color-surface-muted); /* Fondo Suave #F5F3F8 */
+    padding-block: var(--space-xl);
+    padding-inline: var(--space-md);
+  }
+
+  .solution__inner {
+    max-width: 900px;
+    margin-inline: auto;
+  }
+
+  .solution__head {
+    margin-bottom: var(--space-lg);
+  }
+
+  .solution__eyebrow {
+    margin: 0 0 var(--space-xs);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-title);
+    font-size: var(--font-size-label);
+  }
+
+  .solution__headline {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-heading);
+    font-size: var(--font-size-headline);
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  .solution__offer {
+    list-style: none;
+    margin: 0 0 var(--space-xl);
+    padding: 0;
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .solution__offer-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
+
+  .solution__check {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--color-primary);
+  }
+
+  /* Differentiator panel — distinct dark treatment, breaks the light rhythm (FR-005) */
+  .childcare {
+    background-color: var(--color-primary-dark); /* Morado Oscuro #4A3163 */
+    color: var(--text-on-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .childcare__headline {
+    margin: 0 0 var(--space-md);
+    color: var(--text-on-primary);
+    font-weight: var(--font-weight-heading);
+    font-size: var(--font-size-headline);
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  .childcare__body {
+    margin: 0 0 var(--space-md);
+    color: var(--color-surface-soft); /* Lila Claro — high contrast on dark purple */
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    max-width: 62ch;
+  }
+
+  .childcare__bullets {
+    list-style: none;
+    margin: 0 0 var(--space-lg);
+    padding: 0;
+    display: grid;
+    gap: var(--space-sm);
+  }
+
+  .childcare__bullet {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    color: var(--text-on-primary);
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  .childcare__check {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--color-secondary); /* Lila Medio check on dark purple */
+  }
+
+  .childcare__action :global(.wa-button) {
+    width: 100%;
+  }
+
+  @media (min-width: 640px) {
+    .childcare {
+      padding: var(--space-lg);
+    }
+
+    .childcare__action :global(.wa-button) {
+      width: auto;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .solution__headline {
+      max-width: 24ch;
+    }
+
+    /* answers read comfortably in two columns on wider viewports */
+    .solution__offer {
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-md) var(--space-lg);
+    }
+  }
+</style>

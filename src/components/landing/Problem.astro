@@ -1,0 +1,107 @@
+---
+/**
+ * Problem — names the visitor's own doubts in their language (spec FR-003).
+ *
+ * Contract: contracts/component-props.md → Problem.astro
+ *   eyebrow, headline  string
+ *   concerns           string[]  — the buyer persona's first-person questions
+ *
+ * Not an icon-card grid (DESIGN.md Don'ts): the concerns read as the worries
+ * actually running through the visitor's head — a single readable column with
+ * hairline dividers, no boxes, no side-stripe accents.
+ */
+const { eyebrow, headline, concerns } = Astro.props;
+---
+
+<section class="problem" aria-labelledby="problem-heading">
+  <div class="problem__inner">
+    <header class="problem__head">
+      <p class="problem__eyebrow">{eyebrow}</p>
+      <h2 class="problem__headline" id="problem-heading">{headline}</h2>
+    </header>
+
+    <ul class="problem__list">
+      {
+        concerns.map((concern) => (
+          <li class="problem__item">
+            <span class="problem__mark" aria-hidden="true">“</span>
+            <span class="problem__text">{concern}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .problem {
+    background-color: var(--color-surface); /* white — rhythm against the lila hero */
+    padding-block: var(--space-xl);
+    padding-inline: var(--space-md);
+  }
+
+  .problem__inner {
+    max-width: 760px;
+    margin-inline: auto;
+  }
+
+  .problem__head {
+    margin-bottom: var(--space-lg);
+  }
+
+  .problem__eyebrow {
+    margin: 0 0 var(--space-xs);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-title);
+    font-size: var(--font-size-label);
+  }
+
+  .problem__headline {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-heading);
+    font-size: var(--font-size-headline);
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  .problem__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .problem__item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+    padding-block: var(--space-md);
+    border-bottom: 1px solid var(--color-surface-soft);
+  }
+
+  .problem__item:last-child {
+    border-bottom: 0;
+  }
+
+  .problem__mark {
+    flex-shrink: 0;
+    color: var(--color-secondary);
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-display);
+    font-size: 1.75rem;
+    line-height: 1;
+  }
+
+  .problem__text {
+    color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
+    font-size: 1.125rem;
+    line-height: 1.5;
+  }
+
+  @media (min-width: 768px) {
+    .problem__headline {
+      max-width: 22ch;
+    }
+  }
+</style>

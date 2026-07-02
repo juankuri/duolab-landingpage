@@ -1,0 +1,204 @@
+---
+/**
+ * Hero — first viewport (spec FR-001, FR-002, SC-001/SC-002).
+ *
+ * Contract: contracts/component-props.md → Hero.astro
+ *   eyebrow, subheadline   string
+ *   headline               string  — rendered VERBATIM, no transformation (FR-002)
+ *   cta                    { phoneNumber, message, label }
+ *   secondaryCta?          { href, label }
+ *
+ * Visual (root DESIGN.md + confirmed shape brief): lila-claro field with a
+ * "dúolab" text wordmark standing in for the not-yet-delivered logo (copy.md
+ * design note). Mobile-first single column; desktop becomes an asymmetric
+ * two-zone layout (copy left, visual right) so a real lab photo can later drop
+ * into the visual zone without restructuring.
+ */
+import WhatsAppButton from "./WhatsAppButton.astro";
+
+const { eyebrow, headline, subheadline, cta, secondaryCta } = Astro.props;
+
+// Two-line display of the headline without changing any words: split on the
+// first ", " so the comma stays and only the following space becomes a break.
+// (headlineLineOne + ", " + headlineLineTwo) is identical to `headline` (FR-002).
+const [headlineLineOne, ...headlineRest] = headline.split(", ");
+const headlineLineTwo = headlineRest.join(", ");
+---
+
+<section class="hero" aria-labelledby="hero-heading">
+  <div class="hero__inner">
+    <div class="hero__copy">
+      <p class="hero__eyebrow">{eyebrow}</p>
+      <h1 class="hero__headline" id="hero-heading">
+        {headlineLineOne}, <br /><span>{headlineLineTwo}</span>
+      </h1>
+      <p class="hero__subheadline">{subheadline}</p>
+      <div class="hero__actions">
+        <WhatsAppButton
+          phoneNumber={cta.phoneNumber}
+          message={cta.message}
+          label={cta.label}
+          variant="primary"
+        />
+        {
+          secondaryCta && (
+            <a class="hero__secondary" href={secondaryCta.href} target="_blank" rel="noopener noreferrer">
+              {secondaryCta.label}
+            </a>
+          )
+        }
+      </div>
+    </div>
+
+    <div class="hero__visual" aria-hidden="true">
+      <span class="hero__wordmark">
+        <span class="hero__wordmark-duo">dúo</span><span class="hero__wordmark-lab">lab</span>
+      </span>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    background-color: var(--color-surface-soft); /* Lila Claro #EDE8F5 */
+    padding-block: var(--space-xl) var(--space-lg);
+    padding-inline: var(--space-md);
+  }
+
+  .hero__inner {
+    max-width: 1120px;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+
+  .hero__copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-md);
+  }
+
+  .hero__eyebrow {
+    margin: 0;
+    color: var(--color-primary);
+    font-weight: var(--font-weight-title);
+    font-size: var(--font-size-label);
+  }
+
+  .hero__headline {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-display);
+    font-size: var(--font-size-display);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  /* second line carries the brand color to lift the promise ("...en los que confías") */
+  .hero__headline span {
+    color: var(--color-primary-dark);
+  }
+
+  .hero__subheadline {
+    margin: 0;
+    /* Carbón (not the muted gray) to stay ≥4.5:1 on the tinted lila field */
+    color: var(--text-primary);
+    font-size: 1.125rem;
+    line-height: 1.6;
+    max-width: 60ch;
+  }
+
+  .hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    width: 100%;
+  }
+
+  /* Secondary ("Ver cómo llegar") — outline treatment, links to Maps not WhatsApp,
+     so it's a plain anchor rather than the WhatsAppButton component. */
+  .hero__secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--space-sm) - 2px) calc(var(--space-md) - 2px);
+    border: 2px solid var(--color-primary);
+    border-radius: var(--radius-pill);
+    background-color: transparent;
+    color: var(--color-primary);
+    font-size: var(--font-size-label);
+    font-weight: var(--font-weight-medium);
+    text-decoration: none;
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+
+  .hero__secondary:hover,
+  .hero__secondary:focus-visible {
+    background-color: var(--color-surface);
+  }
+
+  .hero__secondary:focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+  }
+
+  /* Visual zone — the wordmark stands in for the logo/photo on the lila field.
+     No card, no border, no shadow (DESIGN.md Tint-Not-Shadow). */
+  .hero__visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+  }
+
+  .hero__wordmark {
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-display);
+    font-size: clamp(3rem, 12vw, 5.5rem);
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .hero__wordmark-duo {
+    color: var(--color-primary);
+  }
+
+  .hero__wordmark-lab {
+    color: var(--color-secondary);
+  }
+
+  /* Mobile-first: actions stretch full width for easy thumb reach */
+  @media (max-width: 559px) {
+    .hero__actions :global(.wa-button),
+    .hero__secondary {
+      width: 100%;
+    }
+  }
+
+  /* Desktop: asymmetric two-zone layout, copy left + visual right */
+  @media (min-width: 768px) {
+    .hero {
+      padding-block: calc(var(--space-xl) * 1.25) var(--space-xl);
+    }
+
+    .hero__inner {
+      flex-direction: row;
+      align-items: center;
+      gap: var(--space-xl);
+    }
+
+    .hero__copy {
+      flex: 1 1 58%;
+    }
+
+    .hero__visual {
+      flex: 1 1 42%;
+      min-height: 320px;
+    }
+  }
+</style>
