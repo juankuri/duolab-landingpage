@@ -24,3 +24,36 @@ pnpm-debug.log*
 .idea/
 
 .vscode/settings.json
+
+# Claude Code / AI agent local settings
+.claude/settings.local.json
+.cursor/settings.local.json
+
+# Spec Kit local memory and cache
+.specify/memory/
+.specify/cache/
+
+# Local environment overrides
+.env.local
+.env.*.local
+
+# IDE temp files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS-specific
+Thumbs.db
+
+# Build artifacts (if not already covered)
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional PNPM cache directory
+.pnpm-store/
+
+# Optional eslint cache
+.eslintcache
