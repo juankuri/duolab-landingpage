@@ -1,0 +1,185 @@
+---
+/**
+ * SocialProof — quantitative trust signals for the secondary persona (Roberto),
+ * who decides on concrete facts, not emotional reassurance (spec US2, FR-006).
+ *
+ * Contract: contracts/component-props.md → SocialProof.astro
+ *   trustSignals   { value: string, label: string }[]   required
+ *   testimonials   Testimonial[] | null                  required (explicit, may be null)
+ *
+ * FR-006 (hard branch): when `testimonials` is null/empty this component renders
+ * NO testimonial block, placeholder, or generic quote — trust is carried by the
+ * quantitative signals alone until the client sources real reviews. When populated,
+ * each testimonial renders with its `source` attribution (and links to the original
+ * review when `sourceUrl` is present). This is a hard branch, not a default-content
+ * fallback — there is no generic quote to fall back to (constitution "Proof over
+ * claim"; spec FR-006).
+ *
+ * Deliberately restrained per DESIGN.md: flat (no card shadows at rest — the
+ * Tint-Not-Shadow Rule), one saturated purple for the values, subtle dividers.
+ * Not a decorative SaaS "hero-metric" strip — these are real, specific numbers.
+ */
+const { trustSignals, testimonials } = Astro.props;
+
+// Hard branch, not a default-content fallback (contract). US3 fills the block in.
+const hasTestimonials = Array.isArray(testimonials) && testimonials.length > 0;
+---
+
+<section class="social-proof" aria-label="Señales de confianza de DúoLab">
+  <div class="social-proof__inner">
+    <dl class="social-proof__signals">
+      {
+        trustSignals.map((signal) => (
+          <div class="social-proof__signal">
+            <dt class="social-proof__value">{signal.value}</dt>
+            <dd class="social-proof__label">{signal.label}</dd>
+          </div>
+        ))
+      }
+    </dl>
+
+    {/* Testimonial block renders ONLY with real, sourced reviews. While empty it is
+        omitted entirely — no placeholder, no generic quote (FR-006). */}
+    {
+      hasTestimonials && (
+        <ul class="social-proof__testimonials">
+          {testimonials.map((t) => (
+            <li class="testimonial">
+              <blockquote class="testimonial__quote">{t.quote}</blockquote>
+              <p class="testimonial__attribution">
+                <span class="testimonial__author">{t.author}</span>
+                <span class="testimonial__source">
+                  {t.sourceUrl ? (
+                    <a
+                      class="testimonial__source-link"
+                      href={t.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {t.source}
+                    </a>
+                  ) : (
+                    t.source
+                  )}
+                </span>
+              </p>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </div>
+</section>
+
+<style>
+  .social-proof {
+    /* Lila Claro — distinct from the Fondo Suave Solution above it and the
+       Morado final CTA below (Tint-Not-Shadow rhythm). */
+    background-color: var(--color-surface-soft);
+    padding-block: var(--space-lg);
+    padding-inline: var(--space-md);
+  }
+
+  .social-proof__inner {
+    max-width: 900px;
+    margin-inline: auto;
+  }
+
+  .social-proof__signals {
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-md);
+  }
+
+  .social-proof__signal {
+    text-align: center;
+    padding-block: var(--space-xs);
+  }
+
+  .social-proof__value {
+    margin: 0;
+    color: var(--color-primary); /* Morado Principal — the one saturated color */
+    font-weight: var(--font-weight-display);
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  .social-proof__label {
+    margin: var(--space-xs) 0 0;
+    color: var(--text-primary); /* Carbón — reliable contrast on Lila Claro */
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-label);
+    line-height: 1.4;
+  }
+
+  /* Testimonials — Blanco cards on the Lila Claro ground (alternation, never two
+     adjacent identical surfaces), flat at rest per the Tint-Not-Shadow Rule. */
+  .social-proof__testimonials {
+    list-style: none;
+    margin: var(--space-lg) 0 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .testimonial {
+    background-color: var(--color-surface); /* Blanco */
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+  }
+
+  .testimonial__quote {
+    margin: 0;
+    color: var(--text-primary); /* Carbón */
+    font-size: 1.0625rem;
+    line-height: 1.6;
+  }
+
+  .testimonial__attribution {
+    margin: var(--space-sm) 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    font-size: var(--font-size-label);
+    line-height: 1.4;
+  }
+
+  .testimonial__author {
+    color: var(--text-primary);
+    font-weight: var(--font-weight-title); /* 600 — attribution weight, not color */
+  }
+
+  .testimonial__source {
+    color: var(--text-secondary); /* Gris Texto on Blanco — passes contrast */
+  }
+
+  .testimonial__source-link {
+    color: var(--color-primary); /* Morado Principal — the one saturated accent */
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .testimonial__source-link:hover,
+  .testimonial__source-link:focus-visible {
+    color: var(--color-primary-dark);
+  }
+
+  @media (min-width: 768px) {
+    .social-proof__signals {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    /* subtle dividers between columns — separation via tint, not a heavy rule */
+    .social-proof__signal + .social-proof__signal {
+      border-left: 1px solid var(--color-secondary);
+    }
+
+    /* two-up once there is more than one real review to show */
+    .social-proof__testimonials {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>

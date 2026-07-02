@@ -1,0 +1,91 @@
+---
+/**
+ * FinalCta — the closing repeat of the one action on the page (spec FR-007).
+ * Introduces no new claim; restates "escríbenos por WhatsApp" with soft, calm
+ * urgency (no countdown energy — DESIGN.md: no urgency tactics).
+ *
+ * Contract: contracts/component-props.md → FinalCta.astro
+ *   headline      string   required
+ *   subheadline   string   required
+ *   cta           { phoneNumber, message, label }   required
+ *   microcopy     string   optional
+ *
+ * Rendered on a Morado Principal ground (copy.md SECCIÓN 8) — the grounded,
+ * saturated close of the scroll. The CTA uses the outline variant (white field,
+ * purple text) so it reads as the one bright, tappable target on the dark band.
+ */
+import WhatsAppButton from "./WhatsAppButton.astro";
+
+const { headline, subheadline, cta, microcopy } = Astro.props;
+---
+
+<section class="final-cta" aria-labelledby="final-cta-heading">
+  <div class="final-cta__inner">
+    <h2 class="final-cta__headline" id="final-cta-heading">{headline}</h2>
+    <p class="final-cta__subheadline">{subheadline}</p>
+
+    <div class="final-cta__action">
+      <WhatsAppButton
+        phoneNumber={cta.phoneNumber}
+        message={cta.message}
+        label={cta.label}
+        variant="outline"
+      />
+    </div>
+
+    {microcopy && <p class="final-cta__microcopy">{microcopy}</p>}
+  </div>
+</section>
+
+<style>
+  .final-cta {
+    background-color: var(--color-primary); /* Morado Principal #6B4A8E */
+    color: var(--text-on-primary);
+    padding-block: var(--space-xl);
+    padding-inline: var(--space-md);
+  }
+
+  .final-cta__inner {
+    max-width: 640px;
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .final-cta__headline {
+    margin: 0;
+    color: var(--text-on-primary);
+    font-weight: var(--font-weight-heading);
+    font-size: var(--font-size-headline);
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  .final-cta__subheadline {
+    margin: var(--space-sm) auto 0;
+    max-width: 48ch;
+    color: var(--color-surface-soft); /* Lila Claro — legible on Morado */
+    font-size: 1.0625rem;
+    line-height: 1.6;
+  }
+
+  .final-cta__action {
+    margin-top: var(--space-lg);
+  }
+
+  .final-cta__action :global(.wa-button) {
+    width: 100%;
+  }
+
+  .final-cta__microcopy {
+    margin: var(--space-md) 0 0;
+    color: var(--color-surface-soft); /* Lila Claro */
+    font-size: var(--font-size-label);
+    line-height: 1.4;
+  }
+
+  @media (min-width: 640px) {
+    .final-cta__action :global(.wa-button) {
+      width: auto;
+    }
+  }
+</style>
