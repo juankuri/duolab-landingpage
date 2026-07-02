@@ -1,0 +1,44 @@
+/*
+ * DúoLab brand token values.
+ *
+ * Assigns DúoLab's concrete brand values (from stakeholders/isabel/branding.md and
+ * root DESIGN.md) to the generic token-contract names declared in ../tokens.css.
+ * This is the ONLY file that should carry DúoLab-specific colors/fonts; swapping
+ * clients later means a new clients/<name>.css, not edits to components
+ * (Constitution Principle V).
+ */
+
+@import "../tokens.css";
+
+/* Self-hosted Plus Jakarta Sans — the sole approved typeface (branding.md).
+   Variable font covering weights 200–800; font-display: swap avoids blocking
+   render (research.md font-loading decision, Constitution Principle I). */
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/clients/duolab/fonts/plus-jakarta-sans-variable.woff2") format("woff2");
+}
+
+:root {
+  /* Brand color palette — branding.md "Paleta de Marca" / DESIGN.md token set.
+     Morado Principal #6B4A8E is the one saturated color (DESIGN.md One Purple Rule). */
+  --color-primary: #6b4a8e;          /* Morado Principal */
+  --color-primary-dark: #4a3163;     /* Morado Oscuro — emphasis, hover/active */
+  --color-secondary: #b89dce;        /* Lila Medio — accents, icons, badges */
+  --color-surface: #ffffff;          /* Blanco */
+  --color-surface-muted: #f5f3f8;    /* Fondo Suave — alternate section bg */
+  --color-surface-soft: #ede8f5;     /* Lila Claro — card / feature-block bg */
+  --text-primary: #142129;           /* Carbón — default ink */
+  --text-secondary: #5a6472;         /* Gris Texto — supporting text */
+  --text-on-primary: #ffffff;        /* white on purple surfaces */
+
+  /* Typography — single family, weight-driven hierarchy (branding.md, DESIGN.md) */
+  --font-heading: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* CTA hover elevation — soft purple-tinted lift (DESIGN.md Elevation section).
+     Surfaces stay flat at rest; this appears only on hover/focus of the primary CTA. */
+  --shadow-cta-hover: 0 8px 24px rgba(74, 49, 99, 0.25);
+}

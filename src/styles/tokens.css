@@ -1,0 +1,66 @@
+/*
+ * Generic design-token contract (client-agnostic).
+ *
+ * Declares the custom-property NAMES that landing components consume, with
+ * neutral fallback values only. A per-client file (e.g. styles/clients/duolab.css)
+ * assigns the real brand values to these same names. Components MUST reference
+ * only the names below via var(), never a client-specific value — this keeps the
+ * section components reusable across client engagements (Constitution Principle V).
+ */
+
+:root {
+  /* Color — roles, not brand names */
+  --color-primary: #4a4a4a;          /* dominant brand color: CTAs, links, accents */
+  --color-primary-dark: #2e2e2e;     /* emphasis / hover / active state of primary */
+  --color-secondary: #8a8a8a;        /* secondary accent: icons, badges (not body text) */
+  --color-surface: #ffffff;          /* default page/background surface */
+  --color-surface-muted: #f4f4f4;    /* alternate section background (subtle) */
+  --color-surface-soft: #ececec;     /* soft card / feature-block background */
+  --text-primary: #1a1a1a;           /* default ink: headings + body on light surfaces */
+  --text-secondary: #5a5a5a;         /* supporting text: captions, metadata */
+  --text-on-primary: #ffffff;        /* text/icons set on a primary-colored surface */
+
+  /* Typography — one family by default; hierarchy via weight */
+  --font-heading: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Fluid type scale */
+  --font-size-display: clamp(2.25rem, 5vw, 3.5rem);
+  --font-size-headline: clamp(1.5rem, 3vw, 2rem);
+  --font-size-title: 1.25rem;
+  --font-size-body: 1rem;
+  --font-size-label: 0.875rem;
+
+  /* Weight scale (single family, weight-driven hierarchy) */
+  --font-weight-display: 800;
+  --font-weight-heading: 700;
+  --font-weight-title: 600;
+  --font-weight-medium: 500;
+  --font-weight-body: 400;
+
+  /* Spacing scale */
+  --space-xs: 8px;
+  --space-sm: 16px;
+  --space-md: 24px;
+  --space-lg: 48px;
+  --space-xl: 96px;
+
+  /* Radius scale */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* Motion — ease-out, no bounce (DESIGN.md) */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 0.2s;
+
+  /* Elevation — surfaces flat at rest; shadow only as an interaction response */
+  --shadow-cta-hover: 0 8px 24px rgba(0, 0, 0, 0.2);
+
+  /* Semantic z-index scale (avoid arbitrary 999/9999) */
+  --z-sticky: 100;
+  --z-overlay: 200;
+  --z-modal: 300;
+  --z-toast: 400;
+}
