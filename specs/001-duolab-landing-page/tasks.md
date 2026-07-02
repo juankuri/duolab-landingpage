@@ -29,10 +29,10 @@ Single static Astro project (no backend). All paths under `src/`, `public/client
 
 **Purpose**: Project scaffolding shared by every section/story
 
-- [ ] T001 Create the directory structure from plan.md: `public/clients/duolab/`, `src/components/landing/`, `src/content/clients/`, `src/styles/clients/`
-- [ ] T002 [P] Create the generic brand token contract in `src/styles/tokens.css` (custom property names only: `--color-primary`, `--color-primary-dark`, `--color-accent-soft`, `--color-bg`, `--text-primary`, `--text-secondary`, `--font-heading`, `--font-body`) per research.md's brand-token-architecture decision
-- [ ] T003 [P] Create DúoLab's concrete token values in `src/styles/clients/duolab.css`, assigning branding.md's hex codes (`#6B4A8E`, `#4A3163`, `#B89DCE`, `#EDE8F5`, `#142129`, `#5A6472`) and Plus Jakarta Sans to the token names from T002
-- [ ] T004 [P] Self-host the Plus Jakarta Sans WOFF2 weights under `public/clients/duolab/fonts/` and add `@font-face` rules with `font-display: swap` in `src/styles/clients/duolab.css`, per research.md's font-loading decision
+- [X] T001 Create the directory structure from plan.md: `public/clients/duolab/`, `src/components/landing/`, `src/content/clients/`, `src/styles/clients/`
+- [X] T002 [P] Create the generic brand token contract in `src/styles/tokens.css` (custom property names only: `--color-primary`, `--color-primary-dark`, `--color-accent-soft`, `--color-bg`, `--text-primary`, `--text-secondary`, `--font-heading`, `--font-body`) per research.md's brand-token-architecture decision
+- [X] T003 [P] Create DúoLab's concrete token values in `src/styles/clients/duolab.css`, assigning branding.md's hex codes (`#6B4A8E`, `#4A3163`, `#B89DCE`, `#EDE8F5`, `#142129`, `#5A6472`) and Plus Jakarta Sans to the token names from T002
+- [X] T004 [P] Self-host the Plus Jakarta Sans WOFF2 weights under `public/clients/duolab/fonts/` and add `@font-face` rules with `font-display: swap` in `src/styles/clients/duolab.css`, per research.md's font-loading decision
 
 **Checkpoint**: Token and font infrastructure ready for any component to consume
 
@@ -44,10 +44,10 @@ Single static Astro project (no backend). All paths under `src/`, `public/client
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create the shared `WhatsAppButton.astro` component in `src/components/landing/WhatsAppButton.astro` per contracts/component-props.md (props: `phoneNumber`, `message`, `label`, `variant`; renders a single `wa.me` link, no JS)
-- [ ] T006 Create `src/layouts/Layout.astro` per contracts/component-props.md: imports `src/styles/clients/duolab.css`, renders `<title>`, meta description, canonical link, Open Graph/Twitter Card tags, and a `LocalBusiness` JSON-LD block from its `seo`/`business` props
-- [ ] T007 Create the content skeleton `src/content/clients/duolab.js` exporting the `LandingContent` shape from data-model.md, populated with `business` (name, address, hours, years, study count from offer.md/briefing.md) and `seo` fields; set `whatsapp.phoneNumber` to an explicit placeholder value and `whatsapp.messages` to the message texts from copy.md
-- [ ] T008 Create `src/pages/index.astro` that imports `Layout.astro` and `src/content/clients/duolab.js`, passing `seo`/`business` to the layout (no section components yet — wired in per-story below)
+- [X] T005 Create the shared `WhatsAppButton.astro` component in `src/components/landing/WhatsAppButton.astro` per contracts/component-props.md (props: `phoneNumber`, `message`, `label`, `variant`; renders a single `wa.me` link, no JS)
+- [X] T006 Create `src/layouts/Layout.astro` per contracts/component-props.md: imports `src/styles/clients/duolab.css`, renders `<title>`, meta description, canonical link, Open Graph/Twitter Card tags, and a `LocalBusiness` JSON-LD block from its `seo`/`business` props
+- [X] T007 Create the content skeleton `src/content/clients/duolab.js` exporting the `LandingContent` shape from data-model.md, populated with `business` (name, address, hours, years, study count from offer.md/briefing.md) and `seo` fields; set `whatsapp.phoneNumber` to an explicit placeholder value and `whatsapp.messages` to the message texts from copy.md
+- [X] T008 Create `src/pages/index.astro` that imports `Layout.astro` and `src/content/clients/duolab.js`, passing `seo`/`business` to the layout (no section components yet — wired in per-story below)
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
@@ -61,14 +61,14 @@ Single static Astro project (no backend). All paths under `src/`, `public/client
 
 ### Implementation for User Story 1
 
-- [ ] T009 [P] [US1] Add `hero` content (verbatim headline from copy.md: "Tus análisis clínicos, con resultados en los que confías.", eyebrow, subheadline, CTA message key) to `src/content/clients/duolab.js`
-- [ ] T010 [P] [US1] Add `problem` content (`concerns` array in the buyer persona's own phrasing: cita, precio, trato a los hijos, confianza en resultados) to `src/content/clients/duolab.js`
-- [ ] T011 [P] [US1] Add `solution` content, including `childCareDifferentiator` (headline, body, bullets, CTA message key) without naming any medical specialty term, to `src/content/clients/duolab.js`
-- [ ] T012 [US1] Create `Hero.astro` in `src/components/landing/Hero.astro` per contracts/component-props.md (renders `headline` verbatim, no text transformation; uses `WhatsAppButton`)
-- [ ] T013 [US1] Create `Problem.astro` in `src/components/landing/Problem.astro` per contracts/component-props.md
-- [ ] T014 [US1] Create `Solution.astro` in `src/components/landing/Solution.astro` per contracts/component-props.md, giving `childCareDifferentiator` a visually distinct background per spec FR-005
-- [ ] T015 [US1] Compose `Hero`, `Problem`, `Solution` into `src/pages/index.astro`, passing content from `src/content/clients/duolab.js`
-- [ ] T016 [US1] Run quickstart.md scenarios 1–3 manually on mobile and desktop viewports; fix any mismatch against copy.md/spec FR-001–FR-005. Confirm none of FR-010's excluded phrases appear in any rendered content.
+- [X] T009 [P] [US1] Add `hero` content (verbatim headline from copy.md: "Tus análisis clínicos, con resultados en los que confías.", eyebrow, subheadline, CTA message key) to `src/content/clients/duolab.js`
+- [X] T010 [P] [US1] Add `problem` content (`concerns` array in the buyer persona's own phrasing: cita, precio, trato a los hijos, confianza en resultados) to `src/content/clients/duolab.js`
+- [X] T011 [P] [US1] Add `solution` content, including `childCareDifferentiator` (headline, body, bullets, CTA message key) without naming any medical specialty term, to `src/content/clients/duolab.js`
+- [X] T012 [US1] Create `Hero.astro` in `src/components/landing/Hero.astro` per contracts/component-props.md (renders `headline` verbatim, no text transformation; uses `WhatsAppButton`)
+- [X] T013 [US1] Create `Problem.astro` in `src/components/landing/Problem.astro` per contracts/component-props.md
+- [X] T014 [US1] Create `Solution.astro` in `src/components/landing/Solution.astro` per contracts/component-props.md, giving `childCareDifferentiator` a visually distinct background per spec FR-005
+- [X] T015 [US1] Compose `Hero`, `Problem`, `Solution` into `src/pages/index.astro`, passing content from `src/content/clients/duolab.js`
+- [X] T016 [US1] Run quickstart.md scenarios 1–3 manually on mobile and desktop viewports; fix any mismatch against copy.md/spec FR-001–FR-005. Confirm none of FR-010's excluded phrases appear in any rendered content.
 
 **Checkpoint**: User Story 1 is fully functional and independently testable — hero, problem, and solution sections work end to end with a live WhatsApp CTA
 

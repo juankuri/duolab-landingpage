@@ -28,7 +28,7 @@
 
 ## Dependencies & Assumptions
 
-- [x] CHK012 Is the dependency on the client supplying a real WhatsApp number and real testimonials before launch tracked as one consistent pre-launch gate, or stated as two separately-worded conditions that could drift? [Consistency, Spec §Assumptions] — Resolved for the WhatsApp number: the client has now provided the real number (+52 938 383 0700); Assumptions updated to reflect this is no longer an open gate. Testimonials remain a separate, intentionally independent gate (different owner/timeline) and are already cross-referenced together in tasks.md's Notes section.
+- [x] CHK012 Is the dependency on the client supplying a real WhatsApp number and real testimonials before launch tracked as one consistent pre-launch gate, or stated as two separately-worded conditions that could drift? [Consistency, Spec §Assumptions] — Resolved for the WhatsApp number: the client has now provided the real number (+52 938 115 6464); Assumptions updated to reflect this is no longer an open gate. Testimonials remain a separate, intentionally independent gate (different owner/timeline) and are already cross-referenced together in tasks.md's Notes section.
 - [x] CHK013 Is ownership of sourcing the real Google reviews referenced in FR-006 (client vs. agency) specified, or left undefined? [Gap, Spec §FR-006] — Confirmed specified: Assumptions already states this is "a client-sourcing task prior to launch."
 
 ## Notes
