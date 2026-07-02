@@ -9,14 +9,30 @@
 import Layout from "../layouts/Layout.astro";
 import content from "../content/clients/duolab.js";
 
+import Header from "../components/landing/Header.astro";
 import Hero from "../components/landing/Hero.astro";
 import Problem from "../components/landing/Problem.astro";
 import Solution from "../components/landing/Solution.astro";
 import SocialProof from "../components/landing/SocialProof.astro";
 import FinalCta from "../components/landing/FinalCta.astro";
+import Footer from "../components/landing/Footer.astro";
 
 const { seo, business, whatsapp, hero, problem, solution, socialProof, finalCta } =
   content;
+
+// Header nav: smooth-scroll anchors into the footer's info blocks (single-page).
+const navLinks = [
+  { label: "Horarios", href: "#horarios" },
+  { label: "Ubicación", href: "#ubicacion" },
+  { label: "Contacto", href: "#contacto" },
+];
+
+// Display-only business phone (spec/standing rule: shown as text, never a
+// wa.me/tel CTA — the WhatsApp number is the only actionable contact).
+const phoneDisplay = "938 383 0700";
+
+// Slogan — copy.md FOOTER, verbatim.
+const footerSlogan = "Experiencia en el diagnóstico clínico a tu servicio.";
 
 /**
  * Resolve a context-keyed prefilled WhatsApp message into a CTA prop object.
@@ -41,6 +57,12 @@ const childCare = {
 ---
 
 <Layout seo={seo} business={business}>
+  <Header
+    brand="dúolab"
+    navLinks={navLinks}
+    cta={ctaFor(hero.primaryCtaMessageContext, "Escríbenos")}
+  />
+
   <main>
     <Hero
       eyebrow={hero.eyebrow}
@@ -75,4 +97,12 @@ const childCare = {
       microcopy={finalCta.microcopy}
     />
   </main>
+
+  <Footer
+    business={business}
+    phoneDisplay={phoneDisplay}
+    slogan={footerSlogan}
+    mapUrl={hero.secondaryCta.href}
+    cta={ctaFor(finalCta.ctaMessageContext, finalCta.ctaLabel)}
+  />
 </Layout>
