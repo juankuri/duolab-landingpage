@@ -147,8 +147,15 @@ const headlineLineTwo = headlineRest.join(", ");
     outline-offset: 2px;
   }
 
-  /* Visual zone — the wordmark stands in for the logo/photo on the lila field.
-     No card, no border, no shadow (DESIGN.md Tint-Not-Shadow). */
+  /* Visual zone — the "dúolab" wordmark stands in for the logo (branding.md:
+     "logo pendiente de captura de su archivo digital") and, later, a lab photo.
+     branding.md logo rules honored by the stand-in (spec FR-011):
+       · palette colors only (Morado Principal + Morado Oscuro) — no foreign hue
+       · permitted background (Lila Claro is a sanctioned brand ground)
+       · no shadow, gradient, or effect (DESIGN.md Tint-Not-Shadow)
+       · safe area ≥ cap-height maintained by the centered min-height zone
+     When the real logo asset arrives, drop it in here as an <Image> and enforce
+     the 80px digital minimum — until then there is no raster asset to optimize. */
   .hero__visual {
     display: flex;
     align-items: center;
@@ -168,8 +175,11 @@ const headlineLineTwo = headlineRest.join(", ");
     color: var(--color-primary);
   }
 
+  /* Two-tone logotype within the One Purple family. "lab" uses Morado Oscuro
+     (not Lila Medio) so the wordmark clears WCAG AA large-text contrast on the
+     Lila Claro field (~9:1); Lila Medio was 1.99:1 and failed (T030). */
   .hero__wordmark-lab {
-    color: var(--color-secondary);
+    color: var(--color-primary-dark);
   }
 
   /* Mobile-first: actions stretch full width for easy thumb reach */
