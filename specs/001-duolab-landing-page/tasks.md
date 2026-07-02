@@ -113,14 +113,14 @@ Single static Astro project (no backend). All paths under `src/`, `public/client
 
 **Purpose**: Constitution-mandated gates that span all sections, plus pre-launch content checks
 
-- [ ] T026 [P] Verify `Layout.astro`'s `LocalBusiness` JSON-LD and meta/OG tags render correctly with the populated `business`/`seo` content (constitution SEO & Discoverability Requirements)
-- [ ] T027 [P] Replace the lab photo placeholder with Astro's `<Image>` component (`astro:assets`) wherever imagery is used in `src/components/landing/`, with explicit `width`/`height`/`alt`
-- [ ] T028 Apply branding.md logo usage rules (minimum size, safe area, permitted backgrounds) wherever the logo renders in `Layout.astro` and `Hero.astro` (spec FR-011)
-- [ ] T029 Run `npx lighthouse http://localhost:4321 --view` and fix any Performance/Accessibility/Best Practices/SEO score below 90 (constitution Principle I, III)
-- [ ] T030 Run an automated contrast check (e.g. axe DevTools) against `src/styles/clients/duolab.css` and fix any WCAG AA contrast failure (constitution Principle III)
-- [ ] T031 Verify mobile-first responsiveness at ≈360px, 768px, 1024px, 1440px with no horizontal scroll/zoom (spec FR-012, SC-005)
-- [ ] T032 Confirm `whatsapp.phoneNumber` in `src/content/clients/duolab.js` has been replaced with the client's real number before any production deploy (spec Assumptions)
-- [ ] T033 Run the full quickstart.md validation guide end to end and record results before requesting client review
+- [X] T026 [P] Verify `Layout.astro`'s `LocalBusiness` JSON-LD and meta/OG tags render correctly with the populated `business`/`seo` content (constitution SEO & Discoverability Requirements)
+- [X] T027 [P] Replace the lab photo placeholder with Astro's `<Image>` component (`astro:assets`) wherever imagery is used in `src/components/landing/`, with explicit `width`/`height`/`alt`
+- [X] T028 Apply branding.md logo usage rules (minimum size, safe area, permitted backgrounds) wherever the logo renders in `Layout.astro` and `Hero.astro` (spec FR-011)
+- [X] T029 Run `npx lighthouse http://localhost:4321 --view` and fix any Performance/Accessibility/Best Practices/SEO score below 90 (constitution Principle I, III)
+- [X] T030 Run an automated contrast check (e.g. axe DevTools) against `src/styles/clients/duolab.css` and fix any WCAG AA contrast failure (constitution Principle III)
+- [X] T031 Verify mobile-first responsiveness at ≈360px, 768px, 1024px, 1440px with no horizontal scroll/zoom (spec FR-012, SC-005)
+- [X] T032 Confirm `whatsapp.phoneNumber` in `src/content/clients/duolab.js` has been replaced with the client's real number before any production deploy (spec Assumptions)
+- [X] T033 Run the full quickstart.md validation guide end to end and record results before requesting client review
 - [ ] T034 Connect the repository's `main` branch to a Cloudflare Pages project for automatic deploy-on-push, per the user-provided stack decision
 
 ---
