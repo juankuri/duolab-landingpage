@@ -1,5 +1,30 @@
 <!--
 Sync Impact Report
+Version change: 1.2.0 → 1.3.0
+Modified principles: none renamed
+Added sections:
+  - Copywriting Principles (new top-level section; binding for all copy
+    generated in any feature spec — benefits-not-features, specific/action
+    CTAs, one "pregunta que duele" hook per section, proof-over-claim, a ban
+    on urgency/scarcity tactics for this healthcare-adjacent business, and a
+    "¿y eso qué significa para mí?" test for every section)
+Removed sections: none
+Templates requiring updates:
+  - .specify/templates/plan-template.md ✅ no changes needed (Constitution Check
+    gate is dynamically derived from this file; no hardcoded principle text)
+  - .specify/templates/spec-template.md ✅ no changes needed (stack-agnostic)
+  - .specify/templates/tasks-template.md ✅ no changes needed (stack-agnostic)
+  - .specify/templates/checklist-template.md ✅ no changes needed (generic)
+  - specs/001-duolab-landing-page/spec.md ✅ already compliant — approved copy
+    is benefit-led, CTAs are intent-specific, no urgency/scarcity tactics
+    present (verified against copy.md)
+  - README.md ⚠ pending (still the default Astro starter README; unrelated to
+    this amendment)
+Follow-up TODOs: none
+-->
+
+<!--
+Sync Impact Report (v1.2.0, superseded above)
 Version change: 1.1.0 → 1.2.0
 Modified principles: none renamed
 Added sections:
@@ -176,6 +201,40 @@ set explicitly. These are mandatory for every page, not just the homepage,
 since landing pages are frequently the sole entry point for a campaign and
 must be independently discoverable and shareable.
 
+## Copywriting Principles
+
+These are binding for all copy generated in any feature spec — headlines, body
+copy, CTAs, microcopy, form labels, and any drafted or rewritten client-facing
+text:
+
+- **Benefits, not features.** Copy MUST state what the reader gets, not what the
+  business has. Never "contamos con equipo moderno"; always "tus resultados
+  listos el mismo día".
+- **Specific, action-oriented CTAs.** CTA labels MUST express intent and next
+  step. Never a bare "Contactar" or "Más información" (and never "Contáctenos",
+  per the client anti-references). Use "Escríbenos, te decimos qué llevar" or
+  "Ver horarios y ubicación".
+- **One "pregunta que duele" per section, maximum.** A section addressing a fear
+  or objection MAY open with the reader's own painful question as its hook, but
+  no more than one such hook per section — used sparingly so it lands rather
+  than becoming a tic.
+- **Proof over claim.** Copy MUST substantiate rather than assert. Never "somos
+  los mejores"; always a concrete signal — years of operation, volume, or a
+  specific differentiator.
+- **No urgency or scarcity tactics.** Countdown timers, "solo por hoy",
+  "últimos lugares", and similar pressure devices are banned. For a
+  healthcare-adjacent business they break the trust the page exists to build;
+  reassurance replaces urgency.
+- **Answer "¿y eso qué significa para mí?" first.** Every section MUST make its
+  relevance to the reader explicit before the reader has to ask — translate any
+  fact or capability into what it means for them, in the same beat.
+
+Rationale: These landing pages convert an anxious searcher into a conversation,
+not a checkout. The failure modes are always the same — feature-listing,
+generic CTAs, unsupported superlatives, and borrowed SaaS urgency — so the
+guardrails against them belong at the constitution level, applied to every
+feature's copy, rather than being re-argued per spec.
+
 ## Development Workflow & Deployment
 
 The stack is fixed as Astro + vanilla JavaScript, deployed to Cloudflare
@@ -200,4 +259,4 @@ Complexity Tracking table or rejected. Compliance is reviewed at the same
 time performance, accessibility, and SEO checks happen for each page —
 there is no separate compliance-only review step.
 
-**Version**: 1.2.0 | **Ratified**: 2026-06-27 | **Last Amended**: 2026-06-28
+**Version**: 1.3.0 | **Ratified**: 2026-06-27 | **Last Amended**: 2026-07-02
