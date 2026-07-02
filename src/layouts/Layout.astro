@@ -1,23 +1,127 @@
+---
+/**
+ * Layout — document shell for the DúoLab landing page.
+ *
+ * Emits <title>, meta description, canonical link, Open Graph / Twitter Card
+ * tags, and a LocalBusiness JSON-LD block built from `business` (spec FR-016,
+ * constitution SEO & Discoverability; research.md SEO decision). Imports the
+ * per-client brand tokens and preloads the hero font weight to protect the
+ * performance budget (Constitution Principle I).
+ *
+ * Contract: contracts/component-props.md → Layout.astro
+ *   seo       SeoMeta       required  (data-model.md)
+ *   business  BusinessInfo  required  (data-model.md)
+ */
+import "../styles/clients/duolab.css";
+
+const { seo, business } = Astro.props;
+
+const localBusinessSchema = {
+  "@context": "https://schema.org",
+  "@type": "MedicalBusiness",
+  name: business.name,
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: business.addressLine,
+    addressLocality: business.city,
+    addressCountry: "MX",
+  },
+  telephone: `+${business.phoneNumber}`,
+  url: seo.canonicalUrl,
+  openingHoursSpecification: business.hours.map((h: { label: any; value: any; }) => ({
+    "@type": "OpeningHoursSpecification",
+    description: `${h.label}: ${h.value}`,
+  })),
+};
+---
+
 <!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
-	</head>
-	<body>
-		<slot />
-	</body>
+<html lang="es-MX">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{seo.title}</title>
+    <meta name="description" content={seo.description} />
+    <link rel="canonical" href={seo.canonicalUrl} />
+
+    <!-- Preload the hero font weight to avoid a late swap above the fold -->
+    <link
+      rel="preload"
+      href="/clients/duolab/fonts/plus-jakarta-sans-variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={seo.title} />
+    <meta property="og:description" content={seo.description} />
+    <meta property="og:url" content={seo.canonicalUrl} />
+    <meta property="og:locale" content="es_MX" />
+    {seo.ogImage && <meta property="og:image" content={seo.ogImage} />}
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={seo.title} />
+    <meta name="twitter:description" content={seo.description} />
+    {seo.ogImage && <meta name="twitter:image" content={seo.ogImage} />}
+
+    <script
+      is:inline
+      type="application/ld+json"
+      set:html={JSON.stringify(localBusinessSchema)}
+    />
+  </head>
+  <body>
+    <slot />
+  </body>
 </html>
 
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
+<style is:global>
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    font-weight: var(--font-weight-body);
+    font-size: var(--font-size-body);
+    line-height: 1.6;
+    color: var(--text-primary);
+    background-color: var(--color-surface);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  a {
+    color: var(--color-primary);
+  }
 </style>
