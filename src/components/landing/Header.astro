@@ -1,0 +1,230 @@
+---
+/**
+ * Header — sticky site header for the landing page.
+ *
+ * Layout per DESIGN.md Navigation: wordmark left, links + single WhatsApp CTA
+ * right; on mobile the links collapse behind a hamburger. Background stays white
+ * (no tint). A subtle shadow appears only on scroll — allowed under DESIGN.md
+ * Elevation as "a direct response to interaction", not resting-state decoration.
+ *
+ * Reusable/white-labelable (Constitution Principle V): all brand text, links, and
+ * the CTA come from props — no client-specific value is hard-coded here.
+ *
+ * Props:
+ *   brand      string                                    the wordmark text
+ *   navLinks   { label: string, href: string }[]         in-page anchor links
+ *   cta        { phoneNumber, message, label }           the one WhatsApp action
+ */
+import WhatsAppButton from "./WhatsAppButton.astro";
+
+const { brand, navLinks, cta } = Astro.props;
+---
+
+<header class="site-header" id="top">
+  <div class="site-header__inner">
+    <a class="site-header__brand" href="#top" aria-label={`${brand} — inicio`}>
+      {brand}
+    </a>
+
+    <button
+      class="site-header__toggle"
+      type="button"
+      aria-expanded="false"
+      aria-controls="site-nav"
+      aria-label="Abrir menú"
+    >
+      <span class="site-header__toggle-bar" aria-hidden="true"></span>
+      <span class="site-header__toggle-bar" aria-hidden="true"></span>
+      <span class="site-header__toggle-bar" aria-hidden="true"></span>
+    </button>
+
+    <nav class="site-header__nav" id="site-nav" aria-label="Navegación principal">
+      <ul class="site-header__links">
+        {
+          navLinks.map((link) => (
+            <li>
+              <a class="site-header__link" href={link.href}>
+                {link.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+      <div class="site-header__cta">
+        <WhatsAppButton
+          phoneNumber={cta.phoneNumber}
+          message={cta.message}
+          label={cta.label}
+          variant="primary"
+        />
+      </div>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+    background-color: var(--color-surface); /* Blanco — no tint */
+    transition: box-shadow var(--duration-fast) var(--ease-out);
+  }
+
+  /* Shadow only once the page has scrolled (interaction response, not at rest) */
+  .site-header.is-scrolled {
+    box-shadow: 0 2px 12px oklch(35% 0.08 295 / 0.12);
+  }
+
+  .site-header__inner {
+    max-width: 1120px;
+    margin-inline: auto;
+    padding: var(--space-sm) var(--space-md);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+  }
+
+  .site-header__brand {
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-display); /* ExtraBold 800 */
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
+    color: var(--color-primary); /* Morado Principal */
+    text-decoration: none;
+    line-height: 1;
+  }
+
+  /* Hamburger — shown on mobile only */
+  .site-header__toggle {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    padding: 10px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .site-header__toggle-bar {
+    display: block;
+    height: 2px;
+    width: 100%;
+    background-color: var(--color-primary);
+    border-radius: var(--radius-pill);
+    transition: transform var(--duration-fast) var(--ease-out),
+      opacity var(--duration-fast) var(--ease-out);
+  }
+
+  .site-header__toggle:focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+  }
+
+  /* Nav collapses on mobile; JS toggles [data-open] */
+  .site-header__nav {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    background-color: var(--color-surface);
+    box-shadow: 0 8px 16px oklch(35% 0.08 295 / 0.1);
+  }
+
+  .site-header__nav[data-open="true"] {
+    display: flex;
+  }
+
+  .site-header__links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .site-header__link {
+    color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
+    text-decoration: none;
+    padding-block: var(--space-xs);
+  }
+
+  .site-header__link:hover,
+  .site-header__link:focus-visible {
+    color: var(--color-primary);
+  }
+
+  .site-header__cta :global(.wa-button) {
+    width: 100%;
+  }
+
+  /* Desktop: inline nav, no hamburger, no collapse */
+  @media (min-width: 768px) {
+    .site-header__toggle {
+      display: none;
+    }
+
+    .site-header__nav {
+      display: flex;
+      position: static;
+      flex-direction: row;
+      align-items: center;
+      gap: var(--space-lg);
+      padding: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .site-header__links {
+      flex-direction: row;
+      align-items: center;
+      gap: var(--space-lg);
+    }
+
+    .site-header__cta :global(.wa-button) {
+      width: auto;
+    }
+  }
+</style>
+
+<script>
+  // Vanilla JS only (Constitution Principle IV) — no framework runtime.
+  const header = document.querySelector<HTMLElement>(".site-header");
+  const toggle = document.querySelector<HTMLButtonElement>(".site-header__toggle");
+  const nav = document.querySelector<HTMLElement>(".site-header__nav");
+
+  // Hamburger open/close, keeping aria-expanded in sync.
+  toggle?.addEventListener("click", () => {
+    const open = nav?.getAttribute("data-open") === "true";
+    nav?.setAttribute("data-open", String(!open));
+    toggle.setAttribute("aria-expanded", String(!open));
+    toggle.setAttribute("aria-label", open ? "Abrir menú" : "Cerrar menú");
+  });
+
+  // Close the mobile menu after picking a destination.
+  nav?.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => {
+      nav.setAttribute("data-open", "false");
+      toggle?.setAttribute("aria-expanded", "false");
+      toggle?.setAttribute("aria-label", "Abrir menú");
+    });
+  });
+
+  // Subtle shadow once scrolled (interaction response, not resting decoration).
+  const onScroll = () => {
+    header?.classList.toggle("is-scrolled", window.scrollY > 8);
+  };
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+</script>

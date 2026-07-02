@@ -1,0 +1,203 @@
+---
+/**
+ * Footer — closing business info block.
+ *
+ * Morado Principal ground with white text (copy.md FOOTER; DESIGN.md: Morado
+ * Oscuro/Principal grounds a section that should feel settled). Carries the
+ * business identity, hours, address, a display-only phone, quick links, and the
+ * one WhatsApp CTA. No social links — copy.md lists none, and we never invent
+ * trust signals (constitution "Proof over claim").
+ *
+ * The `id` anchors (#horarios, #ubicacion, #contacto) are the smooth-scroll
+ * targets for the header nav on this single-page layout.
+ *
+ * Reusable/white-labelable (Constitution Principle V): all content via props.
+ *
+ * Props:
+ *   business     { name, addressLine, city, hours: {label,value}[] }
+ *   phoneDisplay string   display-only phone (NOT a wa.me/tel CTA), shown as text
+ *   slogan       string
+ *   mapUrl       string   external Google Maps link for "Mapa"
+ *   cta          { phoneNumber, message, label }   the WhatsApp action
+ */
+import WhatsAppButton from "./WhatsAppButton.astro";
+
+const { business, phoneDisplay, slogan, mapUrl, cta } = Astro.props;
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer" id="contacto">
+  <div class="site-footer__inner">
+    <div class="site-footer__brand-col">
+      <p class="site-footer__brand">{business.name}</p>
+      <p class="site-footer__slogan">{slogan}</p>
+    </div>
+
+    <div class="site-footer__col" id="horarios">
+      <h2 class="site-footer__heading">Horarios</h2>
+      <ul class="site-footer__list">
+        {
+          business.hours.map((h: { label: string; value: string }) => (
+            <li class="site-footer__list-item">
+              <span class="site-footer__list-label">{h.label}:</span> {h.value}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div class="site-footer__col" id="ubicacion">
+      <h2 class="site-footer__heading">Ubicación y contacto</h2>
+      <address class="site-footer__address">
+        {business.addressLine}<br />
+        {business.city}
+      </address>
+      <p class="site-footer__phone">Tel. {phoneDisplay}</p>
+      <ul class="site-footer__links">
+        <li>
+          <a class="site-footer__link" href="#horarios">Horarios</a>
+        </li>
+        <li>
+          <a
+            class="site-footer__link"
+            href={mapUrl}
+            target="_blank"
+            rel="noopener noreferrer">Ver en el mapa</a
+          >
+        </li>
+      </ul>
+      <div class="site-footer__cta">
+        <WhatsAppButton
+          phoneNumber={cta.phoneNumber}
+          message={cta.message}
+          label={cta.label}
+          variant="outline"
+        />
+      </div>
+    </div>
+  </div>
+
+  <div class="site-footer__baseline">
+    <p class="site-footer__copyright">
+      © {year} {business.name} · Laboratorio de análisis clínicos y patología
+    </p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background-color: var(--color-primary); /* Morado Principal #6B4A8E */
+    color: var(--text-on-primary);
+    padding-block: var(--space-xl) var(--space-md);
+    padding-inline: var(--space-md);
+  }
+
+  .site-footer__inner {
+    max-width: 1120px;
+    margin-inline: auto;
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  .site-footer__brand {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-display); /* ExtraBold 800 */
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
+    color: var(--text-on-primary);
+  }
+
+  .site-footer__slogan {
+    margin: var(--space-xs) 0 0;
+    color: var(--color-surface-soft); /* Lila Claro — legible on Morado */
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    max-width: 40ch;
+  }
+
+  .site-footer__heading {
+    margin: 0 0 var(--space-sm);
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-title); /* 600 */
+    font-size: var(--font-size-title);
+    color: var(--text-on-primary);
+  }
+
+  .site-footer__list,
+  .site-footer__links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .site-footer__list-item {
+    color: var(--color-surface-soft);
+    line-height: 1.6;
+  }
+
+  .site-footer__list-label {
+    font-weight: var(--font-weight-medium);
+    color: var(--text-on-primary);
+  }
+
+  .site-footer__address {
+    margin: 0 0 var(--space-xs);
+    font-style: normal;
+    color: var(--color-surface-soft);
+    line-height: 1.6;
+  }
+
+  .site-footer__phone {
+    margin: 0 0 var(--space-md);
+    color: var(--color-surface-soft);
+  }
+
+  .site-footer__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+  }
+
+  .site-footer__link {
+    color: var(--text-on-primary);
+    font-weight: var(--font-weight-medium);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .site-footer__link:hover,
+  .site-footer__link:focus-visible {
+    color: var(--color-surface-soft);
+  }
+
+  .site-footer__cta :global(.wa-button) {
+    width: 100%;
+  }
+
+  .site-footer__baseline {
+    max-width: 1120px;
+    margin: var(--space-lg) auto 0;
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--color-primary-dark);
+  }
+
+  .site-footer__copyright {
+    margin: auto;
+    color: var(--color-surface-soft);
+    font-size: var(--font-size-label);
+    line-height: 1.5;
+  }
+
+  @media (min-width: 768px) {
+    .site-footer__inner {
+      grid-template-columns: 1.4fr 1fr 1.2fr;
+      gap: var(--space-xl);
+    }
+
+    .site-footer__cta :global(.wa-button) {
+      width: auto;
+    }
+  }
+</style>
