@@ -1,5 +1,30 @@
 <!--
 Sync Impact Report
+Version change: 1.3.0 → 1.4.0
+Modified principles: none renamed
+Added sections:
+  - Design Anti-Slop Patterns for New Sections (new subsection under Development
+    Workflow & Deployment; binding for any new page section — codifies specific
+    prohibited generic-AI-template patterns for the How, Location, and WhatsApp
+    float treatments introduced in this amendment's companion restructuring, and
+    requires an /impeccable critique pass before any new section ships)
+Removed sections: none
+Templates requiring updates:
+  - .specify/templates/plan-template.md ✅ no changes needed (Constitution Check
+    gate is dynamically derived from this file; no hardcoded principle text)
+  - .specify/templates/spec-template.md ✅ no changes needed (stack-agnostic)
+  - .specify/templates/tasks-template.md ✅ no changes needed (stack-agnostic)
+  - .specify/templates/checklist-template.md ✅ no changes needed (generic)
+  - specs/001-duolab-landing-page/tasks.md ⚠ updated in the same change set to
+    reflect the Problem→FAQ replacement and the new How/Location/WhatsApp-float
+    sections
+  - README.md ⚠ pending (still the default Astro starter README; unrelated to
+    this amendment)
+Follow-up TODOs: none
+-->
+
+<!--
+Sync Impact Report (v1.3.0, superseded above)
 Version change: 1.2.0 → 1.3.0
 Modified principles: none renamed
 Added sections:
@@ -245,6 +270,41 @@ scores, responsive breakpoints, and accessibility before considering any page
 or component complete. Each new client engagement MUST reuse existing shared
 components and design-token patterns before introducing new one-off markup.
 
+### Design Anti-Slop Patterns for New Sections
+
+These prohibitions are binding for any new landing-page section, in addition
+to DESIGN.md's general Do's and Don'ts. They exist because the specific
+patterns below are the default output of generic page builders and AI
+templates, and each one contradicts the "Calm Specialist" north star:
+
+- **How-it-works / process sections.** MUST NOT use numbered circles
+  (1, 2, 3) as the layout's organizing device. Use a timeline, staggered
+  cards, or a visual metaphor instead — one where any icon used has to earn
+  its place, not decorate a generic step.
+- **Location sections.** MUST NOT use a card grid with emoji icons standing
+  in for info (📍/🕐/📱ish boxes). Use an integrated layout instead — info in
+  one column and an actual embedded map in the other, or an asymmetric
+  two-column composition with real breathing room.
+- **WhatsApp floating action buttons.** MUST NOT be a generic
+  fixed-bottom-right circle present from page load with no other behavior.
+  Either gate it behind a pulse/appearance triggered by scroll proximity to
+  a CTA, or fold the action into the final-CTA section instead of floating
+  it at all. A mobile-only float is acceptable if desktop already surfaces
+  the CTA in the header.
+
+Every new section MUST pass an `/impeccable` critique before it is
+considered shippable — this is a distinct gate from the Lighthouse/WCAG/
+responsive checks in Principle I and III, since it catches generic-template
+smell that automated tooling cannot.
+
+Rationale: DESIGN.md's Do's and Don'ts ban specific surface patterns
+(gradient heroes, icon-card grids, uppercase eyebrows) but new section types
+keep reintroducing the same generic-AI-template scaffolding in slightly
+different guises (numbered circles instead of icon cards, floating buttons
+instead of gradient heroes). Naming the specific failure modes for each new
+section type, and requiring a dedicated critique pass, closes that gap
+before it ships rather than catching it in a later redesign.
+
 ## Governance
 
 This constitution supersedes any conflicting ad-hoc convention. Amendments
@@ -259,4 +319,4 @@ Complexity Tracking table or rejected. Compliance is reviewed at the same
 time performance, accessibility, and SEO checks happen for each page —
 there is no separate compliance-only review step.
 
-**Version**: 1.3.0 | **Ratified**: 2026-06-27 | **Last Amended**: 2026-07-02
+**Version**: 1.4.0 | **Ratified**: 2026-06-27 | **Last Amended**: 2026-07-02
