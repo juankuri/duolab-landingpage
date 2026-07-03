@@ -125,6 +125,77 @@ Single static Astro project (no backend). All paths under `src/`, `public/client
 
 ---
 
+## Phase 7: Restructure — FAQ, How, Location, WhatsApp Float (post-launch content expansion)
+
+**Purpose**: Reworks the page flow using `poc/duolab.html` (stakeholders/isabel/duolab.html) as the
+visual reference, per constitution v1.4.0's Design Anti-Slop Patterns for New Sections. Replaces
+Problem with an FAQ section (spec FR-007 intent) and adds How, Location, and a WhatsApp float —
+none of which may use the generic patterns (numbered circles, emoji card grids, always-on floating
+buttons) the constitution amendment now explicitly bans.
+
+- [X] T035 Amend `.specify/memory/constitution.md` to v1.4.0: add "Design Anti-Slop Patterns for
+  New Sections" under Development Workflow & Deployment, with a Sync Impact Report entry
+- [X] T036 [P] Add `faq` content to `src/content/clients/duolab.js` (copy.md SECCIÓN 6 verbatim,
+  except the last answer's "toma de muestras pediátricas" abstracted to "toma de muestras a niños"
+  per Constitution Principle VII); remove the now-unused `problem` content block
+- [X] T037 [P] Add `how` content (copy.md SECCIÓN 5: 3 steps + fine-print note) to
+  `src/content/clients/duolab.js`
+- [X] T038 [P] Add `location` content (eyebrow/headline only — reuses the existing `business` block
+  for address/hours) to `src/content/clients/duolab.js`
+- [X] T039 Create `Faq.astro` in `src/components/landing/Faq.astro`: native `<details>/<summary>`
+  accordion (no JS required), single readable column with hairline dividers — no card grid
+- [X] T040 Create `How.astro` in `src/components/landing/How.astro`: vertical timeline with a
+  connecting rail and plain dot markers — explicitly NOT numbered circles (constitution v1.4.0)
+- [X] T041 Create `Location.astro` in `src/components/landing/Location.astro`: asymmetric
+  two-column layout, info left, a real embedded Google Maps iframe (`?output=embed`, no API key)
+  right — explicitly NOT an emoji-icon card grid (constitution v1.4.0)
+- [X] T042 Create `WhatsAppFloat.astro` in `src/components/landing/WhatsAppFloat.astro`:
+  mobile-only (`max-width: 767px`), hidden until scrolled past the hero, single pulse on first
+  reveal via vanilla JS scroll listener — never a looping animation or an always-on desktop float
+  (constitution v1.4.0)
+- [X] T043 Remove `src/components/landing/Problem.astro` (superseded by Faq.astro; no longer
+  composed into the page)
+- [X] T044 Restructure `src/pages/index.astro` to the new section order: Header → Hero → Faq →
+  Solution (+ its existing child-care differentiator panel) → How → Location → SocialProof →
+  FinalCta → Footer → WhatsAppFloat
+- [X] T045 Run `npx astro build` and a structural smoke test of the rendered HTML to confirm the
+  new section order, all FAQ items/timeline steps render, and the map iframe embeds the real
+  business address
+- [X] T046 Run an `/impeccable audit` pass against Faq.astro, How.astro, Location.astro, and
+  WhatsAppFloat.astro (constitution v1.4.0 requirement — distinct from the Lighthouse/WCAG/
+  responsive gates in Phase 6); scored 20/20 after adding a missing `:focus-visible` style to
+  WhatsAppFloat.astro (the only real finding)
+- [X] T047 Re-run quickstart.md's Lighthouse, WCAG AA, and responsive checks (Phase 6 gates) against
+  the restructured page. Lighthouse (production `astro preview` build): **100/100/100/100 on both
+  mobile and desktop** (LCP 1.1s, TBT 0ms, CLS 0). WCAG AA contrast: all pairs pass — Gris Texto body
+  6.0 on white / 5.44 on Fondo Suave; Azul accent 3.35 on white (large/bold trust values, ≥3:1 met).
+  Responsive: 0 horizontal overflow — all new-section grids are fractional or gated ≥768px, no fixed
+  widths, corroborated by CLS 0.
+
+## Phase 8: Blue accent (client request)
+
+**Purpose**: The client asked for the PoC's blue (#318BFF). Added as a functional/informational
+accent only (data-point highlight + small icons), NOT a second brand color — the One Purple Rule is
+amended, not broken.
+
+- [X] T048 Add the three PoC blue tones to `src/styles/clients/duolab.css` as `--color-accent`
+  (#318BFF), `--color-accent-soft` (#59ADFF), `--color-accent-lite` (#EEF6FF). Blue lives only in the
+  client file; `tokens.css` is untouched (client-agnostic contract)
+- [X] T049 Document "Accent (functional, not brand)" in `DESIGN.md` and amend "The One Purple Rule"
+  → "The One Purple Rule (with one functional exception)"; add matching Do/Don't entries scoping blue
+  to fact-marking (never CTAs, links, section grounds, or body text)
+- [X] T050 Apply the blue accent in `SocialProof.astro`: each trust signal gains an optional `accent`
+  substring rendered in Azul (mirrors the PoC trust bar). Seated the signals in a white panel on the
+  Lila Claro ground so the blue clears AA (3.35:1 on white vs. failing 2.79:1 on Lila Claro) — also
+  matches the PoC's white trust bar and DESIGN.md's card-on-tinted-section rule
+
+**Checkpoint**: Page reflects the PoC-informed restructure + the client's blue accent, and passes all
+Phase 6 gates (Lighthouse/WCAG/responsive) plus the v1.4.0 impeccable critique. Ready for client
+review; remaining pre-production items are unchanged (T034 Cloudflare Pages, real testimonials,
+confirmed domain).
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

@@ -4,8 +4,12 @@
  * who decides on concrete facts, not emotional reassurance (spec US2, FR-006).
  *
  * Contract: contracts/component-props.md → SocialProof.astro
- *   trustSignals   { value: string, label: string }[]   required
+ *   trustSignals   { value: string, accent?: string, label: string }[]   required
  *   testimonials   Testimonial[] | null                  required (explicit, may be null)
+ *
+ * `accent` (optional) is a substring of `value` rendered in Azul (#318BFF) — a
+ * functional data-point highlight, never a brand/action color (DESIGN.md Accent
+ * Azul, "The One Purple Rule (with one functional exception)").
  *
  * FR-006 (hard branch): when `testimonials` is null/empty this component renders
  * NO testimonial block, placeholder, or generic quote — trust is carried by the
@@ -29,12 +33,23 @@ const hasTestimonials = Array.isArray(testimonials) && testimonials.length > 0;
   <div class="social-proof__inner">
     <dl class="social-proof__signals">
       {
-        trustSignals.map((signal) => (
-          <div class="social-proof__signal">
-            <dt class="social-proof__value">{signal.value}</dt>
-            <dd class="social-proof__label">{signal.label}</dd>
-          </div>
-        ))
+        trustSignals.map((signal: { value: string; accent?: string; label: string }) => {
+          // Split the value around the optional `accent` substring so only that
+          // segment renders in Azul (functional highlight, not a brand color).
+          const at = signal.accent ? signal.value.indexOf(signal.accent) : -1;
+          const before = at > -1 ? signal.value.slice(0, at) : signal.value;
+          const after = at > -1 ? signal.value.slice(at + signal.accent!.length) : "";
+          return (
+            <div class="social-proof__signal">
+              <dt class="social-proof__value">
+                {before}
+                {at > -1 && <span class="social-proof__accent">{signal.accent}</span>}
+                {after}
+              </dt>
+              <dd class="social-proof__label">{signal.label}</dd>
+            </div>
+          );
+        })
       }
     </dl>
 
@@ -85,12 +100,18 @@ const hasTestimonials = Array.isArray(testimonials) && testimonials.length > 0;
     margin-inline: auto;
   }
 
+  /* White panel on the Lila Claro ground (DESIGN.md: a card switches to Blanco
+     when it sits on a tinted section). The white field is also what lets the Azul
+     data-point highlight clear AA — blue only reaches 3.35:1 on white, not on Lila
+     Claro. Separation is by tint difference, flat at rest (Tint-Not-Shadow Rule). */
   .social-proof__signals {
     margin: 0;
-    padding: 0;
+    padding: var(--space-md);
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-md);
+    background-color: var(--color-surface);
+    border-radius: var(--radius-lg);
   }
 
   .social-proof__signal {
@@ -105,6 +126,12 @@ const hasTestimonials = Array.isArray(testimonials) && testimonials.length > 0;
     font-size: clamp(1.75rem, 4vw, 2.25rem);
     line-height: 1.1;
     letter-spacing: -0.02em;
+  }
+
+  /* Azul (#318BFF) — functional data-point highlight only, never a brand/action
+     color (DESIGN.md Accent Azul). Display weight + large size clears AA ≥3:1. */
+  .social-proof__accent {
+    color: var(--color-accent);
   }
 
   .social-proof__label {

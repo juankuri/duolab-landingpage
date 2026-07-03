@@ -6,6 +6,9 @@ colors:
   morado-oscuro: "#4A3163"
   lila-medio: "#B89DCE"
   lila-claro: "#EDE8F5"
+  azul: "#318BFF"
+  azul-claro: "#59ADFF"
+  azul-suave: "#EEF6FF"
   carbon: "#142129"
   gris-texto: "#5A6472"
   fondo-suave: "#F5F3F8"
@@ -98,6 +101,11 @@ A **Committed** strategy: the brand's own purple carries 30–60% of any given s
 ### Secondary
 - **Lila Medio** (#B89DCE): Secondary accents — links and icons on light backgrounds, badges, decorative underlines. Never used for body text (insufficient contrast).
 
+### Accent (functional, not brand)
+- **Azul** (#318BFF): A single informational accent, requested by the client. Its job is narrow and functional — it highlights a data point inside a trust signal (e.g. the "años" / "día" word in a stat) and tints small informational icons. It is NOT a second brand color: never a CTA background, never a link, never a section ground, never body text, and never on a purple surface. Purple remains the one color a visitor remembers and the only color that means "act." Blue means "here is a fact," nothing more. On white it clears AA for large/bold text (≥3:1); do not use it for small body copy.
+- **Azul Claro** (#59ADFF): A lighter tint of Azul for a hover or a secondary emphasis where the saturated blue would be too heavy. Same restrictions as Azul.
+- **Azul Suave** (#EEF6FF): A blue-tinted near-white background for small icon chips only — a quiet field behind an informational icon, never a section-width ground (that would read as a second brand surface and break the purple rhythm).
+
 ### Neutral
 - **Lila Claro** (#EDE8F5): Card and section backgrounds — the default "soft" surface for the differentiator section (experience with children) and feature cards.
 - **Fondo Suave** (#F5F3F8): Section background alternate — use to separate adjacent sections without a hard edge.
@@ -106,7 +114,7 @@ A **Committed** strategy: the brand's own purple carries 30–60% of any given s
 - **Gris Texto** (#5A6472): Secondary text — captions, metadata, supporting subheadlines. Verify this still hits ≥4.5:1 against whatever background it sits on; on Lila Claro it is borderline, so prefer Carbón at reduced weight over Gris Texto when the background is tinted.
 
 ### Named Rules
-**The One Purple Rule.** Morado Principal is the only saturated color on the page. Lila Medio and Lila Claro are tints of the same hue, not competing accents — there is no second "brand color."
+**The One Purple Rule (with one functional exception).** Morado Principal is the only *brand* color on the page — the only color that carries identity and means "act" (CTAs, links, header accent). Lila Medio and Lila Claro are tints of the same hue, not competing accents. The single exception is **Azul**, and it is functional, not a brand color: it may only highlight a fact (a data point inside a trust signal) or tint a small informational icon. Blue never appears as a CTA, a link, a section ground, or body text, and never touches a purple surface. If blue starts to feel like a "second brand color," it is being overused — pull it back to data-point emphasis only. Kept this narrow, purple still owns 30–60% of every section and blue reads as a quiet informational cue, not a competing hue.
 
 **The No Cold-White Rule.** Don't default every section to pure white. Alternate Blanco with Fondo Suave or Lila Claro so the page has rhythm instead of reading like a clinical waiting room.
 
@@ -165,6 +173,7 @@ The "experience with children" section is the page's strongest decision driver p
 - **Do** alternate Blanco / Fondo Suave / Lila Claro across sections for rhythm instead of an all-white page.
 - **Do** use pill-shaped buttons (999px) for every CTA, identical in shape and color everywhere they appear.
 - **Do** carry hierarchy through Plus Jakarta Sans weight (300–800) alone.
+- **Do** keep Azul (#318BFF) to its functional job — highlighting a data point in a trust signal or tinting a small informational icon — so it reads as a fact-marker, not a second brand color.
 - **Do** give the children-experience section distinct visual weight (its own background block and CTA), per PRODUCT.md.
 - **Do** write copy in the visitor's own language ("¿son buenos con niños?") rather than institutional phrasing.
 
@@ -176,3 +185,4 @@ The "experience with children" section is the page's strongest decision driver p
 - **Don't** use cold institutional language, medical jargon, the word "Contáctenos," or any mention of insurance/IMSS (none of these arrangements exist) — per PRODUCT.md anti-references.
 - **Don't** fill the social-proof section with generic or placeholder testimonials; use only verified quantitative trust signals until real reviews are sourced.
 - **Don't** use bounce/elastic easing on the CTA hover — ease-out only, calm and immediate.
+- **Don't** promote Azul into a CTA, link, section background, or body-text color — that turns the functional accent into a competing brand color and breaks the One Purple Rule. Blue marks a fact; purple means act.

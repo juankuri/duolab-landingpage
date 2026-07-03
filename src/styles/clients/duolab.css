@@ -27,6 +27,9 @@
   --color-primary: #6b4a8e;          /* Morado Principal */
   --color-primary-dark: #4a3163;     /* Morado Oscuro — emphasis, hover/active */
   --color-secondary: #b89dce;        /* Lila Medio — accents, icons, badges */
+  --color-accent: #318bff;           /* Azul — informational accent: data-point emphasis, small icons (client request) */
+  --color-accent-soft: #59adff;      /* Azul Claro — lighter blue for hover/secondary emphasis */
+  --color-accent-lite: #eef6ff;      /* Azul Suave — blue-tinted background for icon chips */
   --color-surface: #ffffff;          /* Blanco */
   --color-surface-muted: #f5f3f8;    /* Fondo Suave — alternate section bg */
   --color-surface-soft: #ede8f5;     /* Lila Claro — card / feature-block bg */
