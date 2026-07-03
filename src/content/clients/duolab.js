@@ -52,6 +52,10 @@ const content = {
                 context: "final-cta",
                 text: "Hola, tengo estudios pendientes y quisiera información para hacérmelos.",
             },
+            {
+                context: "faq",
+                text: "Hola, tengo una pregunta sobre los estudios.",
+            },
         ],
     },
 
@@ -75,21 +79,6 @@ const content = {
             href: "https://www.google.com/maps/search/?api=1&query=DúoLab+laboratorio+San+Manuel+Ciudad+del+Carmen+Campeche",
             label: "Ver cómo llegar",
         },
-    },
-
-    // Problem section (spec FR-003). copy.md has no dedicated "problema" block, so the
-    // framing is authored in brand voice; the concerns are the buyer persona's own
-    // first-person questions, verbatim from offer.md "Problema Real que Enfrenta".
-    problem: {
-        eyebrow: "Sabemos lo que te preocupa",
-        headline: "Antes de ir al laboratorio, todos tenemos las mismas dudas",
-        concerns: [
-            "¿Necesito cita o puedo llegar directo?",
-            "¿Cuánto voy a pagar? ¿Me va a alcanzar?",
-            "¿Mi hijo va a llorar mucho? ¿Sabrán tratarlo?",
-            "¿Puedo confiar en estos resultados o me los van a cuestionar en el consultorio?",
-            "¿Llego y resulta que me falta algo?",
-        ],
     },
 
     // Solution section (spec FR-004, FR-005). offerPoints answer each problem concern;
@@ -120,6 +109,79 @@ const content = {
         },
     },
 
+    // SECCIÓN 5 — Cómo funciona (copy.md, spec FR-007 intent). Rendered as a
+    // timeline, not numbered circles (constitution Design Anti-Slop Patterns).
+    how: {
+        eyebrow: "Sin complicaciones",
+        headline: "Así de fácil es hacerte tus estudios",
+        steps: [
+            {
+                title: "Llega cuando puedas",
+                body: "No necesitas cita para la mayoría de estudios. Atendemos de lunes a viernes de 7:00 a.m. a 6:00 p.m. y sábados de 7:00 a.m. a 2:00 p.m.",
+            },
+            {
+                title: "Te atendemos de inmediato",
+                body: "Registramos tu estudio, preparamos la toma de muestra y te explicamos todo antes de empezar. Trato cercano desde el primer momento.",
+            },
+            {
+                title: "Recibe tus resultados",
+                body: "La mayoría de estudios quedan el mismo día. Los estudios especiales tienen un tiempo de entrega que te informamos al momento.",
+            },
+        ],
+        note: "Algunos estudios requieren cita previa: cultivos vaginales, cultivos uretrales y pruebas microbiológicas. Escríbenos para coordinar.",
+    },
+
+    // SECCIÓN 6 — Preguntas frecuentes (copy.md, spec FR-007 intent). The last
+    // answer abstracts copy.md's "toma de muestras pediátricas" to plain language
+    // (Constitution Principle VII — no medical specialty terminology in output).
+    faq: {
+        eyebrow: "Resolvemos tus dudas",
+        headline: "Preguntas frecuentes",
+        items: [
+            {
+                question: "¿Necesito cita para hacerme estudios?",
+                answer:
+                    "Para la mayoría de estudios de rutina no necesitas cita. Puedes llegar directamente en nuestro horario de atención. Solo algunos estudios especiales (cultivos, pruebas microbiológicas) requieren programación previa. Escríbenos si tienes duda.",
+            },
+            {
+                question: "¿Necesito ir en ayunas?",
+                answer:
+                    "Depende del estudio. Glucosa, colesterol, triglicéridos y química sanguínea sí requieren ayuno (generalmente 8 a 12 horas). Estudios como el examen general de orina o la prueba de embarazo no lo requieren. Si no estás seguro, escríbenos antes de venir.",
+            },
+            {
+                question: "¿Cuándo me entregan los resultados?",
+                answer:
+                    "La gran mayoría de estudios de rutina quedan el mismo día. Los estudios especiales tienen tiempos de 3, 5, 15 o hasta 20 días según el tipo. Al registrarte te informamos exactamente cuándo estará listo el tuyo.",
+            },
+            {
+                question: "¿Cuánto cuestan los estudios?",
+                answer:
+                    "Los precios varían según el estudio. Manejamos promociones frecuentes en biometría hemática, glucosa, colesterol y triglicéridos. Escríbenos por WhatsApp para conocer el precio de lo que necesitas, sin compromiso.",
+            },
+            {
+                question: "¿Trabajan con aseguradoras o IMSS?",
+                answer:
+                    "Por el momento no contamos con convenios con aseguradoras ni con el IMSS. Atendemos de forma particular con precios accesibles.",
+            },
+            {
+                question: "¿Puedo llevar a mi hijo pequeño?",
+                answer:
+                    "Claro que sí. Contamos con experiencia en la toma de muestras a niños y atendemos a pacientes de todas las edades.",
+            },
+        ],
+        ctaMessageContext: "faq",
+        ctaLabel: "¿Tienes otra pregunta? Escríbenos",
+    },
+
+    // SECCIÓN 7 — Ubicación y horarios (copy.md). Reuses `business` for the
+    // address/hours already defined above; only the section framing lives here.
+    // Rendered as an asymmetric two-column layout with a real embedded map, not
+    // an emoji card grid (constitution Design Anti-Slop Patterns).
+    location: {
+        eyebrow: "Encuéntranos",
+        headline: "Estamos cerca de ti",
+    },
+
     // SECCIÓN 2 — Trust bar / social proof (spec FR-006, US2). Quantitative-only
     // signals in copy.md's verbatim labels (spec Clarification 2026-06-28: trust-bar
     // labels are verbatim). These carry credibility on their own for the secondary
@@ -130,11 +192,14 @@ const content = {
     // its absence (FR-006 — never placeholder quotes). Real testimonials are wired in
     // by US3 (T023/T024).
     socialProof: {
+        // `accent` marks the single word/segment rendered in Azul (#318BFF) — a
+        // functional data-point highlight, not a brand color (DESIGN.md Accent Azul;
+        // mirrors the PoC trust bar). Omit `accent` to render the whole value in purple.
         trustSignals: [
-            { value: "11 años", label: "De experiencia" },
-            { value: "+200", label: "Tipos de estudios" },
-            { value: "Mismo día", label: "La mayoría de resultados" },
-            { value: "Sin cita", label: "Llega cuando puedas" },
+            { value: "11 años", accent: "años", label: "De experiencia" },
+            { value: "+200", accent: "+", label: "Tipos de estudios" },
+            { value: "Mismo día", accent: "día", label: "La mayoría de resultados" },
+            { value: "Sin cita", accent: "cita", label: "Llega cuando puedas" },
         ],
         // US3 (spec FR-006, data-model.md Testimonial). MUST stay `null` until the
         // client provides real, verifiable reviews (e.g. sourced Google Maps quotes).

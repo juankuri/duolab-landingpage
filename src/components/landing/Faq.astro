@@ -1,0 +1,170 @@
+---
+/**
+ * Faq — replaces Problem as the "resolve doubts before they're asked" section
+ * (spec FR-007 intent).
+ *
+ * Contract (mirrors component-props.md conventions):
+ *   eyebrow, headline   string
+ *   items               { question: string, answer: string }[]
+ *   cta                 { phoneNumber, message, label }
+ *
+ * Native <details>/<summary> accordion — no JS required for open/close,
+ * keyboard and screen-reader behavior come free from the semantic element.
+ * No card grid, no emoji icons: a single readable column with hairline
+ * dividers, matching the page's existing quiet rhythm.
+ */
+import WhatsAppButton from "./WhatsAppButton.astro";
+
+const { eyebrow, headline, items, cta } = Astro.props;
+---
+
+<section class="faq" aria-labelledby="faq-heading">
+  <div class="faq__inner">
+    <header class="faq__head">
+      <p class="faq__eyebrow">{eyebrow}</p>
+      <h2 class="faq__headline" id="faq-heading">{headline}</h2>
+    </header>
+
+    <div class="faq__list">
+      {
+        items.map((item: { question: string; answer: string }, index: number) => (
+          <details class="faq__item" name={index === 0 ? "faq-open" : undefined}>
+            <summary class="faq__question">
+              <span>{item.question}</span>
+              <svg
+                class="faq__chevron"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6 9l6 6 6-6"
+                />
+              </svg>
+            </summary>
+            <p class="faq__answer">{item.answer}</p>
+          </details>
+        ))
+      }
+    </div>
+
+    <div class="faq__action">
+      <WhatsAppButton
+        phoneNumber={cta.phoneNumber}
+        message={cta.message}
+        label={cta.label}
+        variant="outline"
+      />
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq {
+    background-color: var(--color-surface); /* Blanco — rhythm against the lila hero */
+    padding-block: var(--space-xl);
+    padding-inline: var(--space-md);
+  }
+
+  .faq__inner {
+    max-width: 760px;
+    margin-inline: auto;
+  }
+
+  .faq__head {
+    margin-bottom: var(--space-lg);
+  }
+
+  .faq__eyebrow {
+    margin: 0 0 var(--space-xs);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-title);
+    font-size: var(--font-size-label);
+  }
+
+  .faq__headline {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-heading);
+    font-size: var(--font-size-headline);
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  .faq__list {
+    border-top: 1px solid var(--color-surface-soft);
+  }
+
+  .faq__item {
+    border-bottom: 1px solid var(--color-surface-soft);
+  }
+
+  .faq__question {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding-block: var(--space-md);
+    font-weight: var(--font-weight-title);
+    font-size: 1.0625rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .faq__question::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq__question:hover,
+  .faq__question:focus-visible {
+    color: var(--color-primary);
+  }
+
+  .faq__question:focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+  }
+
+  .faq__chevron {
+    flex-shrink: 0;
+    color: var(--color-primary);
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+
+  .faq__item[open] .faq__chevron {
+    transform: rotate(180deg);
+  }
+
+  .faq__answer {
+    margin: 0;
+    padding-bottom: var(--space-md);
+    max-width: 65ch;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .faq__action {
+    margin-top: var(--space-lg);
+  }
+
+  @media (min-width: 768px) {
+    .faq__headline {
+      max-width: 22ch;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .faq__chevron {
+      transition: none;
+    }
+  }
+</style>

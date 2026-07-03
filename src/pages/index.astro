@@ -2,22 +2,25 @@
 /**
  * DúoLab conversion landing page (single static route, spec FR-013).
  *
- * Composes the User Story 1 sections (hero → problem → solution) with content
- * from the per-client content file. Every CTA resolves to a context-specific
- * prefilled WhatsApp message (spec FR-008).
+ * Composes hero → faq → solution → how → location → social proof → final CTA
+ * with content from the per-client content file. Every CTA resolves to a
+ * context-specific prefilled WhatsApp message (spec FR-008).
  */
 import Layout from "../layouts/Layout.astro";
 import content from "../content/clients/duolab.js";
 
 import Header from "../components/landing/Header.astro";
 import Hero from "../components/landing/Hero.astro";
-import Problem from "../components/landing/Problem.astro";
+import Faq from "../components/landing/Faq.astro";
 import Solution from "../components/landing/Solution.astro";
+import How from "../components/landing/How.astro";
+import Location from "../components/landing/Location.astro";
 import SocialProof from "../components/landing/SocialProof.astro";
 import FinalCta from "../components/landing/FinalCta.astro";
 import Footer from "../components/landing/Footer.astro";
+import WhatsAppFloat from "../components/landing/WhatsAppFloat.astro";
 
-const { seo, business, whatsapp, hero, problem, solution, socialProof, finalCta } =
+const { seo, business, whatsapp, hero, faq, solution, how, location, socialProof, finalCta } =
   content;
 
 // Header nav: smooth-scroll anchors into the footer's info blocks (single-page).
@@ -72,10 +75,11 @@ const childCare = {
       secondaryCta={hero.secondaryCta}
     />
 
-    <Problem
-      eyebrow={problem.eyebrow}
-      headline={problem.headline}
-      concerns={problem.concerns}
+    <Faq
+      eyebrow={faq.eyebrow}
+      headline={faq.headline}
+      items={faq.items}
+      cta={ctaFor(faq.ctaMessageContext, faq.ctaLabel)}
     />
 
     <Solution
@@ -83,6 +87,21 @@ const childCare = {
       headline={solution.headline}
       offerPoints={solution.offerPoints}
       childCareDifferentiator={childCare}
+    />
+
+    <How
+      eyebrow={how.eyebrow}
+      headline={how.headline}
+      steps={how.steps}
+      note={how.note}
+    />
+
+    <Location
+      eyebrow={location.eyebrow}
+      headline={location.headline}
+      business={business}
+      phoneDisplay={phoneDisplay}
+      directionsUrl={hero.secondaryCta.href}
     />
 
     <SocialProof
@@ -105,4 +124,6 @@ const childCare = {
     mapUrl={hero.secondaryCta.href}
     cta={ctaFor(finalCta.ctaMessageContext, finalCta.ctaLabel)}
   />
+
+  <WhatsAppFloat cta={ctaFor(finalCta.ctaMessageContext, finalCta.ctaLabel)} />
 </Layout>

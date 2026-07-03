@@ -1,0 +1,197 @@
+---
+/**
+ * Location — "ubicación y horarios" section (copy.md SECCIÓN 7, spec FR-007 intent).
+ *
+ * Contract:
+ *   eyebrow, headline   string
+ *   business            { name, addressLine, city, hours: {label,value}[] }
+ *   phoneDisplay        string  display-only phone (not a wa.me/tel CTA)
+ *   directionsUrl       string  external Google Maps link
+ *
+ * Asymmetric two-column layout — info on the left, a real embedded map on the
+ * right. Explicitly NOT a card grid with emoji icons (constitution Design
+ * Anti-Slop Patterns for New Sections). The embed needs no API key: a plain
+ * Google Maps search query in an iframe.
+ */
+const { eyebrow, headline, business, phoneDisplay, directionsUrl } = Astro.props;
+
+const mapQuery = `${business.name} laboratorio ${business.addressLine}, ${business.city}`;
+const mapEmbedSrc = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed`;
+---
+
+<section class="location" id="ubicacion" aria-labelledby="location-heading">
+  <div class="location__inner">
+    <header class="location__head">
+      <p class="location__eyebrow">{eyebrow}</p>
+      <h2 class="location__headline" id="location-heading">{headline}</h2>
+    </header>
+
+    <div class="location__grid">
+      <div class="location__info">
+        <div class="location__block">
+          <h3 class="location__label">Ubicación</h3>
+          <address class="location__address">
+            {business.addressLine}<br />
+            {business.city}
+          </address>
+        </div>
+
+        <div class="location__block">
+          <h3 class="location__label">Horarios</h3>
+          <ul class="location__hours">
+            {
+              business.hours.map((h: { label: string; value: string }) => (
+                <li>
+                  <span class="location__hours-label">{h.label}:</span> {h.value}
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+
+        <div class="location__block">
+          <h3 class="location__label">Contacto</h3>
+          <p class="location__phone">Tel. {phoneDisplay}</p>
+        </div>
+
+        <a
+          class="location__directions"
+          href={directionsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Cómo llegar en Google Maps
+        </a>
+      </div>
+
+      <div class="location__map">
+        <iframe
+          src={mapEmbedSrc}
+          width="100%"
+          height="100%"
+          style="border:0"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          title={`Mapa de ubicación de ${business.name}`}
+        />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .location {
+    background-color: var(--color-surface); /* Blanco */
+    padding-block: var(--space-xl);
+    padding-inline: var(--space-md);
+  }
+
+  .location__inner {
+    max-width: 1120px;
+    margin-inline: auto;
+  }
+
+  .location__head {
+    margin-bottom: var(--space-lg);
+  }
+
+  .location__eyebrow {
+    margin: 0 0 var(--space-xs);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-title);
+    font-size: var(--font-size-label);
+  }
+
+  .location__headline {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-heading);
+    font-size: var(--font-size-headline);
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  .location__grid {
+    display: grid;
+    gap: var(--space-lg);
+    align-items: start;
+  }
+
+  .location__info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .location__label {
+    margin: 0 0 var(--space-xs);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-title);
+    font-size: var(--font-size-title);
+  }
+
+  .location__address,
+  .location__phone,
+  .location__hours {
+    margin: 0;
+    color: var(--text-secondary);
+    font-style: normal;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .location__hours {
+    list-style: none;
+    padding: 0;
+  }
+
+  .location__hours-label {
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+  }
+
+  .location__directions {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-primary);
+    font-weight: var(--font-weight-title);
+    font-size: var(--font-size-body);
+    border-bottom: 2px solid var(--color-secondary);
+    padding-bottom: 2px;
+    text-decoration: none;
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .location__directions:hover,
+  .location__directions:focus-visible {
+    border-color: var(--color-primary);
+  }
+
+  .location__map {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background-color: var(--color-surface-muted);
+    aspect-ratio: 4 / 3;
+  }
+
+  .location__map iframe {
+    display: block;
+  }
+
+  @media (min-width: 768px) {
+    .location__headline {
+      max-width: 24ch;
+    }
+
+    .location__grid {
+      grid-template-columns: 1fr 1.2fr;
+    }
+
+    .location__map {
+      aspect-ratio: auto;
+      height: 100%;
+      min-height: 340px;
+    }
+  }
+</style>

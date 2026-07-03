@@ -1,0 +1,131 @@
+---
+/**
+ * How — "cómo funciona" process section (copy.md SECCIÓN 5, spec FR-007 intent).
+ *
+ * Contract:
+ *   eyebrow, headline   string
+ *   steps               { title: string, body: string }[]
+ *   note                string  — fine-print exception (cultivos, etc.)
+ *
+ * Rendered as a vertical timeline with a connecting rail and plain dot
+ * markers — explicitly NOT numbered circles (constitution Design Anti-Slop
+ * Patterns for New Sections). No icon-card grid either; this reads as one
+ * continuous path the visitor walks through.
+ */
+const { eyebrow, headline, steps, note } = Astro.props;
+---
+
+<section class="how" aria-labelledby="how-heading">
+  <div class="how__inner">
+    <header class="how__head">
+      <p class="how__eyebrow">{eyebrow}</p>
+      <h2 class="how__headline" id="how-heading">{headline}</h2>
+    </header>
+
+    <ol class="how__timeline">
+      {
+        steps.map((step: { title: string; body: string }) => (
+          <li class="how__step">
+            <span class="how__marker" aria-hidden="true"></span>
+            <div class="how__content">
+              <h3 class="how__title">{step.title}</h3>
+              <p class="how__body">{step.body}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+
+    <p class="how__note">{note}</p>
+  </div>
+</section>
+
+<style>
+  .how {
+    background-color: var(--color-surface); /* Blanco — rhythm against Fondo Suave sections */
+    padding-block: var(--space-xl);
+    padding-inline: var(--space-md);
+  }
+
+  .how__inner {
+    max-width: 720px;
+    margin-inline: auto;
+  }
+
+  .how__head {
+    margin-bottom: var(--space-lg);
+  }
+
+  .how__eyebrow {
+    margin: 0 0 var(--space-xs);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-title);
+    font-size: var(--font-size-label);
+  }
+
+  .how__headline {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-heading);
+    font-size: var(--font-size-headline);
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  .how__timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .how__step {
+    position: relative;
+    display: flex;
+    gap: var(--space-md);
+    padding-bottom: var(--space-lg);
+    padding-left: var(--space-md);
+    border-left: 2px solid var(--color-surface-soft);
+  }
+
+  .how__step:last-child {
+    padding-bottom: 0;
+    border-left-color: transparent;
+  }
+
+  .how__marker {
+    position: absolute;
+    left: -7px;
+    top: 4px;
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-primary);
+    flex-shrink: 0;
+  }
+
+  .how__title {
+    margin: 0 0 var(--space-xs);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-title);
+    font-size: 1.125rem;
+    line-height: 1.3;
+  }
+
+  .how__body {
+    margin: 0;
+    max-width: 55ch;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .how__note {
+    margin: var(--space-md) 0 0;
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--color-surface-muted);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: var(--font-size-label);
+    line-height: 1.6;
+  }
+</style>
