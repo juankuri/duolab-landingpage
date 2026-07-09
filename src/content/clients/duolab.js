@@ -58,9 +58,9 @@ const content = {
     },
 
     seo: {
-        title: "DúoLab — Laboratorio de análisis clínicos en Ciudad del Carmen, sin cita",
+        title: "Laboratorio sin cita en Ciudad del Carmen — Resultados hoy",
         description:
-            "Estudios de rutina y especiales con más de una década de experiencia en Ciudad del Carmen. Sin cita para la mayoría de estudios, resultados confiables el mismo día y trato cercano. Escríbenos por WhatsApp.",
+            "Laboratorio en Ciudad del Carmen con 11 años de experiencia. Sin cita para análisis de rutina, resultados confiables el mismo día.",
         canonicalUrl: `${SITE_ORIGIN}/`,
         ogImage: null,
     },
