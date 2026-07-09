@@ -68,7 +68,7 @@ const content = {
     // SECCIÓN 1 — Hero (copy.md). H1 is verbatim and MUST NOT be paraphrased (FR-002).
     hero: {
         eyebrow: "Tus análisis clínicos, con resultados en los que confías.",
-        headline: "11 años cuidando la salud en\u200B Ciudad del Carmen",
+        headline: "Laboratorio de análisis clínicos en Ciudad del Carmen​con resultados en los que confías",
         subheadline:
             "En DúoLab realizamos estudios de rutina y especiales con la experiencia de más de una década. Sin cita para la mayoría de estudios. Sin sorpresas de precio. Con el trato que mereces.",
         primaryCtaMessageContext: "hero",
