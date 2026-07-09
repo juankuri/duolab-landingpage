@@ -16,9 +16,7 @@
 const WHATSAPP_NUMBER = "529381156464";
 const PHONE_NUMBER = "529383830700";
 
-/** Canonical site origin. TODO: confirm the production domain with the client
- *  before deploy; update here (single source for canonical + OG + JSON-LD). */
-const SITE_ORIGIN = "https://duolab.mx";
+const SITE_ORIGIN = "https://laboratoriosduolab.com";
 
 // Shape follows data-model.md (LandingContent); TS infers it from this literal.
 const content = {
