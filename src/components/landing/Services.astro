@@ -1,0 +1,178 @@
+---
+/**
+ * Services — "Nuestros servicios". What DúoLab offers, in a scannable grid.
+ *
+ * Contract:
+ *   eyebrow, headline   string
+ *   intro               string
+ *   items               { title, body }[]
+ *   highlight           { title, body }  — preparation-help callout
+ *   cta                 { phoneNumber, message, label }  — WhatsApp action
+ *
+ * Text-only cards (no emoji/icon slop, per constitution) on the muted/soft
+ * rhythm, closing on a purple-tinted highlight that carries the WhatsApp CTA.
+ */
+import Section from "./Section.astro";
+import SectionHeader from "./SectionHeader.astro";
+import WhatsAppButton from "./WhatsAppButton.astro";
+
+const { eyebrow, headline, intro, items, highlight, cta } = Astro.props;
+---
+
+<Section width="1000px" background="surface" labelledby="services-heading">
+  <SectionHeader
+    eyebrow={eyebrow}
+    headline={headline}
+    id="services-heading"
+    headlineMax="24ch"
+  />
+
+  <p class="services__intro">{intro}</p>
+
+  <ul class="services__grid">
+    {
+      items.map((item: { title: string; body: string; icon?: string }) => (
+        <li class="services__card">
+          <h3 class="services__card-title">
+            {item.icon === "contactless" && (
+              <svg
+                class="services__card-icon"
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <ellipse cx="12" cy="12" rx="10.5" ry="8" />
+                <path d="M7.5 10.8a2.4 2.4 0 0 1 0 2.4" />
+                <path d="M10 9.4a4.2 4.2 0 0 1 0 5.2" />
+                <path d="M12.5 8.2a6 6 0 0 1 0 7.6" />
+                <path d="M15 7.2a7.6 7.6 0 0 1 0 9.6" />
+              </svg>
+            )}
+            <span>{item.title}</span>
+          </h3>
+          <p class="services__card-body">{item.body}</p>
+        </li>
+      ))
+    }
+  </ul>
+
+  <div class="services__highlight">
+    <div class="services__highlight-copy">
+      <h3 class="services__highlight-title">{highlight.title}</h3>
+      <p class="services__highlight-body">{highlight.body}</p>
+    </div>
+    <div class="services__highlight-action">
+      <WhatsAppButton
+        phoneNumber={cta.phoneNumber}
+        message={cta.message}
+        label={cta.label}
+        variant="primary"
+      />
+    </div>
+  </div>
+</Section>
+
+<style>
+  .services__intro {
+    margin: 0 0 var(--space-lg);
+    max-width: 68ch;
+    color: var(--text-secondary);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+  }
+
+  .services__grid {
+    list-style: none;
+    margin: 0 0 var(--space-lg);
+    padding: 0;
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .services__card {
+    background-color: var(--color-surface-soft); /* Lila Claro */
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+  }
+
+  .services__card-title {
+    margin: 0 0 var(--space-xs);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    color: var(--color-primary-dark);
+    font-weight: var(--font-weight-title);
+    font-size: 1.125rem;
+    line-height: 1.3;
+  }
+
+  .services__card-icon {
+    flex-shrink: 0;
+    color: var(--color-primary);
+  }
+
+  .services__card-body {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  /* Preparation-help callout — purple-tinted band that carries the CTA */
+  .services__highlight {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    background-color: var(--color-surface-muted); /* Fondo Suave */
+    border: 1px solid var(--color-surface-soft);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+  }
+
+  .services__highlight-title {
+    margin: 0 0 var(--space-xs);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-title);
+    font-size: 1.125rem;
+    line-height: 1.3;
+    text-wrap: balance;
+  }
+
+  .services__highlight-body {
+    margin: 0;
+    max-width: 60ch;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .services__highlight-action :global(.wa-button) {
+    width: 100%;
+  }
+
+  @media (min-width: 640px) {
+    .services__grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-md) var(--space-lg);
+    }
+
+    .services__highlight {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-lg);
+    }
+
+    .services__highlight-action :global(.wa-button) {
+      width: auto;
+      white-space: nowrap;
+    }
+  }
+</style>

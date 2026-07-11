@@ -4,8 +4,9 @@
  *
  * Contract:
  *   eyebrow, headline   string
- *   business            { name, addressLine, city, hours: {label,value}[] }
- *   phoneDisplay        string  display-only phone (not a wa.me/tel CTA)
+ *   business            { name, addressLine, addressLines[], city, hours: {label,value}[] }
+ *   phoneDisplay        string  display-only landline (not a wa.me/tel CTA)
+ *   whatsappDisplay     string  display-only WhatsApp number (shown as text)
  *   directionsUrl       string  external Google Maps link
  *
  * Asymmetric two-column layout — info on the left, a real embedded map on the
@@ -13,25 +14,36 @@
  * Anti-Slop Patterns for New Sections). The embed needs no API key: a plain
  * Google Maps search query in an iframe.
  */
-const { eyebrow, headline, business, phoneDisplay, directionsUrl } = Astro.props;
+import Section from "./Section.astro";
+import SectionHeader from "./SectionHeader.astro";
+
+const { eyebrow, headline, business, phoneDisplay, whatsappDisplay, directionsUrl } = Astro.props;
 
 const mapQuery = `${business.name} laboratorio ${business.addressLine}, ${business.city}`;
 const mapEmbedSrc = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed`;
 ---
 
-<section class="location" id="ubicacion" aria-labelledby="location-heading">
-  <div class="location__inner">
-    <header class="location__head">
-      <p class="location__eyebrow">{eyebrow}</p>
-      <h2 class="location__headline" id="location-heading">{headline}</h2>
-    </header>
+<Section
+  width="1120px"
+  background="surface"
+  id="ubicacion"
+  labelledby="location-heading"
+>
+  <SectionHeader eyebrow={eyebrow} headline={headline} id="location-heading" />
 
-    <div class="location__grid">
+  <div class="location__grid">
       <div class="location__info">
         <div class="location__block">
           <h3 class="location__label">Ubicación</h3>
           <address class="location__address">
-            {business.addressLine}<br />
+            {
+              business.addressLines.map((line: string) => (
+                <>
+                  {line}
+                  <br />
+                </>
+              ))
+            }
             {business.city}
           </address>
         </div>
@@ -51,7 +63,8 @@ const mapEmbedSrc = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery
 
         <div class="location__block">
           <h3 class="location__label">Contacto</h3>
-          <p class="location__phone">Tel. {phoneDisplay}</p>
+          <p class="location__phone">Telmex: {phoneDisplay}</p>
+          <p class="location__phone">WhatsApp: {whatsappDisplay}</p>
         </div>
 
         <a
@@ -76,41 +89,9 @@ const mapEmbedSrc = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery
         />
       </div>
     </div>
-  </div>
-</section>
+</Section>
 
 <style>
-  .location {
-    background-color: var(--color-surface); /* Blanco */
-    padding-block: var(--space-xl);
-    padding-inline: var(--space-md);
-  }
-
-  .location__inner {
-    max-width: 1120px;
-    margin-inline: auto;
-  }
-
-  .location__head {
-    margin-bottom: var(--space-lg);
-  }
-
-  .location__eyebrow {
-    margin: 0 0 var(--space-xs);
-    color: var(--color-primary);
-    font-weight: var(--font-weight-title);
-    font-size: var(--font-size-label);
-  }
-
-  .location__headline {
-    margin: 0;
-    color: var(--text-primary);
-    font-weight: var(--font-weight-heading);
-    font-size: var(--font-size-headline);
-    line-height: 1.2;
-    text-wrap: balance;
-  }
-
   .location__grid {
     display: grid;
     gap: var(--space-lg);

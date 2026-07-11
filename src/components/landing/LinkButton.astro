@@ -1,0 +1,121 @@
+---
+/**
+ * LinkButton — a plain anchor styled as a pill button, matching WhatsAppButton's
+ * shape/variants for non-WhatsApp actions (in-page anchors, external links).
+ *
+ * Use for CTAs that are not a wa.me action — e.g. "Conoce nuestra ubicación"
+ * (#ubicacion) or "Déjanos una reseña" (external Google review). WhatsApp CTAs
+ * MUST keep using WhatsAppButton (it encodes the prefilled message).
+ *
+ * Props:
+ *   href       string   required  destination (anchor or URL)
+ *   label      string   required  visible text
+ *   variant    "primary" | "outline"  default "outline"
+ *   external   boolean  default false — opens in new tab with rel=noopener
+ *   icon       "map-pin"  optional leading icon. Jakob's Law: a map pin is the
+ *              universally recognized "location / directions" affordance, so
+ *              location CTAs read instantly without the user learning a new glyph.
+ */
+interface Props {
+  href: string;
+  label: string;
+  variant?: "primary" | "outline";
+  external?: boolean;
+  icon?: "map-pin";
+}
+
+const { href, label, variant = "outline", external = false, icon } = Astro.props;
+const rel = external ? "noopener noreferrer" : undefined;
+const target = external ? "_blank" : undefined;
+---
+
+<a
+  class:list={["link-button", `link-button--${variant}`]}
+  href={href}
+  target={target}
+  rel={rel}
+>
+  {
+    icon === "map-pin" && (
+      <svg
+        class="link-button__icon"
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10z" />
+        <circle cx="12" cy="11" r="2" />
+      </svg>
+    )
+  }
+  <span>{label}</span>
+</a>
+
+<style>
+  .link-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-body);
+    font-size: var(--font-size-label);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.2;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out),
+      box-shadow var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out);
+  }
+
+  .link-button__icon {
+    flex-shrink: 0;
+  }
+
+  .link-button--primary {
+    background-color: var(--color-primary);
+    color: var(--text-on-primary);
+  }
+
+  .link-button--primary:hover,
+  .link-button--primary:focus-visible {
+    background-color: var(--color-primary-dark);
+    box-shadow: var(--shadow-cta-hover);
+    transform: translateY(-1px);
+  }
+
+  .link-button--outline {
+    background-color: var(--color-surface);
+    color: var(--color-primary);
+    border: 2px solid var(--color-primary);
+    padding: calc(var(--space-sm) - 2px) calc(var(--space-md) - 2px);
+  }
+
+  .link-button--outline:hover,
+  .link-button--outline:focus-visible {
+    background-color: var(--color-surface-soft);
+  }
+
+  .link-button:focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .link-button--primary:hover,
+    .link-button--primary:focus-visible {
+      transform: none;
+    }
+  }
+</style>

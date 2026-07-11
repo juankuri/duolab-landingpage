@@ -18,11 +18,21 @@ const PHONE_NUMBER = "529383830700";
 
 const SITE_ORIGIN = "https://laboratoriosduolab.com";
 
+/** Google review deep-link — confirmed by client. Desktop QR is a future addition. */
+const REVIEW_URL = "https://g.page/r/CZEYzWlxjxgbEBM/review";
+
 // Shape follows data-model.md (LandingContent); TS infers it from this literal.
 const content = {
     business: {
         name: "DúoLab",
-        addressLine: "Frente a la Subestación CFE, San Manuel",
+        // Full single-line address — used for the map query and schema.org (geo).
+        addressLine: "PLAZA PERLA DEL GOLFO, Local 21. Frente a la Subestación CFE, Fracc. Maderas",
+        // Display-only: rendered as separate lines in Location/Footer (venue, then
+        // street reference). Keep addressLine as the machine-readable source of truth.
+        addressLines: [
+            "PLAZA PERLA DEL GOLFO, Local 21",
+            "Frente a la Subestación CFE, Fracc. Maderas",
+        ],
         city: "Ciudad del Carmen, Campeche",
         phoneNumber: WHATSAPP_NUMBER,
         hours: [
@@ -31,7 +41,7 @@ const content = {
             { label: "Domingos", value: "Solo con cita previa" },
         ],
         yearsOfOperation: 11,
-        studyCount: "+200",
+        studyCount: "+2000",
     },
 
     whatsapp: {
@@ -54,6 +64,10 @@ const content = {
                 context: "faq",
                 text: "Hola, tengo una pregunta sobre los estudios.",
             },
+            {
+                context: "services",
+                text: "Hola, tengo una indicación médica y quisiera saber la preparación, disponibilidad y tiempo de entrega del estudio.",
+            },
         ],
     },
 
@@ -67,12 +81,12 @@ const content = {
 
     // SECCIÓN 1 — Hero (copy.md). H1 is verbatim and MUST NOT be paraphrased (FR-002).
     hero: {
-        eyebrow: "Tus análisis clínicos, con resultados en los que confías.",
+        eyebrow: "Experiencia en el diagnóstico clínico a tu servicio.",
         headline: "Laboratorio de análisis clínicos en Ciudad del Carmen​con resultados en los que confías",
         subheadline:
-            "En DúoLab realizamos estudios de rutina y especiales con la experiencia de más de una década. Sin cita para la mayoría de estudios. Sin sorpresas de precio. Con el trato que mereces.",
+            "En DúoLab realizamos estudios de rutina y especiales con más de una década de experiencia. No necesitas cita para la mayoría de estudios. Sin sorpresas de precio. Con el trato que mereces.",
         primaryCtaMessageContext: "hero",
-        ctaLabel: "Escríbenos por WhatsApp",
+        ctaLabel: "Escríbenos",
         secondaryCta: {
             href: "https://www.google.com/maps/search/?api=1&query=DúoLab+laboratorio+San+Manuel+Ciudad+del+Carmen+Campeche",
             label: "Ver cómo llegar",
@@ -90,7 +104,8 @@ const content = {
             "Precios claros desde el primer contacto, sin sorpresas cuando llegas.",
             "Te decimos por WhatsApp qué llevar, si necesitas ayuno y cómo prepararte.",
             "Resultados confiables: la mayoría quedan el mismo día.",
-            "Más de 50 estudios de rutina y especiales en un solo lugar.",
+            "Más de 2000 estudios de rutina y especiales en un solo lugar.",
+            "Servicio de patología subrogado",
         ],
         childCareDifferentiator: {
             headline:
@@ -103,8 +118,67 @@ const content = {
             ],
             ctaMessageContext: "solution-children",
             ctaLabel:
-                "Escríbenos antes de venir, te explicamos cómo prepararlo",
+                "Escríbenos, te explicamos cómo prepararlo",
         },
+    },
+
+    // About — "Conoce DúoLab". Trust-building narrative (11 años, +200 estudios,
+    // adultos y niños). Client-authored copy. CTA is an in-page anchor to the
+    // location section, not a WhatsApp action.
+    about: {
+        eyebrow: "Conoce DúoLab",
+        headline: "Más de una década cuidando cada resultado",
+        paragraphs: [
+            "En DúoLab somos un laboratorio de análisis clínicos y patología ubicados en Ciudad del Carmen. Desde hace 11 años ayudamos a nuestros pacientes a realizarse sus estudios con confianza, información clara y un trato cercano.",
+            "Sabemos que acudir a un laboratorio puede generar dudas. Por eso te explicamos cómo prepararte, cuánto cuesta tu estudio y cuándo recibirás tus resultados antes de comenzar.",
+            "Realizamos más de 2000 tipos de estudios de rutina y especiales, con atención para adultos y niños. Nuestro compromiso es que encuentres un proceso sencillo, una atención respetuosa y resultados en los que puedas confiar.",
+        ],
+        cta: {
+            href: "#ubicacion",
+            label: "Conoce nuestra ubicación",
+        },
+    },
+
+    // Services — "Nuestros servicios". Client-authored. Specialty terms kept
+    // abstracted (Constitution Principle VII). The highlight + CTA route to the
+    // "services" prefilled WhatsApp message.
+    services: {
+        eyebrow: "Nuestros servicios",
+        headline: "Los estudios que necesitas, en un solo lugar",
+        intro: "Realizamos análisis clínicos de rutina y estudios especiales para ayudarte a cuidar y dar seguimiento a tu salud. Para la mayoría no necesitas cita: puedes acudir directamente durante nuestro horario de atención.",
+        items: [
+            {
+                title: "Estudios de rutina",
+                body: "Análisis frecuentes para revisiones médicas, seguimiento de tratamientos y cuidado preventivo.",
+            },
+            {
+                title: "Estudios especiales",
+                body: "Contamos con una amplia variedad de pruebas. Escríbenos para consultar disponibilidad, preparación y tiempo de entrega.",
+            },
+            {
+                title: "Toma de muestras para niños",
+                body: "Atendemos a los más pequeños con paciencia, calma y personal con experiencia. Puedes acompañar a tu hijo durante todo el procedimiento.",
+            },
+            {
+                title: "Toma de muestras para adultos mayores",
+                body: "También atendemos a personas mayores con empatía y tacto. Somos un laboratorio para todos, estamos para ayudar.",
+            },
+            {
+                title: "Resultados oportunos",
+                body: "La mayoría de los resultados están disponibles el mismo día. Para estudios especiales, te informamos el tiempo de entrega desde el primer contacto.",
+            },
+            {
+                title: "Diferentes métodos de pago",
+                body: "Aceptamos pagos con tarjeta de crédito o débito sin cargo adicional. También aceptamos pagos por transferencia. Facturamos el mismo día.",
+                icon: "contactless",
+            },
+        ],
+        highlight: {
+            title: "¿No sabes qué preparación necesita tu estudio?",
+            body: "Envíanos tu lista de estudios o tu solicitud médica por WhatsApp y te explicamos qué llevar, si necesitas ayuno y cuándo puedes acudir.",
+        },
+        ctaMessageContext: "services",
+        ctaLabel: "Consultar un estudio",
     },
 
     // SECCIÓN 5 — Cómo funciona (copy.md, spec FR-007 intent). Rendered as a
@@ -115,7 +189,7 @@ const content = {
         steps: [
             {
                 title: "Llega cuando puedas",
-                body: "No necesitas cita para la mayoría de estudios. Atendemos de lunes a viernes de 7:00 a.m. a 6:00 p.m. y sábados de 7:00 a.m. a 2:00 p.m.",
+                body: "No necesitas cita para la mayoría de estudios. Atendemos de lunes a viernes de 7:00 a.m. a 6:00 p.m. y sábados de 7:00 a.m. a 2:00 p.m. Únicamente los domingos se coordina mediante cita.",
             },
             {
                 title: "Te atendemos de inmediato",
@@ -126,7 +200,7 @@ const content = {
                 body: "La mayoría de estudios quedan el mismo día. Los estudios especiales tienen un tiempo de entrega que te informamos al momento.",
             },
         ],
-        note: "Algunos estudios requieren cita previa: cultivos vaginales, cultivos uretrales y pruebas microbiológicas. Escríbenos para coordinar.",
+        note: "Algunos estudios requieren cita previa: cultivos vaginales, cultivos uretrales, pruebas microbiológicas y papanicolaou. Escríbenos para coordinar.",
     },
 
     // SECCIÓN 6 — Preguntas frecuentes (copy.md, spec FR-007 intent). The last
@@ -137,9 +211,14 @@ const content = {
         headline: "Preguntas frecuentes",
         items: [
             {
+                question: "¿Requiero tener una orden o solicitud médica para hacerme análisis?",
+                answer:
+                    "No es necesario, nosotros te damos asesoría biomédica para sugerir los análisis o con solo presentar un listado de lo que requieres",
+            },
+            {
                 question: "¿Necesito cita para hacerme estudios?",
                 answer:
-                    "Para la mayoría de estudios de rutina no necesitas cita. Puedes llegar directamente en nuestro horario de atención. Solo algunos estudios especiales (cultivos, pruebas microbiológicas) requieren programación previa. Escríbenos si tienes duda.",
+                    "Para la mayoría de estudios de rutina no necesitas cita. Puedes llegar directamente en nuestro horario de atención. Solo algunos estudios especiales (cultivos vaginales, cultivos uretrales, pruebas microbiológicas y papanicolaou) requieren programación previa. Escríbenos si tienes duda.",
             },
             {
                 question: "¿Necesito ir en ayunas?",
@@ -159,7 +238,7 @@ const content = {
             {
                 question: "¿Trabajan con aseguradoras o IMSS?",
                 answer:
-                    "Por el momento no contamos con convenios con aseguradoras ni con el IMSS. Atendemos de forma particular con precios accesibles.",
+                    "Tenemos precios especiales para pacientes del IMSS, ISSSTE y SSA.",
             },
             {
                 question: "¿Puedo llevar a mi hijo pequeño?",
@@ -168,7 +247,7 @@ const content = {
             },
         ],
         ctaMessageContext: "faq",
-        ctaLabel: "¿Tienes otra pregunta? Escríbenos",
+        ctaLabel: "¿Tienes otra pregunta?",
     },
 
     // SECCIÓN 7 — Ubicación y horarios (copy.md). Reuses `business` for the
@@ -195,7 +274,7 @@ const content = {
         // mirrors the PoC trust bar). Omit `accent` to render the whole value in purple.
         trustSignals: [
             { value: "11 años", accent: "años", label: "De experiencia" },
-            { value: "+200", accent: "+", label: "Tipos de estudios" },
+            { value: "+2000", accent: "+", label: "Tipos de estudios" },
             { value: "Mismo día", accent: "día", label: "La mayoría de resultados" },
             { value: "Sin cita", accent: "cita", label: "Llega cuando puedas" },
         ],
@@ -232,6 +311,20 @@ const content = {
         // ],
     },
 
+    // Review Us — "Tu opinión nos ayuda". Client-authored. CTA is an external
+    // Google review deep-link (not WhatsApp). Real testimonials still stay in
+    // socialProof.testimonials (null) until sourced; this asks for new reviews.
+    reviewUs: {
+        eyebrow: "Tu opinión nos ayuda",
+        headline: "¿Cómo fue tu experiencia en DúoLab?",
+        body: "Tu reseña ayuda a otras personas de Ciudad del Carmen a encontrar un laboratorio confiable y también nos permite seguir mejorando nuestra atención.",
+        microcopy: "Solo te tomará un minuto.",
+        cta: {
+            href: REVIEW_URL,
+            label: "Déjanos una reseña en Google",
+        },
+    },
+
     // SECCIÓN 8 — Final CTA (copy.md, spec FR-007, US2). Repeats the primary action
     // with soft (non-aggressive) urgency and introduces no new claim. Reuses the
     // existing "final-cta" prefilled WhatsApp message. Verbatim from copy.md.
@@ -240,7 +333,7 @@ const content = {
         subheadline:
             "No los dejes para después. Llega hoy, sin cita, y sal con tus resultados el mismo día.",
         ctaMessageContext: "final-cta",
-        ctaLabel: "Escríbenos por WhatsApp",
+        ctaLabel: "Mándanos un mensaje",
         microcopy:
             "Te respondemos lo más pronto posible y te decimos exactamente cómo prepararte.",
     },

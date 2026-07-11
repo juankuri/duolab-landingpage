@@ -1,0 +1,54 @@
+---
+/**
+ * About — "Conoce DúoLab". Trust-building narrative section.
+ *
+ * Contract:
+ *   eyebrow, headline   string
+ *   paragraphs          string[]  — body copy, one <p> each
+ *   cta                 { href, label }  — in-page anchor (not WhatsApp)
+ *
+ * A single readable prose column on the muted band — no card grid, no emoji
+ * (constitution Design Anti-Slop Patterns). Reuses Section/SectionHeader.
+ */
+import Section from "./Section.astro";
+import SectionHeader from "./SectionHeader.astro";
+import LinkButton from "./LinkButton.astro";
+
+const { eyebrow, headline, paragraphs, cta } = Astro.props;
+---
+
+<Section width="760px" background="muted" labelledby="about-heading">
+  <SectionHeader
+    eyebrow={eyebrow}
+    headline={headline}
+    id="about-heading"
+    headlineMax="20ch"
+  />
+
+  <div class="about__prose">
+    {paragraphs.map((p: string) => <p class="about__paragraph">{p}</p>)}
+  </div>
+
+  <div class="about__action">
+    <LinkButton href={cta.href} label={cta.label} variant="outline" icon="map-pin" />
+  </div>
+</Section>
+
+<style>
+  .about__prose {
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .about__paragraph {
+    margin: 0;
+    max-width: 68ch;
+    color: var(--text-secondary);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+  }
+
+  .about__action {
+    margin-top: var(--space-lg);
+  }
+</style>

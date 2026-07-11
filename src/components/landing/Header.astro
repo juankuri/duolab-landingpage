@@ -41,7 +41,7 @@ const { brand, navLinks, cta } = Astro.props;
     <nav class="site-header__nav" id="site-nav" aria-label="Navegación principal">
       <ul class="site-header__links">
         {
-          navLinks.map((link) => (
+          navLinks.map((link: { label: string; href: string }) => (
             <li>
               <a class="site-header__link" href={link.href}>
                 {link.label}

@@ -46,13 +46,13 @@ const year = new Date().getFullYear();
       </ul>
     </div>
 
-    <div class="site-footer__col" id="ubicacion">
+    <div class="site-footer__col">
       <h2 class="site-footer__heading">Ubicación y contacto</h2>
       <address class="site-footer__address">
-        {business.addressLine}<br />
+        {business.addressLines.map((line: string) => (<>{line}<br /></>))}
         {business.city}
       </address>
-      <p class="site-footer__phone">Tel. {phoneDisplay}</p>
+      <p class="site-footer__phone">Telmex. {phoneDisplay}</p>
       <ul class="site-footer__links">
         <li>
           <a class="site-footer__link" href="#horarios">Horarios</a>
@@ -66,14 +66,14 @@ const year = new Date().getFullYear();
           >
         </li>
       </ul>
-      <div class="site-footer__cta">
+      <!-- <div class="site-footer__cta">
         <WhatsAppButton
           phoneNumber={cta.phoneNumber}
           message={cta.message}
           label={cta.label}
           variant="outline"
         />
-      </div>
+      </div> -->
     </div>
   </div>
 

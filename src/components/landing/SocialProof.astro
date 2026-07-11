@@ -7,9 +7,9 @@
  *   trustSignals   { value: string, accent?: string, label: string }[]   required
  *   testimonials   Testimonial[] | null                  required (explicit, may be null)
  *
- * `accent` (optional) is a substring of `value` rendered in Azul (#318BFF) — a
- * functional data-point highlight, never a brand/action color (DESIGN.md Accent
- * Azul, "The One Purple Rule (with one functional exception)").
+ * `accent` (optional) is a substring of `value` given subtle extra emphasis via
+ * Morado Oscuro — a data-point highlight kept within the One Purple family (the
+ * former Azul accent was dropped: it was the only blue on the page).
  *
  * FR-006 (hard branch): when `testimonials` is null/empty this component renders
  * NO testimonial block, placeholder, or generic quote — trust is carried by the
@@ -35,7 +35,7 @@ const hasTestimonials = Array.isArray(testimonials) && testimonials.length > 0;
       {
         trustSignals.map((signal: { value: string; accent?: string; label: string }) => {
           // Split the value around the optional `accent` substring so only that
-          // segment renders in Azul (functional highlight, not a brand color).
+          // segment renders with extra emphasis (Morado Oscuro, within One Purple).
           const at = signal.accent ? signal.value.indexOf(signal.accent) : -1;
           const before = at > -1 ? signal.value.slice(0, at) : signal.value;
           const after = at > -1 ? signal.value.slice(at + signal.accent!.length) : "";
@@ -128,10 +128,11 @@ const hasTestimonials = Array.isArray(testimonials) && testimonials.length > 0;
     letter-spacing: -0.02em;
   }
 
-  /* Azul (#318BFF) — functional data-point highlight only, never a brand/action
-     color (DESIGN.md Accent Azul). Display weight + large size clears AA ≥3:1. */
+  /* Data-point highlight — the accent segment lifts to Morado Oscuro for subtle
+     emphasis within the One Purple family. (Azul was dropped: it was the only blue
+     on the page, so it read as an inconsistency rather than a system.) */
   .social-proof__accent {
-    color: var(--color-accent);
+    color: var(--color-primary-dark);
   }
 
   .social-proof__label {

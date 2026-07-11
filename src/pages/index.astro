@@ -11,17 +11,33 @@ import content from "../content/clients/duolab.js";
 
 import Header from "../components/landing/Header.astro";
 import Hero from "../components/landing/Hero.astro";
-import Faq from "../components/landing/Faq.astro";
+import SocialProof from "../components/landing/SocialProof.astro";
+import About from "../components/landing/About.astro";
+import Services from "../components/landing/Services.astro";
 import Solution from "../components/landing/Solution.astro";
 import How from "../components/landing/How.astro";
 import Location from "../components/landing/Location.astro";
-import SocialProof from "../components/landing/SocialProof.astro";
+import Faq from "../components/landing/Faq.astro";
+import ReviewUs from "../components/landing/ReviewUs.astro";
 import FinalCta from "../components/landing/FinalCta.astro";
 import Footer from "../components/landing/Footer.astro";
 import WhatsAppFloat from "../components/landing/WhatsAppFloat.astro";
 
-const { seo, business, whatsapp, hero, faq, solution, how, location, socialProof, finalCta } =
-  content;
+const {
+  seo,
+  business,
+  whatsapp,
+  hero,
+  about,
+  services,
+  faq,
+  solution,
+  how,
+  location,
+  socialProof,
+  reviewUs,
+  finalCta,
+} = content;
 
 // Header nav: smooth-scroll anchors into the footer's info blocks (single-page).
 const navLinks = [
@@ -34,15 +50,15 @@ const navLinks = [
 // wa.me/tel CTA — the WhatsApp number is the only actionable contact).
 const phoneDisplay = "938 383 0700";
 
-// Slogan — copy.md FOOTER, verbatim.
-const footerSlogan = "Experiencia en el diagnóstico clínico a tu servicio.";
+// Display-only WhatsApp number (shown as text in Location; the actionable
+// WhatsApp CTAs use whatsapp.phoneNumber via wa.me).
+const whatsappDisplay = "938 115 6464";
 
-/**
- * Resolve a context-keyed prefilled WhatsApp message into a CTA prop object.
- * @param {string} context
- * @param {string} label
- */
-const ctaFor = (context, label) => ({
+// Slogan — copy.md FOOTER, verbatim.
+const footerSlogan = "";
+
+/** Resolve a context-keyed prefilled WhatsApp message into a CTA prop object. */
+const ctaFor = (context: string, label: string) => ({
   phoneNumber: whatsapp.phoneNumber,
   message:
     whatsapp.messages.find((m) => m.context === context)?.text ??
@@ -73,13 +89,28 @@ const childCare = {
       subheadline={hero.subheadline}
       cta={ctaFor(hero.primaryCtaMessageContext, hero.ctaLabel)}
       secondaryCta={hero.secondaryCta}
+      slogan={footerSlogan}
     />
 
-    <Faq
-      eyebrow={faq.eyebrow}
-      headline={faq.headline}
-      items={faq.items}
-      cta={ctaFor(faq.ctaMessageContext, faq.ctaLabel)}
+    <SocialProof
+      trustSignals={socialProof.trustSignals}
+      testimonials={socialProof.testimonials}
+    />
+
+    <About
+      eyebrow={about.eyebrow}
+      headline={about.headline}
+      paragraphs={about.paragraphs}
+      cta={about.cta}
+    />
+
+    <Services
+      eyebrow={services.eyebrow}
+      headline={services.headline}
+      intro={services.intro}
+      items={services.items}
+      highlight={services.highlight}
+      cta={ctaFor(services.ctaMessageContext, services.ctaLabel)}
     />
 
     <Solution
@@ -101,12 +132,23 @@ const childCare = {
       headline={location.headline}
       business={business}
       phoneDisplay={phoneDisplay}
+      whatsappDisplay={whatsappDisplay}
       directionsUrl={hero.secondaryCta.href}
     />
 
-    <SocialProof
-      trustSignals={socialProof.trustSignals}
-      testimonials={socialProof.testimonials}
+    <Faq
+      eyebrow={faq.eyebrow}
+      headline={faq.headline}
+      items={faq.items}
+      cta={ctaFor(faq.ctaMessageContext, faq.ctaLabel)}
+    />
+
+    <ReviewUs
+      eyebrow={reviewUs.eyebrow}
+      headline={reviewUs.headline}
+      body={reviewUs.body}
+      microcopy={reviewUs.microcopy}
+      cta={reviewUs.cta}
     />
 
     <FinalCta

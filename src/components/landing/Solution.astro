@@ -13,22 +13,25 @@
  * page's light rhythm — the strongest decision driver for the primary persona.
  * No medical specialty term appears here (Constitution Principle VII).
  */
+import Section from "./Section.astro";
+import SectionHeader from "./SectionHeader.astro";
 import WhatsAppButton from "./WhatsAppButton.astro";
 
 const { eyebrow, headline, offerPoints, childCareDifferentiator } = Astro.props;
 const childCare = childCareDifferentiator;
 ---
 
-<section class="solution" aria-labelledby="solution-heading">
-  <div class="solution__inner">
-    <header class="solution__head">
-      <p class="solution__eyebrow">{eyebrow}</p>
-      <h2 class="solution__headline" id="solution-heading">{headline}</h2>
-    </header>
+<Section width="900px" background="muted" labelledby="solution-heading">
+  <SectionHeader
+    eyebrow={eyebrow}
+    headline={headline}
+    id="solution-heading"
+    headlineMax="24ch"
+  />
 
-    <ul class="solution__offer">
+  <ul class="solution__offer">
       {
-        offerPoints.map((point) => (
+        offerPoints.map((point: string) => (
           <li class="solution__offer-item">
             <svg class="solution__check" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
               <path
@@ -51,7 +54,7 @@ const childCare = childCareDifferentiator;
       <p class="childcare__body">{childCare.body}</p>
       <ul class="childcare__bullets">
         {
-          childCare.bullets.map((bullet) => (
+          childCare.bullets.map((bullet: string) => (
             <li class="childcare__bullet">
               <svg class="childcare__check" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                 <path
@@ -77,41 +80,9 @@ const childCare = childCareDifferentiator;
         />
       </div>
     </div>
-  </div>
-</section>
+</Section>
 
 <style>
-  .solution {
-    background-color: var(--color-surface-muted); /* Fondo Suave #F5F3F8 */
-    padding-block: var(--space-xl);
-    padding-inline: var(--space-md);
-  }
-
-  .solution__inner {
-    max-width: 900px;
-    margin-inline: auto;
-  }
-
-  .solution__head {
-    margin-bottom: var(--space-lg);
-  }
-
-  .solution__eyebrow {
-    margin: 0 0 var(--space-xs);
-    color: var(--color-primary);
-    font-weight: var(--font-weight-title);
-    font-size: var(--font-size-label);
-  }
-
-  .solution__headline {
-    margin: 0;
-    color: var(--text-primary);
-    font-weight: var(--font-weight-heading);
-    font-size: var(--font-size-headline);
-    line-height: 1.2;
-    text-wrap: balance;
-  }
-
   .solution__offer {
     list-style: none;
     margin: 0 0 var(--space-xl);
@@ -198,10 +169,6 @@ const childCare = childCareDifferentiator;
   }
 
   @media (min-width: 768px) {
-    .solution__headline {
-      max-width: 24ch;
-    }
-
     /* answers read comfortably in two columns on wider viewports */
     .solution__offer {
       grid-template-columns: repeat(2, 1fr);

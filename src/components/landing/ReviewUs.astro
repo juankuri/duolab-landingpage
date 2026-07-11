@@ -1,0 +1,61 @@
+---
+/**
+ * ReviewUs — "Tu opinión nos ayuda". Asks satisfied visitors for a Google review.
+ *
+ * Contract:
+ *   eyebrow, headline   string
+ *   body                string
+ *   microcopy           string
+ *   cta                 { href, label }  — external Google review link
+ *
+ * Distinct from socialProof.testimonials (which shows real, sourced reviews once
+ * they exist): this section solicits NEW reviews. Centered, calm, single CTA.
+ */
+import Section from "./Section.astro";
+import SectionHeader from "./SectionHeader.astro";
+import LinkButton from "./LinkButton.astro";
+
+const { eyebrow, headline, body, microcopy, cta } = Astro.props;
+---
+
+<Section width="640px" background="muted" labelledby="review-heading">
+  <div class="review">
+    <SectionHeader eyebrow={eyebrow} headline={headline} id="review-heading" />
+    <p class="review__body">{body}</p>
+    <div class="review__action">
+      <LinkButton href={cta.href} label={cta.label} variant="primary" external />
+    </div>
+    <p class="review__microcopy">{microcopy}</p>
+  </div>
+</Section>
+
+<style>
+  .review {
+    text-align: center;
+  }
+
+  /* SectionHeader is left-aligned by default; center it within this section */
+  .review :global(.section-head__headline),
+  .review :global(.section-head__eyebrow) {
+    margin-inline: auto;
+  }
+
+  .review__body {
+    margin: 0 auto;
+    max-width: 52ch;
+    color: var(--text-secondary);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+  }
+
+  .review__action {
+    margin-top: var(--space-lg);
+  }
+
+  .review__microcopy {
+    margin: var(--space-md) 0 0;
+    color: var(--text-secondary);
+    font-size: var(--font-size-label);
+    line-height: 1.4;
+  }
+</style>

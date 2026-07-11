@@ -15,8 +15,9 @@
  * into the visual zone without restructuring.
  */
 import WhatsAppButton from "./WhatsAppButton.astro";
+import LinkButton from "./LinkButton.astro";
 
-const { eyebrow, headline, subheadline, cta, secondaryCta } = Astro.props;
+const { eyebrow, headline, subheadline, cta, secondaryCta, slogan } = Astro.props;
 
 // Two-line display of the headline without changing any words: split on the
 // first ", " so the comma stays and only the following space becomes a break.
@@ -42,18 +43,23 @@ const headlineLineTwo = headlineRest.join(", ");
         />
         {
           secondaryCta && (
-            <a class="hero__secondary" href={secondaryCta.href} target="_blank" rel="noopener noreferrer">
-              {secondaryCta.label}
-            </a>
+            <LinkButton
+              href={secondaryCta.href}
+              label={secondaryCta.label}
+              variant="outline"
+              icon="map-pin"
+              external
+            />
           )
         }
       </div>
     </div>
 
-    <div class="hero__visual" aria-hidden="true">
-      <span class="hero__wordmark">
+    <div class="hero__visual">
+      <span class="hero__wordmark" aria-hidden="true">
         <span class="hero__wordmark-duo">dúo</span><span class="hero__wordmark-lab">lab</span>
       </span>
+      {slogan && <p class="hero__slogan">{slogan}</p>}
     </div>
   </div>
 </section>
@@ -118,34 +124,8 @@ const headlineLineTwo = headlineRest.join(", ");
     width: 100%;
   }
 
-  /* Secondary ("Ver cómo llegar") — outline treatment, links to Maps not WhatsApp,
-     so it's a plain anchor rather than the WhatsAppButton component. */
-  .hero__secondary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: calc(var(--space-sm) - 2px) calc(var(--space-md) - 2px);
-    border: 2px solid var(--color-primary);
-    border-radius: var(--radius-pill);
-    background-color: transparent;
-    color: var(--color-primary);
-    font-size: var(--font-size-label);
-    font-weight: var(--font-weight-medium);
-    text-decoration: none;
-    transition:
-      background-color var(--duration-fast) var(--ease-out),
-      color var(--duration-fast) var(--ease-out);
-  }
-
-  .hero__secondary:hover,
-  .hero__secondary:focus-visible {
-    background-color: var(--color-surface);
-  }
-
-  .hero__secondary:focus-visible {
-    outline: 2px solid var(--color-secondary);
-    outline-offset: 2px;
-  }
+  /* Secondary ("Ver cómo llegar") now uses the shared LinkButton (outline + map-pin
+     icon), so no bespoke anchor styling lives here anymore. */
 
   /* Visual zone — the "dúolab" wordmark stands in for the logo (branding.md:
      "logo pendiente de captura de su archivo digital") and, later, a lab photo.
@@ -158,9 +138,24 @@ const headlineLineTwo = headlineRest.join(", ");
      the 80px digital minimum — until then there is no raster asset to optimize. */
   .hero__visual {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: var(--space-sm);
     min-height: 180px;
+  }
+
+  /* Brand slogan (branding.md FOOTER slogan) surfaced under the wordmark so the
+     promise appears at the top of the page, not only in the footer. */
+  .hero__slogan {
+    margin: 0;
+    max-width: 28ch;
+    text-align: center;
+    color: var(--color-primary-dark);
+    font-weight: var(--font-weight-medium);
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    text-wrap: balance;
   }
 
   .hero__wordmark {
@@ -185,7 +180,7 @@ const headlineLineTwo = headlineRest.join(", ");
   /* Mobile-first: actions stretch full width for easy thumb reach */
   @media (max-width: 559px) {
     .hero__actions :global(.wa-button),
-    .hero__secondary {
+    .hero__actions :global(.link-button) {
       width: 100%;
     }
   }
