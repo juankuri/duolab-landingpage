@@ -3,13 +3,14 @@
   <title id="title">DúoLab test tube icon</title>
   <desc id="desc">Purple clinical laboratory test tube from the DúoLab logo.</desc>
   <style><![CDATA[
-    /* Purple reads fine on a light browser chrome; on dark chrome the same
-       purple nearly disappears, so swap to white when the OS/browser is in
-       dark mode. Supported by Chromium/Firefox/Safari reading prefers-color-scheme
-       inside an SVG favicon -- no second file or JS needed. */
+    /* Morado Principal reads fine on a light browser chrome; on dark chrome
+       it nearly disappears, so swap to Lila Medio (a lighter brand token)
+       when the OS/browser is in dark mode. Supported by Chromium/Firefox/
+       Safari reading prefers-color-scheme inside an SVG favicon -- no second
+       file or JS needed. */
     .tube { fill: #68286b; }
     @media (prefers-color-scheme: dark) {
-      .tube { fill: #ffffff; }
+      .tube { fill: #B89DCE; } /* Lila Medio — on-brand, stays legible on dark chrome */
     }
   ]]></style>
   <g class="tube" transform="translate(47.82 8) scale(1.08106) translate(-512.148438 -101.394531)">
