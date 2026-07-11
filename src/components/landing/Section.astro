@@ -1,0 +1,61 @@
+---
+/**
+ * Section — shared section shell for the standard landing sections.
+ *
+ * Owns the one repeated outer treatment every content section shared: full-width
+ * band with vertical rhythm (padding-block) + inline gutter, a centered inner
+ * column capped at `width`, and one of the sanctioned background surfaces. Extracted
+ * from Faq/How/Solution/Location, which each re-declared it identically (DRY).
+ *
+ * Bespoke sections (Hero, FinalCta, SocialProof) intentionally do NOT use this —
+ * they have their own layout and should stay independent.
+ *
+ * Props:
+ *   width        string  inner column max-width, e.g. "760px" (default 760px)
+ *   background   "surface" | "muted" | "soft"  band color (default "surface")
+ *   id           string?  anchor id on the <section> (e.g. "ubicacion")
+ *   labelledby   string?  id of the heading that labels this section (a11y)
+ */
+interface Props {
+  width?: string;
+  background?: "surface" | "muted" | "soft";
+  id?: string;
+  labelledby?: string;
+}
+
+const { width = "760px", background = "surface", id, labelledby } = Astro.props;
+---
+
+<section
+  class:list={["section", `section--${background}`]}
+  id={id}
+  aria-labelledby={labelledby}
+>
+  <div class="section__inner" style={`--section-max: ${width}`}>
+    <slot />
+  </div>
+</section>
+
+<style>
+  .section {
+    padding-block: var(--space-xl);
+    padding-inline: var(--space-md);
+  }
+
+  .section--surface {
+    background-color: var(--color-surface); /* Blanco */
+  }
+
+  .section--muted {
+    background-color: var(--color-surface-muted); /* Fondo Suave */
+  }
+
+  .section--soft {
+    background-color: var(--color-surface-soft); /* Lila Claro */
+  }
+
+  .section__inner {
+    max-width: var(--section-max);
+    margin-inline: auto;
+  }
+</style>

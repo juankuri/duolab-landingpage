@@ -12,17 +12,16 @@
  * Patterns for New Sections). No icon-card grid either; this reads as one
  * continuous path the visitor walks through.
  */
+import Section from "./Section.astro";
+import SectionHeader from "./SectionHeader.astro";
+
 const { eyebrow, headline, steps, note } = Astro.props;
 ---
 
-<section class="how" aria-labelledby="how-heading">
-  <div class="how__inner">
-    <header class="how__head">
-      <p class="how__eyebrow">{eyebrow}</p>
-      <h2 class="how__headline" id="how-heading">{headline}</h2>
-    </header>
+<Section width="720px" background="surface" labelledby="how-heading">
+  <SectionHeader eyebrow={eyebrow} headline={headline} id="how-heading" />
 
-    <ol class="how__timeline">
+  <ol class="how__timeline">
       {
         steps.map((step: { title: string; body: string }) => (
           <li class="how__step">
@@ -37,41 +36,9 @@ const { eyebrow, headline, steps, note } = Astro.props;
     </ol>
 
     <p class="how__note">{note}</p>
-  </div>
-</section>
+</Section>
 
 <style>
-  .how {
-    background-color: var(--color-surface); /* Blanco — rhythm against Fondo Suave sections */
-    padding-block: var(--space-xl);
-    padding-inline: var(--space-md);
-  }
-
-  .how__inner {
-    max-width: 720px;
-    margin-inline: auto;
-  }
-
-  .how__head {
-    margin-bottom: var(--space-lg);
-  }
-
-  .how__eyebrow {
-    margin: 0 0 var(--space-xs);
-    color: var(--color-primary);
-    font-weight: var(--font-weight-title);
-    font-size: var(--font-size-label);
-  }
-
-  .how__headline {
-    margin: 0;
-    color: var(--text-primary);
-    font-weight: var(--font-weight-heading);
-    font-size: var(--font-size-headline);
-    line-height: 1.2;
-    text-wrap: balance;
-  }
-
   .how__timeline {
     list-style: none;
     margin: 0;

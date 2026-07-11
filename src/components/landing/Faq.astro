@@ -13,19 +13,22 @@
  * No card grid, no emoji icons: a single readable column with hairline
  * dividers, matching the page's existing quiet rhythm.
  */
+import Section from "./Section.astro";
+import SectionHeader from "./SectionHeader.astro";
 import WhatsAppButton from "./WhatsAppButton.astro";
 
 const { eyebrow, headline, items, cta } = Astro.props;
 ---
 
-<section class="faq" aria-labelledby="faq-heading">
-  <div class="faq__inner">
-    <header class="faq__head">
-      <p class="faq__eyebrow">{eyebrow}</p>
-      <h2 class="faq__headline" id="faq-heading">{headline}</h2>
-    </header>
+<Section width="760px" background="surface" labelledby="faq-heading">
+  <SectionHeader
+    eyebrow={eyebrow}
+    headline={headline}
+    id="faq-heading"
+    headlineMax="22ch"
+  />
 
-    <div class="faq__list">
+  <div class="faq__list">
       {
         items.map((item: { question: string; answer: string }, index: number) => (
           <details class="faq__item" name={index === 0 ? "faq-open" : undefined}>
@@ -63,41 +66,9 @@ const { eyebrow, headline, items, cta } = Astro.props;
         variant="outline"
       />
     </div>
-  </div>
-</section>
+</Section>
 
 <style>
-  .faq {
-    background-color: var(--color-surface); /* Blanco — rhythm against the lila hero */
-    padding-block: var(--space-xl);
-    padding-inline: var(--space-md);
-  }
-
-  .faq__inner {
-    max-width: 760px;
-    margin-inline: auto;
-  }
-
-  .faq__head {
-    margin-bottom: var(--space-lg);
-  }
-
-  .faq__eyebrow {
-    margin: 0 0 var(--space-xs);
-    color: var(--color-primary);
-    font-weight: var(--font-weight-title);
-    font-size: var(--font-size-label);
-  }
-
-  .faq__headline {
-    margin: 0;
-    color: var(--text-primary);
-    font-weight: var(--font-weight-heading);
-    font-size: var(--font-size-headline);
-    line-height: 1.2;
-    text-wrap: balance;
-  }
-
   .faq__list {
     border-top: 1px solid var(--color-surface-soft);
   }
@@ -154,12 +125,6 @@ const { eyebrow, headline, items, cta } = Astro.props;
 
   .faq__action {
     margin-top: var(--space-lg);
-  }
-
-  @media (min-width: 768px) {
-    .faq__headline {
-      max-width: 22ch;
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {

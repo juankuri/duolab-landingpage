@@ -1,0 +1,62 @@
+---
+/**
+ * SectionHeader — eyebrow + H2 pair shared by the standard sections.
+ *
+ * Extracted from Faq/How/Solution/Location, which each repeated identical eyebrow
+ * and headline markup + CSS. Pass `id` so the parent <Section labelledby> can point
+ * its aria-labelledby at this heading.
+ *
+ * Props:
+ *   eyebrow      string   small label above the headline
+ *   headline     string   the H2 text
+ *   id           string   heading id (target of Section's labelledby)
+ *   headlineMax  string?  headline max-width at ≥768px (e.g. "22ch"); unset = none
+ */
+interface Props {
+  eyebrow: string;
+  headline: string;
+  id: string;
+  headlineMax?: string;
+}
+
+const { eyebrow, headline, id, headlineMax } = Astro.props;
+---
+
+<header class="section-head">
+  <p class="section-head__eyebrow">{eyebrow}</p>
+  <h2
+    class="section-head__headline"
+    id={id}
+    style={headlineMax ? `--headline-max: ${headlineMax}` : undefined}
+  >
+    {headline}
+  </h2>
+</header>
+
+<style>
+  .section-head {
+    margin-bottom: var(--space-lg);
+  }
+
+  .section-head__eyebrow {
+    margin: 0 0 var(--space-xs);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-title);
+    font-size: var(--font-size-label);
+  }
+
+  .section-head__headline {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-heading);
+    font-size: var(--font-size-headline);
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  @media (min-width: 768px) {
+    .section-head__headline {
+      max-width: var(--headline-max, none);
+    }
+  }
+</style>
