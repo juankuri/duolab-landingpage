@@ -8,11 +8,11 @@
  *   cta                    { phoneNumber, message, label }
  *   secondaryCta?          { href, label }
  *
- * Visual (root DESIGN.md + confirmed shape brief): lila-claro field with a
- * "dúolab" text wordmark standing in for the not-yet-delivered logo (copy.md
- * design note). Mobile-first single column; desktop becomes an asymmetric
- * two-zone layout (copy left, visual right) so a real lab photo can later drop
- * into the visual zone without restructuring.
+ * Visual (root DESIGN.md + confirmed shape brief): lila-claro field with the
+ * official DúoLab logo (full lockup with subtitle) in the visual zone.
+ * Mobile-first single column; desktop becomes an asymmetric two-zone layout
+ * (copy left, logo right) so a real lab photo can later join the visual zone
+ * without restructuring.
  */
 import WhatsAppButton from "./WhatsAppButton.astro";
 import LinkButton from "./LinkButton.astro";
@@ -56,9 +56,13 @@ const headlineLineTwo = headlineRest.join(", ");
     </div>
 
     <div class="hero__visual">
-      <span class="hero__wordmark" aria-hidden="true">
-        <span class="hero__wordmark-duo">dúo</span><span class="hero__wordmark-lab">lab</span>
-      </span>
+      <img
+        class="hero__logo"
+        src="/clients/duolab/logo/logo-full.svg"
+        alt="DúoLab — Laboratorio de análisis clínicos y patología"
+        width="494"
+        height="130"
+      />
       {slogan && <p class="hero__slogan">{slogan}</p>}
     </div>
   </div>
@@ -127,15 +131,10 @@ const headlineLineTwo = headlineRest.join(", ");
   /* Secondary ("Ver cómo llegar") now uses the shared LinkButton (outline + map-pin
      icon), so no bespoke anchor styling lives here anymore. */
 
-  /* Visual zone — the "dúolab" wordmark stands in for the logo (branding.md:
-     "logo pendiente de captura de su archivo digital") and, later, a lab photo.
-     branding.md logo rules honored by the stand-in (spec FR-011):
-       · palette colors only (Morado Principal + Morado Oscuro) — no foreign hue
-       · permitted background (Lila Claro is a sanctioned brand ground)
-       · no shadow, gradient, or effect (DESIGN.md Tint-Not-Shadow)
-       · safe area ≥ cap-height maintained by the centered min-height zone
-     When the real logo asset arrives, drop it in here as an <Image> and enforce
-     the 80px digital minimum — until then there is no raster asset to optimize. */
+  /* Visual zone — the official DúoLab logo (public/clients/duolab/logo/logo-full.svg,
+     full lockup with subtitle). A real lab photo can later join this zone. The SVG's
+     letter/counter transparency is baked into the asset (a mask punches the o/a/b
+     counters open); do not "fix" it in CSS. */
   .hero__visual {
     display: flex;
     flex-direction: column;
@@ -145,7 +144,7 @@ const headlineLineTwo = headlineRest.join(", ");
     min-height: 180px;
   }
 
-  /* Brand slogan (branding.md FOOTER slogan) surfaced under the wordmark so the
+  /* Brand slogan (branding.md FOOTER slogan) surfaced under the logo so the
      promise appears at the top of the page, not only in the footer. */
   .hero__slogan {
     margin: 0;
@@ -158,23 +157,13 @@ const headlineLineTwo = headlineRest.join(", ");
     text-wrap: balance;
   }
 
-  .hero__wordmark {
-    font-family: var(--font-heading);
-    font-weight: var(--font-weight-display);
-    font-size: clamp(3rem, 12vw, 5.5rem);
-    line-height: 1;
-    letter-spacing: -0.03em;
-  }
-
-  .hero__wordmark-duo {
-    color: var(--color-primary);
-  }
-
-  /* Two-tone logotype within the One Purple family. "lab" uses Morado Oscuro
-     (not Lila Medio) so the wordmark clears WCAG AA large-text contrast on the
-     Lila Claro field (~9:1); Lila Medio was 1.99:1 and failed (T030). */
-  .hero__wordmark-lab {
-    color: var(--color-primary-dark);
+  /* Official DúoLab logo (full lockup with subtitle — legible at this scale).
+     Fluid width so it fills the visual zone; height auto preserves aspect ratio. */
+  .hero__logo {
+    display: block;
+    width: 100%;
+    max-width: 460px;
+    height: auto;
   }
 
   /* Mobile-first: actions stretch full width for easy thumb reach */

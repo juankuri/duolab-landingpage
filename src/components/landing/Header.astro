@@ -23,7 +23,13 @@ const { brand, navLinks, cta } = Astro.props;
 <header class="site-header" id="top">
   <div class="site-header__inner">
     <a class="site-header__brand" href="#top" aria-label={`${brand} — inicio`}>
-      {brand}
+      <img
+        class="site-header__logo"
+        src="/clients/duolab/logo/logo-mark.svg"
+        alt={brand}
+        width="150"
+        height="40"
+      />
     </a>
 
     <button
@@ -87,13 +93,17 @@ const { brand, navLinks, cta } = Astro.props;
   }
 
   .site-header__brand {
-    font-family: var(--font-heading);
-    font-weight: var(--font-weight-display); /* ExtraBold 800 */
-    font-size: 1.5rem;
-    letter-spacing: -0.02em;
-    color: var(--color-primary); /* Morado Principal */
+    display: inline-flex;
+    align-items: center;
     text-decoration: none;
-    line-height: 1;
+  }
+
+  /* Official DúoLab logo (mark without the subtitle — illegible at header scale).
+     Height-driven so it scales with the header; width auto keeps the aspect ratio. */
+  .site-header__logo {
+    display: block;
+    height: 40px;
+    width: auto;
   }
 
   /* Hamburger — shown on mobile only */
