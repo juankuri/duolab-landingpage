@@ -27,11 +27,19 @@ pnpm-debug.log*
 
 # Claude Code / AI agent local settings
 .claude/settings.local.json
+.claude/skills/
 .cursor/settings.local.json
 
-# Spec Kit local memory and cache
+# Spec Kit scaffolding and local memory/cache
+.specify/
 .specify/memory/
 .specify/cache/
+
+# Internal planning and specification documents
+HANDOFF.md
+PRODUCT.md
+DESIGN.md
+specs/
 
 # Local environment overrides
 .env.local
