@@ -1,28 +1,70 @@
-## Development
+# Agent Notes
 
-When starting the dev server, use background mode:
+## Repository Identity
 
-```
-astro dev --background
-```
+This is the DuoLab product repository.
 
-Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
+The top-level structure is intentionally organized by technical layer:
+
+- `frontend/`
+- `backend/`
+- `database/`
+- `docs/`
+- `branding/`
+
+Do not treat the repository as only an Astro landing page. The landing is one logical application within the broader product.
+
+## Product Applications
+
+- Public website
+- Patient portal
+- Internal administration panel
+
+These applications share the same backend API and persistence layer.
 
 ## Documentation
 
-Full documentation: https://docs.astro.build
+Canonical documentation lives in:
 
-Consult these guides before working on related tasks:
+- `docs/01-domain.md`
+- `docs/02-architecture.md`
+- `docs/03-decisions.md`
+- `docs/04-backlog.md`
+- `branding/brand.md`
+- `branding/copy.md`
+- `branding/guidelines.md`
 
-- [Adding pages, dynamic routes, or middleware](https://docs.astro.build/en/guides/routing/)
-- [Working with Astro components](https://docs.astro.build/en/basics/astro-components/)
-- [Using React, Vue, Svelte, or other framework components](https://docs.astro.build/en/guides/framework-components/)
-- [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
-- [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
-- [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
+Preserve domain knowledge. Remove raw discovery, stale handoffs, generated specs, and process-heavy artifacts when they no longer serve the product.
 
-<!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan:
-specs/001-duolab-landing-page/plan.md
-<!-- SPECKIT END -->
+## Frontend Development
+
+The frontend is in `frontend/`.
+
+When starting the Astro dev server, use background mode:
+
+```sh
+cd frontend
+astro dev --background
+```
+
+Manage the background server with:
+
+```sh
+astro dev stop
+astro dev status
+astro dev logs
+```
+
+Do not introduce frontend feature folders until there are multiple implemented product features that justify that structure.
+
+## Architecture Direction
+
+Cloudflare-first:
+
+- Pages
+- Workers
+- D1
+- R2
+- Access
+
+Backend framework choices belong in `docs/03-decisions.md` until implementation makes them definitive.
