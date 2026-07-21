@@ -68,3 +68,15 @@ Cloudflare-first:
 - Access
 
 Backend framework choices belong in `docs/03-decisions.md` until implementation makes them definitive.
+
+## Learning First
+
+This repository is both a real product and a learning project.
+
+When introducing a new framework, library or platform:
+
+1. Prefer the smallest complete implementation.
+2. Explain architectural decisions.
+3. Avoid hiding important abstractions.
+4. Let the developer implement the first representative example.
+5. Automate repetitive work only after the pattern has been understood.
