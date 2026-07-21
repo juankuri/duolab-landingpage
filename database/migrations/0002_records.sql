@@ -8,7 +8,7 @@ CREATE TABLE patients (
 );
 
 CREATE TABLE records (
-  id TEXT PRIMARY KEY,
+  record_id TEXT PRIMARY KEY,
   folio TEXT NOT NULL UNIQUE,
   patient_id TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
