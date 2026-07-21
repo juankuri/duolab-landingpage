@@ -44,8 +44,10 @@ The architectural direction is Cloudflare-first:
 
 This keeps deployment and operations simple for the current product scale.
 
-## DEC-005=4: Evaluate Hono for the Backend API
+## DEC-004: Use Hono for the Backend API
 
-Status: Proposed
+Status: Accepted
 
-Hono is a candidate backend framework for the Cloudflare Workers API. It should not be treated as final until backend implementation begins.
+Hono is the backend framework for the Cloudflare Workers API.
+
+It keeps the Worker implementation small, typed, and close to the underlying Fetch API while still providing routing and middleware for the result-delivery workflows.

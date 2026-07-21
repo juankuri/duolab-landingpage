@@ -1,0 +1,20 @@
+{
+  "name": "@duolab/backend",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "tsc --noEmit",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
+  },
+  "dependencies": {
+    "hono": "^4.10.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260721.1",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.26.0"
+  }
+}
