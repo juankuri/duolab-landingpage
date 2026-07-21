@@ -5,5 +5,23 @@
   "compatibility_date": "2026-07-20",
   "observability": {
     "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "duolab",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../database/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "RESULTS_BUCKET", // creates c.env.RESULTS_BUCKET.
+      "bucket_name": "duolab-results" // actual R2 bucket name in Cloudflare.
+    }
+  ],
+  "vars": {
+    "CLOUDFLARE_ACCESS_TEAM_DOMAIN": "duolab-team.cloudflareaccess.com",
+    "CLOUDFLARE_ACCESS_AUDIENCE": "my-access-aud"
   }
 }

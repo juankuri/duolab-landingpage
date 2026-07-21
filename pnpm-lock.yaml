@@ -11,6 +11,9 @@ importers:
       hono:
         specifier: ^4.10.6
         version: 4.12.31
+      jose:
+        specifier: ^6.2.3
+        version: 6.2.3
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^5.20260721.1
@@ -1319,6 +1322,9 @@ packages:
   is-wsl@3.1.1:
     resolution: {integrity: sha512-e6rvdUCiQCAuumZslxRJWR/Doq4VpPR82kqclvcS0efgt430SlGIk05vdCN58+VrzgtIcfNODjozVielycD4Sw==}
     engines: {node: '>=16'}
+
+  jose@6.2.3:
+    resolution: {integrity: sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw==}
 
   js-yaml@4.3.0:
     resolution: {integrity: sha512-1td788aAnnZ5qs7V2QIRl1owjtYpbKt749Y3xauqQgwIIGF/xXWz1wMTEBx5O3LK3lXLVuqXPdPxj2BoFHaW9Q==}
@@ -3190,6 +3196,8 @@ snapshots:
   is-wsl@3.1.1:
     dependencies:
       is-inside-container: 1.0.0
+
+  jose@6.2.3: {}
 
   js-yaml@4.3.0:
     dependencies:
