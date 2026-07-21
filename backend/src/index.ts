@@ -1,4 +1,4 @@
-import { Hono, Context, Next } from "hono";
+import { Hono, type Context, type Next } from "hono";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 type Bindings = {
@@ -22,52 +22,74 @@ type AppContext = Context<{
   Variables: Variables;
 }>;
 
-const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+type FilePreviewRow = {
+  file_id: string;
+  r2_key: string;
+  original_filename: string;
+  mime_type: string;
+};
 
-app.get("/health", (c) => {
-  return c.json({
-    ok: true,
-    service: "duolab-api",
-  });
-});
+type RecordDetailRow = {
+  record_id: string;
+  folio: string;
+  patient_id: string;
+  full_name: string;
+  birth_date: string;
+  phone_number: string;
+};
+
+type RecordFileRow = {
+  file_id: string;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  status: string;
+  uploaded_by: string;
+  uploaded_at: string;
+  confirmed_by: string | null;
+  confirmed_at: string | null;
+};
+
+const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 const PDF_MAGIC_BYTES = [0x25, 0x50, 0x44, 0x46, 0x2d];
 
 async function isPdf(file: File): Promise<boolean> {
-  if (file.size === 0){
+  if (file.size === 0) {
     return false;
   }
 
-  if (file.type !== "application/pdf"){
+  if (file.type !== "application/pdf") {
     return false;
   }
 
-  const header = new Uint8Array (await file.slice(0, PDF_MAGIC_BYTES.length).arrayBuffer());
+  const header = new Uint8Array(
+    await file.slice(0, PDF_MAGIC_BYTES.length).arrayBuffer(),
+  );
 
-  return PDF_MAGIC_BYTES.every((byte, index) => header[index] === byte)
+  return PDF_MAGIC_BYTES.every((byte, index) => header[index] === byte);
 }
 
-async function requireAccess(c: AppContext, next: Next){
+async function requireAccess(c: AppContext, next: Next) {
   const token = c.req.header("Cf-Access-Jwt-Assertion");
 
-  if(!token) {
-    return c.json({error: "Unauthorized"}, 401)
+  if (!token) {
+    return c.json({ error: "Unauthorized" }, 401);
   }
 
-  try{
+  try {
     const certsUrl = new URL(
       `https://${c.env.CLOUDFLARE_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`,
-    )
-    
+    );
     const jwks = createRemoteJWKSet(certsUrl);
-  
-    const {payload} = await jwtVerify(token, jwks, {
+
+    const { payload } = await jwtVerify(token, jwks, {
       issuer: `https://${c.env.CLOUDFLARE_ACCESS_TEAM_DOMAIN}`,
       audience: c.env.CLOUDFLARE_ACCESS_AUDIENCE,
     });
 
-    if(typeof payload.email !== "string" || typeof payload.sub !== "string") {
-      return c.json({error: "Access token is missing identity claims."}, 401);
+    if (typeof payload.email !== "string" || typeof payload.sub !== "string") {
+      return c.json({ error: "Access token is missing identity claims." }, 401);
     }
 
     c.set("employee", {
@@ -77,40 +99,32 @@ async function requireAccess(c: AppContext, next: Next){
 
     await next();
   } catch {
-    return c.json({error: "Unauthorized"}, 401);
+    return c.json({ error: "Unauthorized" }, 401);
   }
 }
 
-//dev mode
+// Local learning helper. Do not enable this before committing protected routes.
 // async function requireAccess(c: AppContext, next: Next) {
 //   const token = c.req.header("Cf-Access-Jwt-Assertion");
-
+//
 //   if (!token) {
 //     return c.json({ error: "Unauthorized" }, 401);
 //   }
-
+//
 //   c.set("employee", {
 //     email: "local-dev@duolab.test",
 //     subject: "local-dev",
 //   });
-
+//
 //   await next();
 // }
 
-
-// app.get("/learning/access", requireAccess, (c) => {
-//   return c.json({
-//     employee: c.get("employee"),
-//   });
-// });
-
-//dev
-// app.get("/learning/access", requireAccess, (c) => {
-//   return c.json({
-//     ok: true,
-//     message: "Access token header exists",
-//   });
-// });
+app.get("/health", (c) => {
+  return c.json({
+    ok: true,
+    service: "duolab-api",
+  });
+});
 
 app.post("/learning/d1", async (c) => {
   const body: { message?: unknown } = await c.req.json().catch(() => ({}));
@@ -138,7 +152,62 @@ app.get("/learning/d1", async (c) => {
   });
 });
 
-//TODO: wrap in D1 batch or make it transactionist
+app.post("/learning/r2", async (c) => {
+  const formData = await c.req.formData();
+  const file = formData.get("file");
+
+  if (!(file instanceof File)) {
+    return c.json({ error: "No file uploaded, please upload a file." }, 400);
+  }
+
+  if (!(await isPdf(file))) {
+    return c.json({ error: "Only PDF files are allowed." }, 400);
+  }
+
+  const key = `learning/${crypto.randomUUID()}-${file.name}`;
+
+  await c.env.RESULTS_BUCKET.put(key, file.stream(), {
+    httpMetadata: {
+      contentType: file.type || "application/octet-stream",
+    },
+    customMetadata: {
+      originalFilename: file.name,
+    },
+  });
+
+  return c.json(
+    {
+      key,
+      filename: file.name,
+      contentType: file.type || "application/octet-stream",
+      size: file.size,
+    },
+    201,
+  );
+});
+
+app.get("/learning/r2", async (c) => {
+  const key = c.req.query("key");
+
+  if (!key) {
+    return c.json({ error: "Pass the R2 object key as ?key=..." }, 400);
+  }
+
+  const object = await c.env.RESULTS_BUCKET.get(key);
+
+  if (!object) {
+    return c.json({ error: "File not found." }, 404);
+  }
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("etag", object.httpEtag);
+
+  return new Response(object.body, {
+    headers,
+  });
+});
+
 app.post("/records", requireAccess, async (c) => {
   const body: {
     fullName?: unknown;
@@ -196,13 +265,80 @@ app.post("/records", requireAccess, async (c) => {
       201,
     );
   } catch (error) {
-  return c.json(
-    {
-      error: "Could not create record.",
+    console.error(error);
+
+    return c.json({ error: "Could not create record." }, 400);
+  }
+});
+
+app.get("/records/:recordId", requireAccess, async (c) => {
+  const recordId = c.req.param("recordId");
+
+  if (!recordId) {
+    return c.json({ error: "Record id is required." }, 400);
+  }
+
+  const record = await c.env.DB.prepare(
+    `SELECT
+       records.record_id,
+       records.folio,
+       patients.patient_id,
+       patients.full_name,
+       patients.birth_date,
+       patients.phone_number
+     FROM records
+     JOIN patients ON patients.patient_id = records.patient_id
+     WHERE records.record_id = ?`,
+  )
+    .bind(recordId)
+    .first<RecordDetailRow>();
+
+  if (!record) {
+    return c.json({ error: "Record not found." }, 404);
+  }
+
+  const files = await c.env.DB.prepare(
+    `SELECT
+       file_id,
+       original_filename,
+       mime_type,
+       size_bytes,
+       status,
+       uploaded_by,
+       uploaded_at,
+       confirmed_by,
+       confirmed_at
+     FROM files
+     WHERE record_id = ?
+     ORDER BY uploaded_at DESC`,
+  )
+    .bind(recordId)
+    .all<RecordFileRow>();
+
+  return c.json({
+    record: {
+      recordId: record.record_id,
+      folio: record.folio,
+      patient: {
+        patientId: record.patient_id,
+        fullName: record.full_name,
+        birthDate: record.birth_date,
+        phoneNumber: record.phone_number,
+      },
+      files: files.results.map((file) => ({
+        fileId: file.file_id,
+        originalFilename: file.original_filename,
+        mimeType: file.mime_type,
+        sizeBytes: file.size_bytes,
+        status: file.status,
+        uploadedBy: file.uploaded_by,
+        uploadedAt: file.uploaded_at,
+        confirmedBy: file.confirmed_by,
+        confirmedAt: file.confirmed_at,
+        previewUrl: `/files/${file.file_id}`,
+      })),
     },
-    400,
-  );
-}
+  });
 });
 
 app.post("/records/:recordId/files", requireAccess, async (c) => {
@@ -220,7 +356,7 @@ app.post("/records/:recordId/files", requireAccess, async (c) => {
       .first();
 
     if (!record) {
-      return c.json({ error: "Record not found" }, 404);
+      return c.json({ error: "Record not found." }, 404);
     }
 
     const formData = await c.req.formData();
@@ -275,55 +411,44 @@ app.post("/records/:recordId/files", requireAccess, async (c) => {
   } catch (error) {
     console.error(error);
 
-    return c.json(
-      {
-        error: "Could not upload file.",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      500,
-    );
+    return c.json({ error: "Could not upload file." }, 500);
   }
 });
 
 app.get("/files/:fileId", requireAccess, async (c) => {
   const fileId = c.req.param("fileId");
 
-  if(!fileId) {
-    return c.json({error: "File id is required"}, 400);
+  if (!fileId) {
+    return c.json({ error: "File id is required." }, 400);
   }
 
-const file = await c.env.DB.prepare(
-  "SELECT file_id, r2_key, original_filename, mime_type FROM files WHERE file_id = ?",
-)
-.bind(fileId)
-.first<{ //todo use Type FileRow
-  file_id: string;
-  r2_key: string;
-  original_filename: string;
-  mime_type: string;
-}>();
+  const file = await c.env.DB.prepare(
+    "SELECT file_id, r2_key, original_filename, mime_type FROM files WHERE file_id = ?",
+  )
+    .bind(fileId)
+    .first<FilePreviewRow>();
 
-if(!file) {
-  return c.json({error: "File not found"}, 404);
-}
+  if (!file) {
+    return c.json({ error: "File not found." }, 404);
+  }
 
-const object = await c.env.RESULTS_BUCKET.get(file.r2_key);
+  const object = await c.env.RESULTS_BUCKET.get(file.r2_key);
 
-if(!object) {
-  return c.json({error: "Stored file not found."}, 404);
-}
+  if (!object) {
+    return c.json({ error: "Stored file not found." }, 404);
+  }
 
-const headers = new Headers();
-object.writeHttpMetadata(headers);
-headers.set("content-type", file.mime_type);
-headers.set(
-  "content-disposition",
-  `inline; filename=${file.original_filename.replaceAll('"', "")}"`,
-);
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("content-type", file.mime_type);
+  headers.set(
+    "content-disposition",
+    `inline; filename="${file.original_filename.replaceAll('"', "")}"`,
+  );
 
-return new Response(object.body, {
-  headers,
-});
+  return new Response(object.body, {
+    headers,
+  });
 });
 
 app.post("/files/:fileId/confirm", requireAccess, async (c) => {
@@ -335,84 +460,25 @@ app.post("/files/:fileId/confirm", requireAccess, async (c) => {
 
   const employee = c.get("employee");
 
-const result = await c.env.DB.prepare(
-  `UPDATE files
-   SET status = 'CONFIRMED',
-       confirmed_by = ?,
-       confirmed_at = CURRENT_TIMESTAMP
-   WHERE file_id = ?
-     AND status = 'UPLOADED'`,
-)
-  .bind(employee.email, fileId)
-  .run();
+  const result = await c.env.DB.prepare(
+    `UPDATE files
+     SET status = 'CONFIRMED',
+         confirmed_by = ?,
+         confirmed_at = CURRENT_TIMESTAMP
+     WHERE file_id = ?
+       AND status = 'UPLOADED'`,
+  )
+    .bind(employee.email, fileId)
+    .run();
 
   if (result.meta.changes === 0) {
-    return c.json(
-      { error: "File not found or cannot be confirmed." },
-      404,
-    );
+    return c.json({ error: "File not found or cannot be confirmed." }, 404);
   }
 
   return c.json({
     fileId,
     status: "CONFIRMED",
     confirmedBy: employee.email,
-  });
-});
-
-app.post("/learning/r2", async (c) => {
-  const formData = await c.req.formData();
-  const file = formData.get("file");
-
-  if(!(file instanceof File)){
-    return c.json({error: "No file uploaded, please upload a file"}, 400);
-  }
-
-  if (!(await isPdf(file))) {
-    return c.json({ error: "Only PDF files are allowed, please upload a PDF file" }, 400);
-  }
-
-  const key = `learning/${crypto.randomUUID()}-${file.name}`;
-
-  await c.env.RESULTS_BUCKET.put(key, file.stream(), {
-    httpMetadata: {
-      contentType: file.type || "application/octet-stream",
-    },
-    customMetadata: {
-      originalFilename: file.name,
-    },
-  });
-
-  return c.json(
-    {
-      key,
-      filename: file.name,
-      contentType: file.type || "application/octet-stream",
-      size: file.size,
-    },
-    201,
-  );
-});
-
-app.get("/learning/r2", async (c) => {
-  const key = c.req.query("key");
-
-  if (!key) {
-    return c.json({ error: "Pass the R2 object key as ?key=..." }, 400);
-  }
-
-  const object = await c.env.RESULTS_BUCKET.get(key);
-
-  if (!object) {
-    return c.json({ error: "File not found." }, 404);
-  }
-
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set("etag", object.httpEtag);
-
-  return new Response(object.body, {
-    headers,
   });
 });
 
