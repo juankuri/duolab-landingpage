@@ -138,7 +138,7 @@ app.use(
     origin: (origin, c: AppContext) =>
       isLocalDev(c) && origin === LOCAL_FRONTEND_ORIGIN ? origin : null,
     allowHeaders: ["Content-Type"],
-    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
   }),
 );
 
@@ -267,17 +267,14 @@ app.post("/records", requireAccess, async (c) => {
   const recordId = crypto.randomUUID();
 
   try {
-    await c.env.DB.prepare(
-      "INSERT INTO patients (patient_id, full_name, birth_date, phone_number) VALUES (?, ?, ?, ?)",
-    )
-      .bind(patientId, fullName, birthDate, phoneNumber)
-      .run();
-
-    await c.env.DB.prepare(
-      "INSERT INTO records (record_id, folio, patient_id) VALUES (?, ?, ?)",
-    )
-      .bind(recordId, folio, patientId)
-      .run();
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        "INSERT INTO patients (patient_id, full_name, birth_date, phone_number) VALUES (?, ?, ?, ?)",
+      ).bind(patientId, fullName, birthDate, phoneNumber),
+      c.env.DB.prepare(
+        "INSERT INTO records (record_id, folio, patient_id) VALUES (?, ?, ?)",
+      ).bind(recordId, folio, patientId),
+    ]);
 
     return c.json(
       {
@@ -288,10 +285,78 @@ app.post("/records", requireAccess, async (c) => {
       201,
     );
   } catch (error) {
+    if (error instanceof Error && error.message.includes("UNIQUE constraint failed: records.folio")) {
+      const existing = await c.env.DB.prepare(
+        `SELECT records.record_id, patients.full_name
+         FROM records
+         JOIN patients ON patients.patient_id = records.patient_id
+         WHERE records.folio = ?`,
+      )
+        .bind(folio)
+        .first<{ record_id: string; full_name: string }>();
+
+      return c.json(
+        {
+          error: "Folio already exists.",
+          existingRecord: existing
+            ? { recordId: existing.record_id, folio, patientName: existing.full_name }
+            : { folio },
+        },
+        409,
+      );
+    }
+
     console.error(error);
 
     return c.json({ error: "Could not create record." }, 400);
   }
+});
+
+app.get("/records", requireAccess, async (c) => {
+  const limitParam = Number(c.req.query("limit") ?? "20");
+  const limit = Number.isFinite(limitParam)
+    ? Math.min(Math.max(Math.trunc(limitParam), 1), 100)
+    : 20;
+
+  const rows = await c.env.DB.prepare(
+    `SELECT
+       records.record_id,
+       records.folio,
+       records.created_at,
+       patients.full_name,
+       latest.status AS latest_status,
+       latest.uploaded_at AS latest_uploaded_at
+     FROM records
+     JOIN patients ON patients.patient_id = records.patient_id
+     LEFT JOIN (
+       SELECT f.record_id, f.status, f.uploaded_at
+       FROM files f
+       WHERE f.uploaded_at = (
+         SELECT MAX(f2.uploaded_at) FROM files f2 WHERE f2.record_id = f.record_id
+       )
+     ) latest ON latest.record_id = records.record_id
+     ORDER BY COALESCE(latest.uploaded_at, records.created_at) DESC
+     LIMIT ?`,
+  )
+    .bind(limit)
+    .all<{
+      record_id: string;
+      folio: string;
+      created_at: string;
+      full_name: string;
+      latest_status: string | null;
+      latest_uploaded_at: string | null;
+    }>();
+
+  return c.json({
+    records: rows.results.map((row) => ({
+      recordId: row.record_id,
+      folio: row.folio,
+      patientName: row.full_name,
+      status: row.latest_status ?? "NO_FILE",
+      updatedAt: row.latest_uploaded_at ?? row.created_at,
+    })),
+  });
 });
 
 app.get("/records/:recordId", requireAccess, async (c) => {
@@ -336,6 +401,76 @@ app.get("/records/:recordId", requireAccess, async (c) => {
      ORDER BY uploaded_at DESC`,
   )
     .bind(recordId)
+    .all<RecordFileRow>();
+
+  return c.json({
+    record: {
+      recordId: record.record_id,
+      folio: record.folio,
+      patient: {
+        patientId: record.patient_id,
+        fullName: record.full_name,
+        birthDate: record.birth_date,
+        phoneNumber: record.phone_number,
+      },
+      files: files.results.map((file) => ({
+        fileId: file.file_id,
+        originalFilename: file.original_filename,
+        mimeType: file.mime_type,
+        sizeBytes: file.size_bytes,
+        status: file.status,
+        uploadedBy: file.uploaded_by,
+        uploadedAt: file.uploaded_at,
+        confirmedBy: file.confirmed_by,
+        confirmedAt: file.confirmed_at,
+        previewUrl: `/files/${file.file_id}`,
+      })),
+    },
+  });
+});
+
+app.get("/records/by-folio/:folio", requireAccess, async (c) => {
+  const folio = c.req.param("folio");
+
+  if (!folio) {
+    return c.json({ error: "Folio is required." }, 400);
+  }
+
+  const record = await c.env.DB.prepare(
+    `SELECT
+       records.record_id,
+       records.folio,
+       patients.patient_id,
+       patients.full_name,
+       patients.birth_date,
+       patients.phone_number
+     FROM records
+     JOIN patients ON patients.patient_id = records.patient_id
+     WHERE records.folio = ?`,
+  )
+    .bind(folio)
+    .first<RecordDetailRow>();
+
+  if (!record) {
+    return c.json({ error: "Record not found." }, 404);
+  }
+
+  const files = await c.env.DB.prepare(
+    `SELECT
+       file_id,
+       original_filename,
+       mime_type,
+       size_bytes,
+       status,
+       uploaded_by,
+       uploaded_at,
+       confirmed_by,
+       confirmed_at
+     FROM files
+     WHERE record_id = ?
+     ORDER BY uploaded_at DESC`,
+  )
+    .bind(record.record_id)
     .all<RecordFileRow>();
 
   return c.json({
@@ -436,6 +571,31 @@ app.post("/records/:recordId/files", requireAccess, async (c) => {
 
     return c.json({ error: "Could not upload file." }, 500);
   }
+});
+
+app.delete("/records/:recordId/files/:fileId", requireAccess, async (c) => {
+  const recordId = c.req.param("recordId");
+  const fileId = c.req.param("fileId");
+
+  if (!recordId || !fileId) {
+    return c.json({ error: "Record id and file id are required." }, 400);
+  }
+
+  const file = await c.env.DB.prepare(
+    "SELECT file_id, r2_key FROM files WHERE file_id = ? AND record_id = ?",
+  )
+    .bind(fileId, recordId)
+    .first<{ file_id: string; r2_key: string }>();
+
+  if (!file) {
+    return c.json({ error: "File not found." }, 404);
+  }
+
+  await c.env.RESULTS_BUCKET.delete(file.r2_key);
+
+  await c.env.DB.prepare("DELETE FROM files WHERE file_id = ?").bind(fileId).run();
+
+  return c.json({ deleted: true, fileId });
 });
 
 app.get("/files/:fileId", requireAccess, async (c) => {
