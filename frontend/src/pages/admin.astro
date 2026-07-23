@@ -32,9 +32,38 @@ import "../styles/clients/duolab.css";
     </header>
 
     <main class="work">
+      <!-- Folio first: one field decides between opening and creating -->
+      <section class="pane pane--start" aria-labelledby="start-h">
+        <h1 id="start-h" class="pane__h">Empieza por el folio</h1>
+
+        <form id="seek-form" novalidate>
+          <div class="field">
+            <label for="seek" class="vh">Folio</label>
+            <div class="seek">
+              <input
+                id="seek"
+                name="seek"
+                type="text"
+                autocomplete="off"
+                autofocus
+                placeholder="Escribe o escanea el folio…"
+                aria-describedby="seek-hint seek-err"
+              />
+              <button class="btn btn--seek" id="seek-btn" type="submit">
+                Buscar
+              </button>
+            </div>
+            <p class="hint" id="seek-hint">
+              Si existe, lo abrimos. Si no, creas el registro con ese folio.
+            </p>
+            <p class="err" id="seek-err" data-err></p>
+          </div>
+        </form>
+      </section>
+
       <!-- Left: everything needed for one submission -->
-      <section class="pane" aria-labelledby="form-h">
-        <h1 id="form-h" class="pane__h">Nuevo registro</h1>
+      <section class="pane pane--form" aria-labelledby="form-h">
+        <h2 id="form-h" class="pane__h">Nuevo registro</h2>
 
         <form id="record-form" novalidate>
           <div class="field">
@@ -45,7 +74,6 @@ import "../styles/clients/duolab.css";
               type="text"
               required
               autocomplete="off"
-              autofocus
               aria-describedby="fullName-err"
             />
             <p class="err" id="fullName-err" data-err></p>
@@ -131,14 +159,17 @@ import "../styles/clients/duolab.css";
       </section>
 
       <!-- Right: the filed document, and the one deliberate check on it -->
-      <section class="pane" aria-labelledby="file-h">
-        <h2 id="file-h" class="pane__h">Archivo</h2>
+      <section class="pane pane--file" aria-labelledby="file-h">
+        <h2 id="file-h" class="pane__h">Registros recientes</h2>
 
-        <div class="empty" id="empty">
-          <p>Aún no hay archivo.</p>
-          <p class="empty__sub">
-            Completa el formulario y súbelo para verlo aquí.
+        <div id="idle">
+          <p class="empty__sub" id="idle-hint">
+            Busca un folio o crea un registro para revisar su archivo aquí.
           </p>
+
+          <ul class="recent" id="recent"></ul>
+          <p class="status" id="recent-status" role="status" aria-live="polite"
+          ></p>
         </div>
 
         <div class="file" id="file" hidden>
@@ -157,20 +188,60 @@ import "../styles/clients/duolab.css";
           <iframe class="preview" id="preview" title="Vista previa del PDF"
           ></iframe>
 
-          <div class="confirm" id="confirm-box">
-            <p class="confirm__ask" id="confirm-ask">
-              Revisa que el PDF corresponda a este paciente. Confirmar no se puede
-              deshacer.
-            </p>
+          <p class="confirm__ask" id="confirm-ask">
+            Revisa que el PDF corresponda a este paciente. Confirmar no se puede
+            deshacer.
+          </p>
+
+          <div class="actions">
+            <button class="btn btn--ghost" id="replace" type="button">
+              Reemplazar archivo
+            </button>
             <button class="btn" id="confirm" type="button">
               Confirmar archivo
             </button>
           </div>
 
+          <!-- Opened by the Reemplazar button; the picked file names the -->
+          <!-- consequence in the confirm dialog before anything is deleted. -->
+          <input id="replace-pdf" type="file" accept="application/pdf" hidden />
+
           <p class="status" id="file-status" role="status" aria-live="polite"></p>
         </div>
       </section>
     </main>
+
+    <!-- Folio is unique: creating over an existing one is always a fork, never -->
+    <!-- a silent failure. Native <dialog> gives focus trapping and Esc free. -->
+    <dialog id="dup-dialog" aria-labelledby="dup-h">
+      <h2 id="dup-h" class="dlg__h">Ese folio ya tiene un registro</h2>
+      <p class="dlg__body" id="dup-body"></p>
+      <div class="actions">
+        <button class="btn btn--ghost" id="dup-other" type="button">
+          Usar otro folio
+        </button>
+        <button class="btn" id="dup-open" type="button">
+          Abrir el registro existente
+        </button>
+      </div>
+    </dialog>
+
+    <dialog id="rep-dialog" aria-labelledby="rep-h">
+      <h2 id="rep-h" class="dlg__h">¿Reemplazar el archivo?</h2>
+      <p class="dlg__body" id="rep-body"></p>
+      <p class="dlg__warn">
+        Esto elimina el PDF anterior de forma permanente. No hay versiones y no
+        se puede deshacer.
+      </p>
+      <div class="actions">
+        <button class="btn btn--ghost" id="rep-cancel" type="button">
+          Cancelar
+        </button>
+        <button class="btn btn--danger" id="rep-go" type="button">
+          Sí, reemplazar
+        </button>
+      </div>
+    </dialog>
 
     <script is:inline>
       // Local Worker. Change when the deployment story is settled.
@@ -182,6 +253,16 @@ import "../styles/clients/duolab.css";
       const resetBtn = $("reset");
       const fileInput = $("pdf");
       const drop = $("drop");
+      const seekForm = $("seek-form");
+      const seekInput = $("seek");
+      const replaceInput = $("replace-pdf");
+      const dupDialog = $("dup-dialog");
+      const repDialog = $("rep-dialog");
+
+      // The record currently shown on the right. Replacing a file needs both ids
+      // at once, and re-rendering after the swap needs the patient details, which
+      // the URL cannot carry.
+      const current = { recordId: null, fileId: null, record: null };
 
       // Folio auto-suggestion state
       let folioTouched = false;
@@ -252,8 +333,8 @@ import "../styles/clients/duolab.css";
         );
       };
 
-      // There is no list or folio-lookup endpoint, so a recordId held only in
-      // memory is lost on refresh. Keeping it in the URL makes reload survivable.
+      // A recordId held only in memory is lost on refresh. Keeping it in the URL
+      // makes reload survivable without asking the employee to search again.
       const setUrlRecord = (id) => {
         const url = new URL(location.href);
         url.searchParams.set("record", id);
@@ -282,9 +363,21 @@ import "../styles/clients/duolab.css";
         REVOKED: "Revocado",
       };
 
+      // Short forms for the recent list, where the row has no space to explain
+      // itself. NO_FILE is not a stored status: the API reports it for records
+      // whose PDF is still missing.
+      const SHORT_LABEL = {
+        NO_FILE: "Sin archivo",
+        UPLOADED: "Borrador",
+        CONFIRMED: "Confirmado",
+        PUBLISHED: "Publicado",
+        REVOKED: "Revocado",
+      };
+
       const showFile = (record, file) => {
-        $("empty").hidden = true;
+        $("idle").hidden = true;
         $("file").hidden = false;
+        $("file-h").textContent = "Archivo";
 
         $("m-folio").textContent = record.folio;
         $("m-patient").textContent = record.patient.fullName;
@@ -298,11 +391,134 @@ import "../styles/clients/duolab.css";
 
         $("preview").src = `${API_BASE}/files/${file.fileId}`;
 
+        // Confirming is a one-way check, so it disappears once done. Replacing
+        // stays available: a wrong PDF must be fixable after confirmation too.
         const confirmable = file.status === "UPLOADED";
-        $("confirm-box").hidden = !confirmable;
+        $("confirm").hidden = !confirmable;
+        $("confirm-ask").hidden = !confirmable;
         $("confirm").dataset.fileId = file.fileId;
+        $("replace").hidden = false;
+
+        // Both buttons disable themselves while their request is in flight, so
+        // re-enable here or the next record inherits the previous one's state.
+        $("confirm").disabled = false;
+        $("replace").disabled = false;
+
+        current.recordId = record.recordId ?? current.recordId;
+        current.fileId = file.fileId;
+        current.record = record;
 
         if (!confirmable) resetBtn.hidden = false;
+      };
+
+      const showIdle = () => {
+        $("file").hidden = true;
+        $("idle").hidden = false;
+        $("file-h").textContent = "Registros recientes";
+        $("preview").removeAttribute("src");
+        current.recordId = null;
+        current.fileId = null;
+        current.record = null;
+      };
+
+      const loadRecent = async () => {
+        try {
+          const res = await fetch(`${API_BASE}/records?limit=8`);
+          if (!res.ok) throw new Error();
+          const payload = await res.json();
+          renderRecent(payload.records || []);
+        } catch {
+          $("recent-status").textContent = "No se pudo cargar la lista.";
+        }
+      };
+
+      const renderRecent = (records) => {
+        const list = $("recent");
+        list.replaceChildren();
+
+        if (records.length === 0) {
+          $("recent-status").textContent = "Aún no hay registros.";
+          return;
+        }
+
+        $("recent-status").textContent = "";
+
+        for (const record of records) {
+          const item = document.createElement("li");
+
+          // A button, not a link: opening a record is an in-page state change.
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "rec";
+          btn.addEventListener("click", () => openRecord(record.recordId));
+
+          const main = document.createElement("span");
+          main.className = "rec__main";
+          main.textContent = `${record.folio} · ${record.patientName}`;
+
+          const state = document.createElement("span");
+          state.className = "rec__state";
+          state.dataset.state = record.status;
+          state.textContent = SHORT_LABEL[record.status] || record.status;
+
+          btn.append(main, state);
+          item.append(btn);
+          list.append(item);
+        }
+      };
+
+      const fillForm = (record) => {
+        $("folio").value = record.folio;
+        $("fullName").value = record.patient.fullName;
+        $("birthDate").value = record.patient.birthDate;
+        $("phoneNumber").value = record.patient.phoneNumber;
+        // The folio came from the server; never overwrite it with a suggestion.
+        folioTouched = true;
+      };
+
+      // One renderer for every way a record gets opened: the recent list, the
+      // folio search, the duplicate-folio fork, and reload from the URL.
+      const showRecord = (record) => {
+        setUrlRecord(record.recordId);
+        clearErrs();
+        fillForm(record);
+
+        current.recordId = record.recordId;
+        current.record = record;
+
+        const file = record.files?.[0];
+
+        if (!file) {
+          // The record exists but its PDF is missing. Submitting now must attach
+          // to this record, not create a second one under the same folio.
+          showIdle();
+          current.recordId = record.recordId;
+          current.record = record;
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Subir archivo";
+          resetBtn.hidden = false;
+          $("form-status").textContent =
+            "Registro encontrado, aún sin archivo. Adjunta el PDF y súbelo.";
+          fileInput.focus();
+          return;
+        }
+
+        showFile(record, file);
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Registrar y subir";
+        $("form-status").textContent = "";
+        $("file-status").textContent = "";
+      };
+
+      const openRecord = async (recordId) => {
+        try {
+          const res = await fetch(`${API_BASE}/records/${recordId}`);
+          if (!res.ok) throw new Error("No se pudo abrir el registro.");
+          const payload = await res.json();
+          if (payload?.record) showRecord(payload.record);
+        } catch (error) {
+          $("recent-status").textContent = error.message;
+        }
       };
 
       const validate = () => {
@@ -375,6 +591,72 @@ import "../styles/clients/duolab.css";
           xhr.send(body);
         });
 
+      // Folio-first entry. There are only two outcomes: the folio exists and we
+      // open it, or it does not and it becomes the folio of a new record.
+      seekForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setErr("seek", "");
+
+        const folio = seekInput.value.trim();
+
+        if (!folio) {
+          setErr("seek", "Captura o escanea un folio.");
+          return;
+        }
+
+        $("seek-btn").disabled = true;
+
+        try {
+          const res = await fetch(
+            `${API_BASE}/records/by-folio/${encodeURIComponent(folio)}`,
+          );
+
+          if (res.status === 404) {
+            resetToNew();
+            $("folio").value = folio;
+            folioTouched = true;
+            $("form-status").textContent =
+              "Folio libre. Captura los datos del paciente y adjunta el PDF.";
+            $("fullName").focus();
+            return;
+          }
+
+          if (!res.ok) throw new Error("No se pudo buscar el folio.");
+
+          const payload = await res.json();
+          showRecord(payload.record);
+          seekInput.value = "";
+        } catch (error) {
+          setErr("seek", error.message);
+        } finally {
+          $("seek-btn").disabled = false;
+        }
+      });
+
+      // E4 fork. The dialog owns the decision; both buttons close it.
+      const askDuplicate = (existing) => {
+        $("dup-body").textContent = existing.patientName
+          ? `El folio ${existing.folio} pertenece a ${existing.patientName}.`
+          : `El folio ${existing.folio} ya está en uso.`;
+
+        $("dup-open").hidden = !existing.recordId;
+        dupDialog.showModal();
+
+        $("dup-open").onclick = () => {
+          dupDialog.close();
+          openRecord(existing.recordId);
+        };
+
+        $("dup-other").onclick = () => {
+          dupDialog.close();
+          const folioInput = $("folio");
+          folioInput.value = "";
+          folioTouched = true;
+          setErr("folio", "Ese folio ya existe. Captura uno distinto.");
+          folioInput.focus();
+        };
+      };
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
@@ -382,37 +664,64 @@ import "../styles/clients/duolab.css";
         if (!data) return;
 
         const file = fileInput.files[0];
+
+        // The record was opened without a PDF, so attach to it instead of
+        // creating a second record under the same folio.
+        const attaching = Boolean(current.recordId && !current.fileId);
+
         submitBtn.disabled = true;
         $("prog").hidden = false;
         $("prog-bar").value = 0;
-        $("prog-txt").textContent = "Creando registro…";
-        $("form-status").textContent = "Creando registro…";
+        $("prog-txt").textContent = attaching
+          ? "Subiendo…"
+          : "Creando registro…";
+        $("form-status").textContent = attaching
+          ? "Subiendo archivo…"
+          : "Creando registro…";
 
         try {
-          const res = await fetch(`${API_BASE}/records`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              folio: String(data.folio).trim(),
-              fullName: String(data.fullName).trim(),
-              birthDate: String(data.birthDate).trim(),
-              phoneNumber: String(data.phoneNumber).trim(),
-            }),
-          });
+          let recordId = current.recordId;
+          let folio = String(data.folio).trim();
 
-          const created = await res.json().catch(() => ({}));
+          if (!attaching) {
+            const res = await fetch(`${API_BASE}/records`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                folio,
+                fullName: String(data.fullName).trim(),
+                birthDate: String(data.birthDate).trim(),
+                phoneNumber: String(data.phoneNumber).trim(),
+              }),
+            });
 
-          if (!res.ok) {
-            throw new Error(created.error || "No se pudo crear el registro.");
+            const created = await res.json().catch(() => ({}));
+
+            // A taken folio is not an error to report, it is a decision to
+            // hand back to the employee.
+            if (res.status === 409) {
+              $("form-status").textContent = "";
+              $("prog").hidden = true;
+              submitBtn.disabled = false;
+              askDuplicate(created.existingRecord || { folio });
+              return;
+            }
+
+            if (!res.ok) {
+              throw new Error(created.error || "No se pudo crear el registro.");
+            }
+
+            recordId = created.recordId;
+            folio = created.folio;
+            setUrlRecord(recordId);
           }
 
-          setUrlRecord(created.recordId);
-
-          const uploaded = await uploadPdf(created.recordId, file);
+          const uploaded = await uploadPdf(recordId, file);
 
           showFile(
             {
-              folio: created.folio,
+              recordId,
+              folio,
               patient: {
                 fullName: String(data.fullName).trim(),
                 birthDate: String(data.birthDate).trim(),
@@ -426,7 +735,9 @@ import "../styles/clients/duolab.css";
             },
           );
 
+          submitBtn.textContent = "Registrar y subir";
           $("form-status").textContent = "Archivo subido. Revísalo y confírmalo.";
+          loadRecent();
           $("confirm").focus();
         } catch (error) {
           $("form-status").textContent = error.message;
@@ -456,9 +767,11 @@ import "../styles/clients/duolab.css";
           const state = $("m-state");
           state.textContent = STATE_LABEL.CONFIRMED;
           state.dataset.state = "CONFIRMED";
-          $("confirm-box").hidden = true;
+          $("confirm").hidden = true;
+          $("confirm-ask").hidden = true;
           $("file-status").textContent = "Archivo confirmado.";
           resetBtn.hidden = false;
+          loadRecent();
           resetBtn.focus();
         } catch (error) {
           $("file-status").textContent = error.message;
@@ -466,17 +779,94 @@ import "../styles/clients/duolab.css";
         }
       });
 
-      // Filing several results in a row is the common case.
-      resetBtn.addEventListener("click", () => {
+      // Replacing is destructive and has no undo, so the employee picks the new
+      // PDF first: the dialog can then name both files before anything is lost.
+      $("replace").addEventListener("click", () => {
+        replaceInput.click();
+      });
+
+      replaceInput.addEventListener("change", () => {
+        const picked = replaceInput.files[0];
+        if (!picked) return;
+
+        if (picked.type !== "application/pdf") {
+          $("file-status").textContent = "Solo se aceptan archivos PDF.";
+          replaceInput.value = "";
+          return;
+        }
+
+        $("rep-body").textContent =
+          `${picked.name} reemplazará a ${$("m-file").textContent}.`;
+        repDialog.showModal();
+      });
+
+      $("rep-cancel").addEventListener("click", () => {
+        repDialog.close();
+        replaceInput.value = "";
+      });
+
+      $("rep-go").addEventListener("click", async () => {
+        repDialog.close();
+
+        const picked = replaceInput.files[0];
+        const { recordId, fileId, record } = current;
+        if (!picked || !recordId || !fileId) return;
+
+        $("replace").disabled = true;
+        $("confirm").disabled = true;
+        $("file-status").textContent = "Eliminando el archivo anterior…";
+
+        try {
+          const res = await fetch(
+            `${API_BASE}/records/${recordId}/files/${fileId}`,
+            { method: "DELETE" },
+          );
+
+          if (!res.ok) {
+            const payload = await res.json().catch(() => ({}));
+            throw new Error(
+              payload.error || "No se pudo eliminar el archivo anterior.",
+            );
+          }
+
+          // The old PDF is gone; drop the preview before the new one loads so
+          // the pane never shows a file that no longer exists.
+          $("preview").removeAttribute("src");
+          $("prog").hidden = false;
+          $("prog-bar").value = 0;
+          $("file-status").textContent = "Subiendo el archivo nuevo…";
+
+          const uploaded = await uploadPdf(recordId, picked);
+
+          showFile(record, {
+            fileId: uploaded.fileId,
+            originalFilename: picked.name,
+            status: uploaded.status || "UPLOADED",
+          });
+
+          $("file-status").textContent =
+            "Archivo reemplazado. Revísalo y confírmalo.";
+          loadRecent();
+          $("confirm").focus();
+        } catch (error) {
+          $("file-status").textContent = error.message;
+        } finally {
+          $("prog").hidden = true;
+          $("replace").disabled = false;
+          $("confirm").disabled = false;
+          replaceInput.value = "";
+        }
+      });
+
+      const resetToNew = () => {
         form.reset();
         clearErrs();
         $("pdf-name").hidden = true;
-        $("file").hidden = true;
-        $("empty").hidden = false;
-        $("preview").removeAttribute("src");
+        showIdle();
         $("form-status").textContent = "";
         $("file-status").textContent = "";
         submitBtn.disabled = false;
+        submitBtn.textContent = "Registrar y subir";
         resetBtn.hidden = true;
 
         // Re-enable folio auto-suggestion
@@ -485,8 +875,13 @@ import "../styles/clients/duolab.css";
         const url = new URL(location.href);
         url.searchParams.delete("record");
         history.replaceState({}, "", url);
+      };
 
-        $("fullName").focus();
+      // Filing several results in a row is the common case.
+      resetBtn.addEventListener("click", () => {
+        resetToNew();
+        loadRecent();
+        seekInput.focus();
       });
 
       const showPicked = () => {
@@ -532,22 +927,11 @@ import "../styles/clients/duolab.css";
         showPicked();
       });
 
+      loadRecent();
+
       // Rehydrate after a reload.
       const existing = new URL(location.href).searchParams.get("record");
-      if (existing) {
-        fetch(`${API_BASE}/records/${existing}`)
-          .then((res) => (res.ok ? res.json() : null))
-          .then((payload) => {
-            const record = payload?.record;
-            const file = record?.files?.[0];
-            if (!record || !file) return;
-            showFile(record, file);
-            submitBtn.disabled = true;
-            $("form-status").textContent =
-              "Registro cargado desde la dirección actual.";
-          })
-          .catch(() => {});
-      }
+      if (existing) openRecord(existing);
     </script>
 
     <style>
@@ -602,9 +986,34 @@ import "../styles/clients/duolab.css";
         }
       }
 
+      /* Two stacked panes on the left, the file pane alongside them. Explicit
+         placement keeps the source order sensible for keyboard and screen
+         readers without a wrapper element. */
+      .pane--start {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .pane--form {
+        grid-column: 1;
+        grid-row: 2;
+      }
+
+      .pane--file {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+      }
+
       @media (max-width: 900px) {
         .work {
           grid-template-columns: minmax(0, 1fr);
+        }
+
+        .pane--start,
+        .pane--form,
+        .pane--file {
+          grid-column: 1;
+          grid-row: auto;
         }
       }
 
@@ -753,21 +1162,129 @@ import "../styles/clients/duolab.css";
         display: none;
       }
 
-      .empty {
-        padding: var(--space-lg) var(--space-md);
-        text-align: center;
-        color: var(--text-secondary);
-        border: 1px dashed #c9c2d4;
-        border-radius: var(--radius-sm);
-      }
-
-      .empty p {
-        margin: 0;
-      }
-
       .empty__sub {
-        margin-top: 4px;
+        margin: 0 0 var(--space-sm);
         font-size: var(--font-size-label);
+        color: var(--text-secondary);
+      }
+
+      /* Visually hidden, still announced. */
+      .vh {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      .seek {
+        display: flex;
+        gap: var(--space-xs);
+      }
+
+      .seek input {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .btn--seek {
+        flex: 0 0 auto;
+      }
+
+      .hint {
+        margin: 4px 0 0;
+        font-size: var(--font-size-label);
+        color: var(--text-secondary);
+      }
+
+      .recent {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 6px;
+      }
+
+      .rec {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--space-xs);
+        width: 100%;
+        padding: 10px 12px;
+        font: inherit;
+        color: inherit;
+        text-align: left;
+        background: var(--color-surface);
+        border: 1px solid var(--color-surface-soft);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+      }
+
+      .rec:hover {
+        background: var(--color-surface-muted);
+      }
+
+      .rec__main {
+        font-weight: var(--font-weight-medium);
+      }
+
+      /* Same rule as .state: the word carries the meaning, colour only echoes it. */
+      .rec__state {
+        font-size: var(--font-size-label);
+        color: var(--text-secondary);
+      }
+
+      .rec__state[data-state="CONFIRMED"] {
+        color: #1c6b4a;
+      }
+
+      .rec__state[data-state="REVOKED"] {
+        color: #b3261e;
+      }
+
+      dialog {
+        max-width: 30rem;
+        padding: var(--space-md);
+        color: var(--text-primary);
+        background: var(--color-surface);
+        border: 1px solid var(--color-surface-soft);
+        border-radius: var(--radius-md);
+      }
+
+      dialog::backdrop {
+        background: rgb(0 0 0 / 0.4);
+      }
+
+      .dlg__h {
+        margin: 0 0 var(--space-xs);
+        font-size: var(--font-size-title);
+        font-weight: var(--font-weight-title);
+      }
+
+      .dlg__body,
+      .dlg__warn {
+        margin: 0 0 var(--space-xs);
+        font-size: var(--font-size-label);
+        color: var(--text-secondary);
+      }
+
+      .dlg__warn {
+        color: #b3261e;
+      }
+
+      .btn--danger {
+        color: var(--text-on-primary);
+        background: #b3261e;
+        border-color: #b3261e;
+      }
+
+      .btn--danger:hover:not(:disabled) {
+        background: #8f1e18;
       }
 
       .meta {
@@ -825,12 +1342,8 @@ import "../styles/clients/duolab.css";
         background: var(--color-surface-muted);
       }
 
-      .confirm {
-        margin-top: var(--space-sm);
-      }
-
       .confirm__ask {
-        margin: 0 0 var(--space-xs);
+        margin: var(--space-sm) 0 0;
         font-size: var(--font-size-label);
         color: var(--text-secondary);
       }
