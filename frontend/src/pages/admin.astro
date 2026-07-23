@@ -1208,7 +1208,11 @@ import "../styles/clients/duolab.css";
         gap: 6px;
       }
 
-      .rec {
+      /* Rows are built with createElement, so they never carry Astro's scope
+         attribute and a plain `.rec {}` would compile to a selector that cannot
+         match them. Scoping through the static <ul> keeps these styles local to
+         this component while still reaching its runtime children. */
+      .recent :global(.rec) {
         display: flex;
         flex-wrap: wrap;
         justify-content: space-between;
@@ -1225,25 +1229,25 @@ import "../styles/clients/duolab.css";
         cursor: pointer;
       }
 
-      .rec:hover {
+      .recent :global(.rec:hover) {
         background: var(--color-surface-muted);
       }
 
-      .rec__main {
+      .recent :global(.rec__main) {
         font-weight: var(--font-weight-medium);
       }
 
       /* Same rule as .state: the word carries the meaning, colour only echoes it. */
-      .rec__state {
+      .recent :global(.rec__state) {
         font-size: var(--font-size-label);
         color: var(--text-secondary);
       }
 
-      .rec__state[data-state="CONFIRMED"] {
+      .recent :global(.rec__state[data-state="CONFIRMED"]) {
         color: #1c6b4a;
       }
 
-      .rec__state[data-state="REVOKED"] {
+      .recent :global(.rec__state[data-state="REVOKED"]) {
         color: #b3261e;
       }
 
