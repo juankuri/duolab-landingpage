@@ -130,13 +130,20 @@ async function requireAccess(c: AppContext, next: Next) {
 // The admin UI runs on the Astro dev server (:4321) and calls this Worker on
 // :8787, so local requests are cross-origin. The origin callback returns null
 // outside local dev, which omits the CORS headers entirely in production.
-const LOCAL_FRONTEND_ORIGIN = "http://localhost:4321";
+//
+// Both loopback spellings are listed because the browser sends whichever one is
+// in the address bar, and they are not interchangeable to the CORS check: on
+// 127.0.0.1 an allowlist of only "localhost" blocks every request.
+const LOCAL_FRONTEND_ORIGINS = new Set([
+  "http://localhost:4321",
+  "http://127.0.0.1:4321",
+]);
 
 app.use(
   "*",
   cors({
     origin: (origin, c: AppContext) =>
-      isLocalDev(c) && origin === LOCAL_FRONTEND_ORIGIN ? origin : null,
+      isLocalDev(c) && LOCAL_FRONTEND_ORIGINS.has(origin) ? origin : null,
     allowHeaders: ["Content-Type"],
     allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
   }),
