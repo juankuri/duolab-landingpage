@@ -1,0 +1,845 @@
+---
+/**
+ * /admin — internal employee surface for Slice 1.
+ *
+ * Flow: fill the form (folio, patient, PDF) -> submit -> preview -> confirm.
+ * The record and the file are created by two separate API calls, but that is an
+ * implementation detail: the employee attaches the PDF up front and submits once.
+ *
+ * Deliberately does NOT use layouts/Layout.astro — that layout is landing-specific
+ * (requires seo/business props, emits canonical + Open Graph + MedicalBusiness
+ * JSON-LD). An internal tool needs none of it and must not be indexed.
+ */
+import "../styles/clients/duolab.css";
+---
+
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Carga de resultados · DúoLab</title>
+  </head>
+  <body>
+    <header class="bar">
+      <img src="/logo/logo-mark.svg" alt="" width="28" height="28" />
+      <div>
+        <span class="bar__name">dúolab</span>
+        <span class="bar__ctx">Carga de resultados</span>
+      </div>
+    </header>
+
+    <main class="work">
+      <!-- Left: everything needed for one submission -->
+      <section class="pane" aria-labelledby="form-h">
+        <h1 id="form-h" class="pane__h">Nuevo registro</h1>
+
+        <form id="record-form" novalidate>
+          <div class="field">
+            <label for="fullName">Nombre completo</label>
+            <input
+              id="fullName"
+              name="fullName"
+              type="text"
+              required
+              autocomplete="off"
+              autofocus
+              aria-describedby="fullName-err"
+            />
+            <p class="err" id="fullName-err" data-err></p>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="birthDate">Fecha de nacimiento</label>
+              <input
+                id="birthDate"
+                name="birthDate"
+                type="date"
+                required
+                aria-describedby="birthDate-err"
+              />
+              <p class="err" id="birthDate-err" data-err></p>
+            </div>
+
+            <div class="field">
+              <label for="phoneNumber">Teléfono</label>
+              <input
+                id="phoneNumber"
+                name="phoneNumber"
+                type="tel"
+                required
+                inputmode="tel"
+                autocomplete="off"
+                aria-describedby="phoneNumber-err"
+              />
+              <p class="err" id="phoneNumber-err" data-err></p>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="folio">Folio</label>
+            <input
+              id="folio"
+              name="folio"
+              type="text"
+              required
+              autocomplete="off"
+              aria-describedby="folio-err"
+            />
+            <p class="err" id="folio-err" data-err></p>
+          </div>
+
+          <div class="field">
+            <label for="pdf">Archivo PDF</label>
+            <div class="drop" id="drop">
+              <input
+                id="pdf"
+                name="pdf"
+                type="file"
+                accept="application/pdf"
+                required
+                aria-describedby="pdf-hint pdf-err"
+              />
+              <p class="drop__hint" id="pdf-hint">
+                Arrastra el PDF aquí o selecciónalo. Solo se aceptan archivos PDF.
+              </p>
+              <p class="drop__file" id="pdf-name" hidden></p>
+            </div>
+            <p class="err" id="pdf-err" data-err></p>
+          </div>
+
+          <div class="actions">
+            <button class="btn" id="submit" type="submit">
+              Registrar y subir
+            </button>
+            <button class="btn btn--ghost" id="reset" type="button" hidden>
+              Nuevo registro
+            </button>
+          </div>
+
+          <!-- Determinate: driven by real XHR upload bytes, never faked -->
+          <div class="prog" id="prog" hidden>
+            <progress id="prog-bar" max="100" value="0"></progress>
+            <span class="prog__txt" id="prog-txt"></span>
+          </div>
+
+          <p class="status" id="form-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <!-- Right: the filed document, and the one deliberate check on it -->
+      <section class="pane" aria-labelledby="file-h">
+        <h2 id="file-h" class="pane__h">Archivo</h2>
+
+        <div class="empty" id="empty">
+          <p>Aún no hay archivo.</p>
+          <p class="empty__sub">
+            Completa el formulario y súbelo para verlo aquí.
+          </p>
+        </div>
+
+        <div class="file" id="file" hidden>
+          <dl class="meta">
+            <div><dt>Folio</dt><dd id="m-folio"></dd></div>
+            <div><dt>Paciente</dt><dd id="m-patient"></dd></div>
+            <div><dt>Nacimiento</dt><dd id="m-birth"></dd></div>
+            <div><dt>Teléfono</dt><dd id="m-phone"></dd></div>
+          </dl>
+
+          <div class="file__head">
+            <p class="file__name" id="m-file"></p>
+            <p class="state" id="m-state"></p>
+          </div>
+
+          <iframe class="preview" id="preview" title="Vista previa del PDF"
+          ></iframe>
+
+          <div class="confirm" id="confirm-box">
+            <p class="confirm__ask" id="confirm-ask">
+              Revisa que el PDF corresponda a este paciente. Confirmar no se puede
+              deshacer.
+            </p>
+            <button class="btn" id="confirm" type="button">
+              Confirmar archivo
+            </button>
+          </div>
+
+          <p class="status" id="file-status" role="status" aria-live="polite"></p>
+        </div>
+      </section>
+    </main>
+
+    <script is:inline>
+      // Local Worker. Change when the deployment story is settled.
+      const API_BASE = "http://localhost:8787";
+
+      const $ = (id) => document.getElementById(id);
+      const form = $("record-form");
+      const submitBtn = $("submit");
+      const resetBtn = $("reset");
+      const fileInput = $("pdf");
+      const drop = $("drop");
+
+      // Folio auto-suggestion state
+      let folioTouched = false;
+      const SPANISH_PARTICLES = /\b(de|del|la|las|los|y)\b/gi;
+
+      // Extract 4-letter initials from patient full name.
+      // "Maria Lopez" → "MALO", "Mario Jimenez Perez" → "MAJP",
+      // "Alejandro" → "ALEJ", etc.
+      const initialsFromName = (name) => {
+        const cleaned = name
+          .trim()
+          .replace(SPANISH_PARTICLES, "")
+          .split(/\s+/)
+          .filter((word) => word.length > 0)
+          .map((word) => word.toUpperCase());
+
+        if (cleaned.length === 0) return "";
+        if (cleaned.length === 1) {
+          return (cleaned[0] + "XXXX").slice(0, 4);
+        }
+        if (cleaned.length === 2) {
+          return (cleaned[0].slice(0, 2) + cleaned[1].slice(0, 2)).slice(0, 4);
+        }
+        if (cleaned.length === 3) {
+          return (
+            cleaned[0].slice(0, 2) +
+            cleaned[1].slice(0, 1) +
+            cleaned[2].slice(0, 1)
+          ).slice(0, 4);
+        }
+        return cleaned
+          .slice(0, 4)
+          .map((word) => word[0])
+          .join("");
+      };
+
+      // Format today's date as DDMMYY
+      const todayDDMMYY = () => {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        return (
+          pad(now.getDate()) +
+          pad(now.getMonth() + 1) +
+          pad(now.getFullYear() % 100)
+        );
+      };
+
+      // Suggest folio as ${initials}-${DDMMYY}-
+      const updateFolioSuggestion = () => {
+        if (folioTouched) return;
+        const nameInput = $("fullName");
+        const folioInput = $("folio");
+        const name = nameInput.value;
+
+        if (!name.trim()) {
+          folioInput.value = "";
+          return;
+        }
+
+        const initials = initialsFromName(name);
+        const date = todayDDMMYY();
+        folioInput.value = `${initials}-${date}-`;
+
+        // Move cursor to the end so employee can type the sequence number
+        folioInput.setSelectionRange(
+          folioInput.value.length,
+          folioInput.value.length
+        );
+      };
+
+      // There is no list or folio-lookup endpoint, so a recordId held only in
+      // memory is lost on refresh. Keeping it in the URL makes reload survivable.
+      const setUrlRecord = (id) => {
+        const url = new URL(location.href);
+        url.searchParams.set("record", id);
+        history.replaceState({}, "", url);
+      };
+
+      const setErr = (name, msg) => {
+        const el = $(`${name}-err`);
+        el.textContent = msg || "";
+        const input = $(name);
+        if (input) input.setAttribute("aria-invalid", msg ? "true" : "false");
+      };
+
+      const clearErrs = () =>
+        document.querySelectorAll("[data-err]").forEach((el) => {
+          el.textContent = "";
+        });
+
+      const STATE_LABEL = {
+        // CONFIRMED is an internal verification. It is NOT publication: PUBLISHED
+        // is a separate state in the schema and is not implemented yet, so the
+        // patient cannot see this file.
+        UPLOADED: "Subido · pendiente de confirmar",
+        CONFIRMED: "Confirmado · verificado internamente",
+        PUBLISHED: "Publicado",
+        REVOKED: "Revocado",
+      };
+
+      const showFile = (record, file) => {
+        $("empty").hidden = true;
+        $("file").hidden = false;
+
+        $("m-folio").textContent = record.folio;
+        $("m-patient").textContent = record.patient.fullName;
+        $("m-birth").textContent = record.patient.birthDate;
+        $("m-phone").textContent = record.patient.phoneNumber;
+        $("m-file").textContent = file.originalFilename;
+
+        const state = $("m-state");
+        state.textContent = STATE_LABEL[file.status] || file.status;
+        state.dataset.state = file.status;
+
+        $("preview").src = `${API_BASE}/files/${file.fileId}`;
+
+        const confirmable = file.status === "UPLOADED";
+        $("confirm-box").hidden = !confirmable;
+        $("confirm").dataset.fileId = file.fileId;
+
+        if (!confirmable) resetBtn.hidden = false;
+      };
+
+      const validate = () => {
+        clearErrs();
+        const data = Object.fromEntries(new FormData(form));
+        let ok = true;
+
+        const required = {
+          folio: "Captura el folio.",
+          fullName: "Captura el nombre completo.",
+          birthDate: "Captura la fecha de nacimiento.",
+          phoneNumber: "Captura el teléfono.",
+        };
+
+        for (const [name, msg] of Object.entries(required)) {
+          if (!String(data[name] || "").trim()) {
+            setErr(name, msg);
+            ok = false;
+          }
+        }
+
+        const file = fileInput.files[0];
+        if (!file) {
+          setErr("pdf", "Selecciona el archivo PDF.");
+          ok = false;
+        } else if (file.type !== "application/pdf") {
+          setErr("pdf", "Solo se aceptan archivos PDF.");
+          ok = false;
+        }
+
+        if (!ok) {
+          const first = document.querySelector('[aria-invalid="true"]');
+          if (first) first.focus();
+          else fileInput.focus();
+        }
+
+        return ok ? data : null;
+      };
+
+      // fetch() cannot report upload progress, so the PDF goes over XHR to drive
+      // a bar that reflects real transferred bytes.
+      const uploadPdf = (recordId, file) =>
+        new Promise((resolve, reject) => {
+          const body = new FormData();
+          body.append("file", file);
+
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", `${API_BASE}/records/${recordId}/files`);
+
+          xhr.upload.addEventListener("progress", (e) => {
+            if (!e.lengthComputable) return;
+            const pct = Math.round((e.loaded / e.total) * 100);
+            $("prog-bar").value = pct;
+            $("prog-txt").textContent = `Subiendo ${pct}%`;
+          });
+
+          xhr.addEventListener("load", () => {
+            let payload = {};
+            try {
+              payload = JSON.parse(xhr.responseText);
+            } catch {}
+            if (xhr.status >= 200 && xhr.status < 300) resolve(payload);
+            else reject(new Error(payload.error || "No se pudo subir el archivo."));
+          });
+
+          xhr.addEventListener("error", () =>
+            reject(new Error("No se pudo conectar con el servidor.")),
+          );
+
+          xhr.send(body);
+        });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const data = validate();
+        if (!data) return;
+
+        const file = fileInput.files[0];
+        submitBtn.disabled = true;
+        $("prog").hidden = false;
+        $("prog-bar").value = 0;
+        $("prog-txt").textContent = "Creando registro…";
+        $("form-status").textContent = "Creando registro…";
+
+        try {
+          const res = await fetch(`${API_BASE}/records`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              folio: String(data.folio).trim(),
+              fullName: String(data.fullName).trim(),
+              birthDate: String(data.birthDate).trim(),
+              phoneNumber: String(data.phoneNumber).trim(),
+            }),
+          });
+
+          const created = await res.json().catch(() => ({}));
+
+          if (!res.ok) {
+            throw new Error(created.error || "No se pudo crear el registro.");
+          }
+
+          setUrlRecord(created.recordId);
+
+          const uploaded = await uploadPdf(created.recordId, file);
+
+          showFile(
+            {
+              folio: created.folio,
+              patient: {
+                fullName: String(data.fullName).trim(),
+                birthDate: String(data.birthDate).trim(),
+                phoneNumber: String(data.phoneNumber).trim(),
+              },
+            },
+            {
+              fileId: uploaded.fileId,
+              originalFilename: file.name,
+              status: uploaded.status || "UPLOADED",
+            },
+          );
+
+          $("form-status").textContent = "Archivo subido. Revísalo y confírmalo.";
+          $("confirm").focus();
+        } catch (error) {
+          $("form-status").textContent = error.message;
+          submitBtn.disabled = false;
+        } finally {
+          $("prog").hidden = true;
+        }
+      });
+
+      $("confirm").addEventListener("click", async (event) => {
+        const fileId = event.currentTarget.dataset.fileId;
+        const btn = event.currentTarget;
+
+        btn.disabled = true;
+        $("file-status").textContent = "Confirmando…";
+
+        try {
+          const res = await fetch(`${API_BASE}/files/${fileId}/confirm`, {
+            method: "POST",
+          });
+          const payload = await res.json().catch(() => ({}));
+
+          if (!res.ok) {
+            throw new Error(payload.error || "No se pudo confirmar el archivo.");
+          }
+
+          const state = $("m-state");
+          state.textContent = STATE_LABEL.CONFIRMED;
+          state.dataset.state = "CONFIRMED";
+          $("confirm-box").hidden = true;
+          $("file-status").textContent = "Archivo confirmado.";
+          resetBtn.hidden = false;
+          resetBtn.focus();
+        } catch (error) {
+          $("file-status").textContent = error.message;
+          btn.disabled = false;
+        }
+      });
+
+      // Filing several results in a row is the common case.
+      resetBtn.addEventListener("click", () => {
+        form.reset();
+        clearErrs();
+        $("pdf-name").hidden = true;
+        $("file").hidden = true;
+        $("empty").hidden = false;
+        $("preview").removeAttribute("src");
+        $("form-status").textContent = "";
+        $("file-status").textContent = "";
+        submitBtn.disabled = false;
+        resetBtn.hidden = true;
+
+        // Re-enable folio auto-suggestion
+        folioTouched = false;
+
+        const url = new URL(location.href);
+        url.searchParams.delete("record");
+        history.replaceState({}, "", url);
+
+        $("fullName").focus();
+      });
+
+      const showPicked = () => {
+        const file = fileInput.files[0];
+        const label = $("pdf-name");
+        label.hidden = !file;
+        if (file) {
+          label.textContent = file.name;
+          setErr("pdf", "");
+        }
+      };
+
+      fileInput.addEventListener("change", showPicked);
+
+      // Folio auto-suggestion: live-update on name keystroke until folio is manually edited
+      $("fullName").addEventListener("input", updateFolioSuggestion);
+
+      // Lock folio auto-suggestion the moment employee edits folio manually
+      $("folio").addEventListener("input", () => {
+        folioTouched = true;
+      });
+
+      ["dragenter", "dragover"].forEach((type) =>
+        drop.addEventListener(type, (event) => {
+          event.preventDefault();
+          drop.dataset.over = "true";
+        }),
+      );
+
+      ["dragleave", "drop"].forEach((type) =>
+        drop.addEventListener(type, (event) => {
+          event.preventDefault();
+          delete drop.dataset.over;
+        }),
+      );
+
+      drop.addEventListener("drop", (event) => {
+        const dropped = event.dataTransfer?.files?.[0];
+        if (!dropped) return;
+        const transfer = new DataTransfer();
+        transfer.items.add(dropped);
+        fileInput.files = transfer.files;
+        showPicked();
+      });
+
+      // Rehydrate after a reload.
+      const existing = new URL(location.href).searchParams.get("record");
+      if (existing) {
+        fetch(`${API_BASE}/records/${existing}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((payload) => {
+            const record = payload?.record;
+            const file = record?.files?.[0];
+            if (!record || !file) return;
+            showFile(record, file);
+            submitBtn.disabled = true;
+            $("form-status").textContent =
+              "Registro cargado desde la dirección actual.";
+          })
+          .catch(() => {});
+      }
+    </script>
+
+    <style>
+      :global(body) {
+        margin: 0;
+        font-family: var(--font-body);
+        color: var(--text-primary);
+        background: var(--color-surface-muted);
+        line-height: 1.5;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: var(--space-xs);
+        padding: var(--space-sm) var(--space-md);
+        background: var(--color-surface);
+        border-bottom: 1px solid var(--color-surface-soft);
+      }
+
+      .bar__name {
+        display: block;
+        font-weight: var(--font-weight-heading);
+        color: var(--color-primary);
+      }
+
+      .bar__ctx {
+        display: block;
+        font-size: var(--font-size-label);
+        color: var(--text-secondary);
+      }
+
+      .work {
+        display: grid;
+        grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+        gap: var(--space-md);
+        align-items: start;
+        padding: var(--space-md);
+        max-width: 1100px;
+        margin-inline: auto;
+      }
+
+      @media (min-width: 1200px) {
+        .work {
+          padding-inline: var(--space-lg);
+        }
+      }
+
+      @media (max-width: 900px) {
+        .work {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      .pane {
+        background: var(--color-surface);
+        border: 1px solid var(--color-surface-soft);
+        border-radius: var(--radius-md);
+        padding: var(--space-md);
+      }
+
+      .pane__h {
+        margin: 0 0 var(--space-sm);
+        font-size: var(--font-size-title);
+        font-weight: var(--font-weight-title);
+      }
+
+      .field {
+        margin-bottom: var(--space-sm);
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-sm);
+      }
+
+      label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: var(--font-size-label);
+        font-weight: var(--font-weight-medium);
+      }
+
+      input[type="text"],
+      input[type="date"],
+      input[type="tel"] {
+        width: 100%;
+        padding: 10px 12px;
+        font: inherit;
+        color: inherit;
+        background: var(--color-surface);
+        border: 1px solid #c9c2d4;
+        border-radius: var(--radius-sm);
+      }
+
+      input:focus-visible,
+      button:focus-visible,
+      .drop:focus-within {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+      }
+
+      input[aria-invalid="true"] {
+        border-color: #b3261e;
+      }
+
+      .err:empty {
+        display: none;
+      }
+
+      .err {
+        margin: 4px 0 0;
+        font-size: var(--font-size-label);
+        color: #b3261e;
+      }
+
+      .drop {
+        padding: var(--space-sm);
+        border: 1px dashed #c9c2d4;
+        border-radius: var(--radius-sm);
+        background: var(--color-surface-muted);
+      }
+
+      .drop[data-over] {
+        border-color: var(--color-primary);
+        background: var(--color-surface-soft);
+      }
+
+      .drop__hint,
+      .drop__file {
+        margin: var(--space-xs) 0 0;
+        font-size: var(--font-size-label);
+        color: var(--text-secondary);
+      }
+
+      .drop__file {
+        color: var(--text-primary);
+        font-weight: var(--font-weight-medium);
+      }
+
+      .actions {
+        display: flex;
+        gap: var(--space-xs);
+        margin-top: var(--space-md);
+      }
+
+      .btn {
+        flex: 1;
+        padding: 12px 16px;
+        font: inherit;
+        font-weight: var(--font-weight-title);
+        color: var(--text-on-primary);
+        background: var(--color-primary);
+        border: 1px solid var(--color-primary);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+
+      .btn:hover:not(:disabled) {
+        background: var(--color-primary-dark);
+      }
+
+      .btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .btn--ghost {
+        color: var(--color-primary);
+        background: transparent;
+      }
+
+      .btn--ghost:hover:not(:disabled) {
+        background: var(--color-surface-soft);
+      }
+
+      .prog {
+        margin-top: var(--space-sm);
+      }
+
+      progress {
+        width: 100%;
+        height: 6px;
+      }
+
+      .prog__txt,
+      .status {
+        display: block;
+        margin-top: var(--space-xs);
+        font-size: var(--font-size-label);
+        color: var(--text-secondary);
+      }
+
+      .status:empty {
+        display: none;
+      }
+
+      .empty {
+        padding: var(--space-lg) var(--space-md);
+        text-align: center;
+        color: var(--text-secondary);
+        border: 1px dashed #c9c2d4;
+        border-radius: var(--radius-sm);
+      }
+
+      .empty p {
+        margin: 0;
+      }
+
+      .empty__sub {
+        margin-top: 4px;
+        font-size: var(--font-size-label);
+      }
+
+      .meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: var(--space-sm);
+        margin: 0 0 var(--space-sm);
+      }
+
+      dt {
+        font-size: var(--font-size-label);
+        color: var(--text-secondary);
+      }
+
+      dd {
+        margin: 2px 0 0;
+        font-weight: var(--font-weight-medium);
+      }
+
+      .file__head {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: var(--space-xs);
+        padding-top: var(--space-sm);
+        border-top: 1px solid var(--color-surface-soft);
+      }
+
+      .file__name {
+        margin: 0;
+        font-weight: var(--font-weight-medium);
+      }
+
+      /* State as text, not a decorative pill. Color is never the only signal. */
+      .state {
+        margin: 0;
+        font-size: var(--font-size-label);
+        color: var(--text-secondary);
+      }
+
+      .state[data-state="CONFIRMED"] {
+        color: #1c6b4a;
+      }
+
+      .state[data-state="REVOKED"] {
+        color: #b3261e;
+      }
+
+      .preview {
+        width: 100%;
+        height: 480px;
+        margin-top: var(--space-sm);
+        border: 1px solid var(--color-surface-soft);
+        border-radius: var(--radius-sm);
+        background: var(--color-surface-muted);
+      }
+
+      .confirm {
+        margin-top: var(--space-sm);
+      }
+
+      .confirm__ask {
+        margin: 0 0 var(--space-xs);
+        font-size: var(--font-size-label);
+        color: var(--text-secondary);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .btn {
+          transition: none;
+        }
+      }
+    </style>
+  </body>
+</html>
