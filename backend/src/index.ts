@@ -1,4 +1,5 @@
 import { Hono, type Context, type Next } from "hono";
+import { cors } from "hono/cors";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 type Bindings = {
@@ -6,6 +7,9 @@ type Bindings = {
   RESULTS_BUCKET: R2Bucket;
   CLOUDFLARE_ACCESS_TEAM_DOMAIN: string;
   CLOUDFLARE_ACCESS_AUDIENCE: string;
+  // Set to "local" only via backend/.dev.vars (never deployed). Enables the
+  // Access bypass below, since Cloudflare Access JWTs cannot exist on localhost.
+  ENVIRONMENT?: string;
 };
 
 type EmployeeIdentity = {
@@ -70,7 +74,27 @@ async function isPdf(file: File): Promise<boolean> {
   return PDF_MAGIC_BYTES.every((byte, index) => header[index] === byte);
 }
 
+// Browsers cannot obtain a Cf-Access-Jwt-Assertion header on localhost: it is
+// injected by Cloudflare's edge, which local dev does not go through. Without
+// this, every protected route returns 401 during frontend development.
+//
+// This is inert in production. ENVIRONMENT is set only in backend/.dev.vars,
+// which wrangler reads for `wrangler dev` and never uploads on deploy. It is
+// deliberately NOT in wrangler.jsonc, whose top-level `vars` DO ship.
+function isLocalDev(c: AppContext): boolean {
+  return c.env.ENVIRONMENT === "local";
+}
+
 async function requireAccess(c: AppContext, next: Next) {
+  if (isLocalDev(c)) {
+    c.set("employee", {
+      email: "local-dev@duolab.test",
+      subject: "local-dev",
+    });
+
+    return next();
+  }
+
   const token = c.req.header("Cf-Access-Jwt-Assertion");
 
   if (!token) {
@@ -103,21 +127,20 @@ async function requireAccess(c: AppContext, next: Next) {
   }
 }
 
-// Local learning helper. Do not enable this before committing protected routes.
-// async function requireAccess(c: AppContext, next: Next) {
-//   const token = c.req.header("Cf-Access-Jwt-Assertion");
-//
-//   if (!token) {
-//     return c.json({ error: "Unauthorized" }, 401);
-//   }
-//
-//   c.set("employee", {
-//     email: "local-dev@duolab.test",
-//     subject: "local-dev",
-//   });
-//
-//   await next();
-// }
+// The admin UI runs on the Astro dev server (:4321) and calls this Worker on
+// :8787, so local requests are cross-origin. The origin callback returns null
+// outside local dev, which omits the CORS headers entirely in production.
+const LOCAL_FRONTEND_ORIGIN = "http://localhost:4321";
+
+app.use(
+  "*",
+  cors({
+    origin: (origin, c: AppContext) =>
+      isLocalDev(c) && origin === LOCAL_FRONTEND_ORIGIN ? origin : null,
+    allowHeaders: ["Content-Type"],
+    allowMethods: ["GET", "POST", "OPTIONS"],
+  }),
+);
 
 app.get("/health", (c) => {
   return c.json({
