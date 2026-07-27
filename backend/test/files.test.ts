@@ -241,9 +241,7 @@ describe("DELETE /records/:recordId/files/:fileId", () => {
     expect(await fileRow(file.fileId)).not.toBeNull();
   });
 
-  // C3: there is no status guard, so a confirmed file can be hard deleted.
-  // Iteration 6 restricts deletion to UPLOADED and adds a withdraw transition.
-  it("C3: deletes a confirmed file with no guard", async () => {
+  it("refuses to delete a confirmed file, pointing at withdraw", async () => {
     const { record, file } = await createRecordWithFile();
     await request(`/files/${file.fileId}/confirm`, { method: "POST" });
 
@@ -252,7 +250,93 @@ describe("DELETE /records/:recordId/files/:fileId", () => {
       { method: "DELETE" },
     );
 
+    expect(response.status).toBe(409);
+    expect(await json(response)).toMatchObject({
+      code: "INVALID_TRANSITION",
+      currentStatus: "CONFIRMED",
+    });
+    // Still there, in both stores.
+    expect(await fileRow(file.fileId)).not.toBeNull();
+  });
+});
+
+describe("POST /files/:fileId/withdraw", () => {
+  const confirm = (fileId: string) =>
+    request(`/files/${fileId}/confirm`, { method: "POST" });
+  const withdraw = (fileId: string) =>
+    request(`/files/${fileId}/withdraw`, { method: "POST" });
+
+  it("returns a confirmed file to uploaded and clears the confirmation", async () => {
+    const { file } = await createRecordWithFile();
+    await confirm(file.fileId);
+
+    const response = await withdraw(file.fileId);
+
+    expect(response.status).toBe(200);
+    expect(await json(response)).toMatchObject({ status: "UPLOADED" });
+
+    const row = await fileRow(file.fileId);
+    expect(row).toMatchObject({ status: "UPLOADED" });
+    // A file in UPLOADED that still named a confirmer would record something
+    // that is no longer true.
+    expect(row!.confirmed_by).toBeNull();
+    expect(row!.confirmed_at).toBeNull();
+  });
+
+  it("refuses to withdraw a file that was never confirmed", async () => {
+    const { file } = await createRecordWithFile();
+
+    const response = await withdraw(file.fileId);
+
+    expect(response.status).toBe(409);
+    expect(await json(response)).toMatchObject({ currentStatus: "UPLOADED" });
+  });
+
+  it("refuses to withdraw a published file", async () => {
+    const { file } = await createRecordWithFile();
+    await env.DB.prepare("UPDATE files SET status = 'PUBLISHED' WHERE file_id = ?")
+      .bind(file.fileId)
+      .run();
+
+    // Withdrawal is an employee stepping back from their own confirmation.
+    // Undoing publication is a manager revoking, and must not be reachable
+    // through this route.
+    const response = await withdraw(file.fileId);
+
+    expect(response.status).toBe(409);
+    expect((await fileRow(file.fileId))!.status).toBe("PUBLISHED");
+  });
+
+  it("returns 404 for a file that does not exist", async () => {
+    expect((await withdraw(crypto.randomUUID())).status).toBe(404);
+  });
+
+  it("allows delete once the confirmation is withdrawn", async () => {
+    const { record, file } = await createRecordWithFile();
+    await confirm(file.fileId);
+    await withdraw(file.fileId);
+
+    const response = await request(
+      `/records/${record.recordId}/files/${file.fileId}`,
+      { method: "DELETE" },
+    );
+
     expect(response.status).toBe(200);
     expect(await fileRow(file.fileId)).toBeNull();
+  });
+
+  // Documents the cost of allowing the cycle: only the last confirmation
+  // survives. See the note in domain/file-lifecycle.ts.
+  it("keeps only the most recent confirmation after a re-confirm", async () => {
+    const { file } = await createRecordWithFile();
+    await confirm(file.fileId);
+    await withdraw(file.fileId);
+    await confirm(file.fileId);
+
+    const row = await fileRow(file.fileId);
+    expect(row).toMatchObject({
+      status: "CONFIRMED",
+      confirmed_by: "local-dev@duolab.test",
+    });
   });
 });
