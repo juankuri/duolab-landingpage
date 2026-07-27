@@ -51,6 +51,26 @@ export function insertPatientAndRecord(db: D1Database, record: NewRecord) {
   ]);
 }
 
+/**
+ * D1 surfaces a constraint violation as an Error whose message embeds the
+ * SQLite text. There is no stable error code exposed, so the message is
+ * matched, but only after checking the driver-independent facts first: the
+ * cause chain and the constraint name both appear. Callers pre-check the
+ * folio anyway, so this is the race backstop rather than the primary path.
+ */
+export function isFolioConflict(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const cause = error.cause instanceof Error ? error.cause.message : "";
+  const message = `${error.message} ${cause}`;
+
+  return (
+    message.includes("UNIQUE constraint failed") && message.includes("records.folio")
+  );
+}
+
 export function findByFolio(db: D1Database, folio: string) {
   return db
     .prepare(
@@ -101,6 +121,18 @@ export function exists(db: D1Database, recordId: string) {
     .first<{ record_id: string }>();
 }
 
+/**
+ * uploaded_at is CURRENT_TIMESTAMP, which resolves to the second. Two files
+ * uploaded to one record within the same second used to tie, and the previous
+ * MAX(uploaded_at) subquery matched both, listing that record twice. The
+ * window function picks exactly one row per record, and file_id breaks any
+ * remaining tie so the choice is at least stable between calls.
+ *
+ * Deliberately not solved by giving uploaded_at sub-second precision: mixing
+ * "YYYY-MM-DD HH:MM:SS" with an ISO "...T...Z" string sorts wrongly, because
+ * a space sorts before "T". That would need a backfill of every existing row
+ * to buy nothing this does not already.
+ */
 export function listRecent(db: D1Database, limit: number) {
   return db
     .prepare(
@@ -114,12 +146,13 @@ export function listRecent(db: D1Database, limit: number) {
        FROM records
        JOIN patients ON patients.patient_id = records.patient_id
        LEFT JOIN (
-         SELECT f.record_id, f.status, f.uploaded_at
-         FROM files f
-         WHERE f.uploaded_at = (
-           SELECT MAX(f2.uploaded_at) FROM files f2 WHERE f2.record_id = f.record_id
-         )
-       ) latest ON latest.record_id = records.record_id
+         SELECT record_id, status, uploaded_at,
+                ROW_NUMBER() OVER (
+                  PARTITION BY record_id
+                  ORDER BY uploaded_at DESC, file_id DESC
+                ) AS rn
+         FROM files
+       ) latest ON latest.record_id = records.record_id AND latest.rn = 1
        ORDER BY COALESCE(latest.uploaded_at, records.created_at) DESC
        LIMIT ?`,
     )
