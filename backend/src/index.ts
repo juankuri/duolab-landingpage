@@ -1,30 +1,8 @@
-import { Hono, type Context, type Next } from "hono";
+import { Hono, type Next } from "hono";
 import { cors } from "hono/cors";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-type Bindings = {
-  DB: D1Database;
-  RESULTS_BUCKET: R2Bucket;
-  CLOUDFLARE_ACCESS_TEAM_DOMAIN: string;
-  CLOUDFLARE_ACCESS_AUDIENCE: string;
-  // Set to "local" only via backend/.dev.vars (never deployed). Enables the
-  // Access bypass below, since Cloudflare Access JWTs cannot exist on localhost.
-  ENVIRONMENT?: string;
-};
-
-type EmployeeIdentity = {
-  email: string;
-  subject: string;
-};
-
-type Variables = {
-  employee: EmployeeIdentity;
-};
-
-type AppContext = Context<{
-  Bindings: Bindings;
-  Variables: Variables;
-}>;
+import type { AppContext, AppEnv } from "./env";
 
 type FilePreviewRow = {
   file_id: string;
@@ -54,7 +32,7 @@ type RecordFileRow = {
   confirmed_at: string | null;
 };
 
-const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+const app = new Hono<AppEnv>();
 
 const PDF_MAGIC_BYTES = [0x25, 0x50, 0x44, 0x46, 0x2d];
 
