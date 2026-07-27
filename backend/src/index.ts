@@ -640,4 +640,21 @@ app.post("/files/:fileId/confirm", requireAccess, async (c) => {
   });
 });
 
+// Every route in this Worker answers with JSON, so the two paths Hono handles
+// on its own should too. Without these, an unknown path or an unhandled throw
+// returns text the admin UI cannot parse, and its error handling falls back to
+// a generic message that hides what actually happened.
+app.notFound((c) => {
+  return c.json({ error: "Not found." }, 404);
+});
+
+app.onError((error, c) => {
+  console.error(error);
+
+  // Deliberately generic: the cause is in the logs, not in the response. A
+  // stack trace or a driver message here would describe the schema to anyone
+  // who can trigger a fault.
+  return c.json({ error: "Something went wrong." }, 500);
+});
+
 export default app;
