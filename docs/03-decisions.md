@@ -112,15 +112,17 @@ Status: Accepted
 
 Rejected alternatives: auto-superseding silently (a manager could unpublish a result without realizing — the worst failure mode this product has); two separate manual steps, revoke-then-publish (leaves a real gap where the patient sees nothing, and is not atomic).
 
-## DEC-012: Cloudflare Access boundary for the patient flow is unresolved
+## DEC-012: Cloudflare Access boundary for the patient flow — same Worker, additive `/api/public/*`
 
-Status: Open — resolve before building the patient flow
+Status: Accepted
 
 `docs/02-architecture.md` names Cloudflare Access as the only authentication mechanism. Patients cannot be Access users — there is no Access application a public visitor can be a member of. Every current backend route assumes an Access-verified identity via `requireAccess`.
 
-The patient lookup/download routes must therefore live outside the Access application. Whether that means a route split on the same Worker, a separate Worker, or an Access bypass rule scoped only to those routes is not decided. This is the first question the patient-flow iteration must answer; it is recorded here as open on purpose, not resolved speculatively ahead of that work.
+Resolved as: the patient lookup and download routes live on the **same Worker**, mounted as a new `/api/public/*` sub-app with no `requireAccess` in its middleware chain, alongside the existing internal routes (`/records`, `/files`, `/me`, `/health`), which are **left exactly as they are** — no rename, no path-prefix migration to `/api/internal/*`.
 
-Related, and already true today: `GET /files/:fileId` stays employee-only and must not be widened to serve patients. The patient download needs its own handler, its own authorization, a `PUBLISHED`-only filter, and `Content-Disposition: attachment`.
+Rejected alternative: renaming the existing internal routes under an `/api/internal/*` prefix to make the split explicit in both directions. Rejected because it would touch every existing route path, every admin-frontend fetch call site, and every existing test's request path, for a boundary that is already unambiguous from the single new sub-app's own auth-free mount — the regression surface of renaming stable, already-tested routes is not justified by a symmetry preference. Revisit only if a real deployment constraint (e.g. routing patients and staff through different Cloudflare Access applications or edge rules) forces the split.
+
+Related, and already true today: `GET /files/:fileId` stays employee-only and must not be widened to serve patients. The patient download has its own handler under `/api/public/results/:downloadToken/download`, its own authorization (an opaque encrypted token plus a live `PUBLISHED` re-check), and `Content-Disposition: attachment`.
 
 ## DEC-013: MANAGER is a strict superset of EMPLOYEE
 
