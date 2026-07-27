@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createRecord, json, publishedRecord, request } from "./helpers";
 
@@ -162,6 +162,25 @@ describe("POST /api/public/results/lookup", () => {
       }
 
       expect(last!.status).toBe(429);
+    });
+  });
+
+  describe("logging", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("never writes the phone or birth date to the server log, success or failure", async () => {
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+      await publishedResultRecord({ folio: "LOG-010190-1" });
+
+      await lookup({ folio: "LOG-010190-1", phone: PHONE, birthDate: BIRTH_DATE });
+      await lookup({ folio: "LOG-010190-1", phone: "0000000000", birthDate: BIRTH_DATE });
+
+      const logged = spy.mock.calls.flat().map(String).join("\n");
+      expect(logged).not.toContain(PHONE);
+      expect(logged).not.toContain(BIRTH_DATE);
+      expect(logged).not.toContain("0000000000");
     });
   });
 });
