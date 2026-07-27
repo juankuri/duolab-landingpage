@@ -2,7 +2,16 @@ import { Hono } from "hono";
 
 import * as filesRepo from "../../data/files.repo";
 import * as recordsRepo from "../../data/records.repo";
-import { MAX_UPLOAD_BYTES, isPdf } from "../../domain/validation";
+import { AppError } from "../../domain/errors";
+import {
+  MAX_UPLOAD_BYTES,
+  isPdf,
+  isUuid,
+  validateBirthDate,
+  validateFolio,
+  validateFullName,
+  validatePhoneNumber,
+} from "../../domain/validation";
 import type { AppContext, AppEnv } from "../../env";
 import * as recordService from "../../services/record-service";
 import { requestId } from "../errors";
@@ -10,36 +19,33 @@ import { requestId } from "../errors";
 export const records = new Hono<AppEnv>();
 
 records.post("/", async (c) => {
-  const body: {
-    fullName?: unknown;
-    birthDate?: unknown;
-    phoneNumber?: unknown;
-    folio?: unknown;
-  } = await c.req.json().catch(() => ({}));
+  const body: Record<string, unknown> = await c.req.json().catch(() => ({}));
 
-  if (
-    typeof body.fullName !== "string" ||
-    typeof body.birthDate !== "string" ||
-    typeof body.phoneNumber !== "string" ||
-    typeof body.folio !== "string"
-  ) {
-    return c.json(
-      { error: "fullName, birthDate, phoneNumber, and folio are required." },
-      400,
-    );
+  // Every field is validated before any is used, so one response can name
+  // every problem at once instead of making the employee submit again to
+  // discover the next one.
+  const name = validateFullName(body.fullName);
+  const birth = validateBirthDate(body.birthDate);
+  const phone = validatePhoneNumber(body.phoneNumber);
+  const reference = validateFolio(body.folio);
+
+  if (!name.ok || !birth.ok || !phone.ok || !reference.ok) {
+    const fields: Record<string, string> = {};
+
+    if (!name.ok) fields.fullName = name.error;
+    if (!birth.ok) fields.birthDate = birth.error;
+    if (!phone.ok) fields.phoneNumber = phone.error;
+    if (!reference.ok) fields.folio = reference.error;
+
+    throw new AppError("INVALID_INPUT", "Revisa los datos del formulario.", {
+      fields,
+    });
   }
 
-  const fullName = body.fullName.trim();
-  const birthDate = body.birthDate.trim();
-  const phoneNumber = body.phoneNumber.trim();
-  const folio = body.folio.trim();
-
-  if (!fullName || !birthDate || !phoneNumber || !folio) {
-    return c.json(
-      { error: "fullName, birthDate, phoneNumber, and folio cannot be empty." },
-      400,
-    );
-  }
+  const fullName = name.value;
+  const birthDate = birth.value;
+  const phoneNumber = phone.value;
+  const folio = reference.value;
 
   const patientId = crypto.randomUUID();
   const recordId = crypto.randomUUID();
@@ -113,7 +119,7 @@ async function recordDetailResponse(
   const record = await recordsRepo.findRecordDetail(c.env.DB, lookup);
 
   if (!record) {
-    return c.json({ error: "Record not found." }, 404);
+    throw new AppError("NOT_FOUND", "No encontramos el registro.");
   }
 
   const files = await filesRepo.listForRecord(c.env.DB, record.record_id);
@@ -149,20 +155,22 @@ async function recordDetailResponse(
 
 // Registered before /:recordId so the literal segment is not captured as an id.
 records.get("/by-folio/:folio", async (c) => {
-  const folio = c.req.param("folio");
+  const folio = validateFolio(c.req.param("folio"));
 
-  if (!folio) {
-    return c.json({ error: "Folio is required." }, 400);
+  if (!folio.ok) {
+    throw new AppError("INVALID_INPUT", folio.error);
   }
 
-  return recordDetailResponse(c, { by: "folio", value: folio });
+  // Normalized here as well as on write, so a folio read off paper in lower
+  // case finds the record that was stored in upper case.
+  return recordDetailResponse(c, { by: "folio", value: folio.value });
 });
 
 records.get("/:recordId", async (c) => {
   const recordId = c.req.param("recordId");
 
-  if (!recordId) {
-    return c.json({ error: "Record id is required." }, 400);
+  if (!isUuid(recordId)) {
+    throw new AppError("INVALID_INPUT", "El identificador del registro no es válido.");
   }
 
   return recordDetailResponse(c, { by: "id", value: recordId });
@@ -171,12 +179,12 @@ records.get("/:recordId", async (c) => {
 records.post("/:recordId/files", async (c) => {
   const recordId = c.req.param("recordId");
 
-  if (!recordId) {
-    return c.json({ error: "Record id is required." }, 400);
+  if (!isUuid(recordId)) {
+    throw new AppError("INVALID_INPUT", "El identificador del registro no es válido.");
   }
 
   if (!(await recordsRepo.exists(c.env.DB, recordId))) {
-    return c.json({ error: "Record not found." }, 404);
+    throw new AppError("NOT_FOUND", "No encontramos el registro.");
   }
 
   // Best-effort rejection before the body is read. The header is advisory,
@@ -184,22 +192,27 @@ records.post("/:recordId/files", async (c) => {
   const declaredLength = Number(c.req.header("Content-Length") ?? "");
 
   if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES) {
-    return c.json({ error: "The file is too large." }, 413);
+    throw new AppError("PAYLOAD_TOO_LARGE", "El archivo supera los 15 MB.");
   }
 
   const formData = await c.req.formData();
   const file = formData.get("file");
 
+  // No file field at all is a malformed request; a file that is present but
+  // is not a PDF is an unsupported type. They are different mistakes and the
+  // status should say which one it was.
   if (!(file instanceof File)) {
-    return c.json({ error: "No file uploaded, please upload a file." }, 400);
+    throw new AppError("INVALID_INPUT", "Adjunta el archivo PDF.");
   }
 
   if (file.size > MAX_UPLOAD_BYTES) {
-    return c.json({ error: "The file is too large." }, 413);
+    throw new AppError("PAYLOAD_TOO_LARGE", "El archivo supera los 15 MB.");
   }
 
+  // Covers a declared type that is not PDF and a declared PDF whose bytes
+  // disagree. In both cases the content is what is unsupported.
   if (!(await isPdf(file))) {
-    return c.json({ error: "Only PDF files are allowed." }, 400);
+    throw new AppError("UNSUPPORTED_MEDIA_TYPE", "Solo se admiten archivos PDF.");
   }
 
   const { fileId } = await recordService.uploadResult(c.env, {
@@ -216,8 +229,8 @@ records.delete("/:recordId/files/:fileId", async (c) => {
   const recordId = c.req.param("recordId");
   const fileId = c.req.param("fileId");
 
-  if (!recordId || !fileId) {
-    return c.json({ error: "Record id and file id are required." }, 400);
+  if (!isUuid(recordId) || !isUuid(fileId)) {
+    throw new AppError("INVALID_INPUT", "El identificador no es válido.");
   }
 
   await recordService.deleteResult(c.env, {
