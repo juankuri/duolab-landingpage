@@ -58,6 +58,11 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 const PDF_MAGIC_BYTES = [0x25, 0x50, 0x44, 0x46, 0x2d];
 
+// Result PDFs are a few pages of text and tables. 15 MB is far above anything
+// the lab produces and far below what would make an upload expensive to store
+// or slow to stream back to a patient.
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+
 async function isPdf(file: File): Promise<boolean> {
   if (file.size === 0) {
     return false;
@@ -459,11 +464,23 @@ app.post("/records/:recordId/files", requireAccess, async (c) => {
       return c.json({ error: "Record not found." }, 404);
     }
 
+    // Best-effort rejection before the body is read. The header is advisory,
+    // so the authoritative check is on the parsed file below.
+    const declaredLength = Number(c.req.header("Content-Length") ?? "");
+
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES) {
+      return c.json({ error: "The file is too large." }, 413);
+    }
+
     const formData = await c.req.formData();
     const file = formData.get("file");
 
     if (!(file instanceof File)) {
       return c.json({ error: "No file uploaded, please upload a file." }, 400);
+    }
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return c.json({ error: "The file is too large." }, 413);
     }
 
     if (!(await isPdf(file))) {
@@ -504,7 +521,6 @@ app.post("/records/:recordId/files", requireAccess, async (c) => {
         fileId,
         recordId,
         status: "UPLOADED",
-        r2Key,
       },
       201,
     );
