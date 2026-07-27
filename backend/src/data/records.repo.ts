@@ -133,7 +133,18 @@ export function exists(db: D1Database, recordId: string) {
  * a space sorts before "T". That would need a backfill of every existing row
  * to buy nothing this does not already.
  */
-export function listRecent(db: D1Database, limit: number) {
+export function listRecent(
+  db: D1Database,
+  limit: number,
+  /**
+   * Filters to records whose latest file is in this state. The manager queue
+   * is `status=CONFIRMED`: everything reviewed and waiting for release.
+   */
+  status?: string,
+) {
+  const filter = status ? "WHERE latest.status = ?" : "";
+  const bindings = status ? [status, limit] : [limit];
+
   return db
     .prepare(
       `SELECT
@@ -153,9 +164,10 @@ export function listRecent(db: D1Database, limit: number) {
                 ) AS rn
          FROM files
        ) latest ON latest.record_id = records.record_id AND latest.rn = 1
+       ${filter}
        ORDER BY COALESCE(latest.uploaded_at, records.created_at) DESC
        LIMIT ?`,
     )
-    .bind(limit)
+    .bind(...bindings)
     .all<RecordListRow>();
 }

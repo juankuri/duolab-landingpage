@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import * as filesRepo from "../../data/files.repo";
 import * as recordsRepo from "../../data/records.repo";
 import { AppError } from "../../domain/errors";
+import { isFileStatus } from "../../domain/file-lifecycle";
 import {
   MAX_UPLOAD_BYTES,
   isPdf,
@@ -95,7 +96,15 @@ records.get("/", async (c) => {
     ? Math.min(Math.max(Math.trunc(limitParam), 1), 100)
     : 20;
 
-  const rows = await recordsRepo.listRecent(c.env.DB, limit);
+  // The manager queue is this list filtered to CONFIRMED: everything
+  // reviewed and waiting to be released.
+  const status = c.req.query("status");
+
+  if (status !== undefined && !isFileStatus(status)) {
+    throw new AppError("INVALID_INPUT", "El estado solicitado no existe.");
+  }
+
+  const rows = await recordsRepo.listRecent(c.env.DB, limit, status);
 
   return c.json({
     records: rows.results.map((row) => ({
@@ -144,6 +153,11 @@ async function recordDetailResponse(
         uploadedAt: file.uploaded_at,
         confirmedBy: file.confirmed_by,
         confirmedAt: file.confirmed_at,
+        publishedBy: file.published_by,
+        publishedAt: file.published_at,
+        revokedBy: file.revoked_by,
+        revokedAt: file.revoked_at,
+        revokedReason: file.revoked_reason,
         // Employee-only. The patient download will be a separate route with
         // its own authorization and a PUBLISHED-only filter; do not widen
         // this one to serve it.

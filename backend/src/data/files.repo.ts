@@ -17,6 +17,11 @@ export type RecordFileRow = {
   uploaded_at: string;
   confirmed_by: string | null;
   confirmed_at: string | null;
+  published_by: string | null;
+  published_at: string | null;
+  revoked_by: string | null;
+  revoked_at: string | null;
+  revoked_reason: string | null;
 };
 
 export type NewFile = {
@@ -60,7 +65,12 @@ export function listForRecord(db: D1Database, recordId: string) {
          uploaded_by,
          uploaded_at,
          confirmed_by,
-         confirmed_at
+         confirmed_at,
+         published_by,
+         published_at,
+         revoked_by,
+         revoked_at,
+         revoked_reason
        FROM files
        WHERE record_id = ?
        -- file_id breaks the tie when two uploads share a second, so the
@@ -118,6 +128,92 @@ export function withdraw(db: D1Database, fileId: string) {
     )
     .bind(fileId)
     .run();
+}
+
+/** The published file for a record, if there is one. */
+export function findPublished(db: D1Database, recordId: string) {
+  return db
+    .prepare(
+      "SELECT file_id, original_filename FROM files WHERE record_id = ? AND status = 'PUBLISHED'",
+    )
+    .bind(recordId)
+    .first<{ file_id: string; original_filename: string }>();
+}
+
+export function publish(db: D1Database, fileId: string, publishedBy: string) {
+  return db
+    .prepare(
+      `UPDATE files
+         SET status = 'PUBLISHED',
+             published_by = ?,
+             published_at = CURRENT_TIMESTAMP
+       WHERE file_id = ?
+         AND status = 'CONFIRMED'`,
+    )
+    .bind(publishedBy, fileId)
+    .run();
+}
+
+export function revoke(
+  db: D1Database,
+  fileId: string,
+  revokedBy: string,
+  reason: string | null,
+) {
+  return db
+    .prepare(
+      `UPDATE files
+         SET status = 'REVOKED',
+             revoked_by = ?,
+             revoked_at = CURRENT_TIMESTAMP,
+             revoked_reason = ?
+       WHERE file_id = ?
+         AND status = 'PUBLISHED'`,
+    )
+    .bind(revokedBy, reason, fileId)
+    .run();
+}
+
+/**
+ * Revokes the currently published file and publishes the replacement in one
+ * D1 batch, which runs as a transaction. Both apply or neither does, so there
+ * is no moment where the record has two published files or none.
+ *
+ * Order matters: the revoke must come first, or the insert of a second
+ * PUBLISHED row would hit idx_files_single_published_per_record.
+ */
+export function supersede(
+  db: D1Database,
+  input: {
+    currentFileId: string;
+    nextFileId: string;
+    actorEmail: string;
+    reason: string | null;
+  },
+) {
+  return db.batch([
+    db
+      .prepare(
+        `UPDATE files
+           SET status = 'REVOKED',
+               revoked_by = ?,
+               revoked_at = CURRENT_TIMESTAMP,
+               revoked_reason = ?
+         WHERE file_id = ?
+           AND status = 'PUBLISHED'`,
+      )
+      .bind(input.actorEmail, input.reason, input.currentFileId),
+    db
+      .prepare(
+        `UPDATE files
+           SET status = 'PUBLISHED',
+               published_by = ?,
+               published_at = CURRENT_TIMESTAMP
+         WHERE file_id = ?
+           AND status = 'CONFIRMED'`,
+      )
+      .bind(input.actorEmail, input.nextFileId),
+  ]);
 }
 
 /**

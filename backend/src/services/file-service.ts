@@ -59,3 +59,104 @@ export async function transition(
 
   return { recordId: current.record_id, from: current.status };
 }
+
+/**
+ * Releases a confirmed file to the patient.
+ *
+ * A record may hold many files but only one published at a time, so this
+ * refuses while another is published and names it, rather than quietly
+ * revoking it. Replacing a released result is a decision, and a manager
+ * should have to make it on purpose: pass supersedes to do both atomically.
+ */
+export async function publish(
+  db: D1Database,
+  input: {
+    fileId: string;
+    actorEmail: string;
+    /** File id of the published result this one replaces. */
+    supersedes?: string;
+    reason?: string | null;
+  },
+) {
+  const current = await filesRepo.findStatus(db, input.fileId);
+
+  if (!current) {
+    throw new AppError("NOT_FOUND", "No encontramos el archivo.");
+  }
+
+  if (!isFileStatus(current.status) || !canTransition(current.status, "PUBLISHED")) {
+    throw new AppError(
+      "INVALID_TRANSITION",
+      "Solo se puede publicar un archivo confirmado.",
+      { currentStatus: current.status },
+    );
+  }
+
+  const published = await filesRepo.findPublished(db, current.record_id);
+
+  if (published && published.file_id !== input.supersedes) {
+    throw new AppError(
+      "ALREADY_PUBLISHED",
+      "Este registro ya tiene un archivo publicado.",
+      {
+        currentFileId: published.file_id,
+        currentFilename: published.original_filename,
+      },
+    );
+  }
+
+  if (input.supersedes) {
+    if (!published) {
+      throw new AppError(
+        "INVALID_TRANSITION",
+        "El archivo que intentas reemplazar ya no está publicado.",
+      );
+    }
+
+    // One batch, so the record never has two published files or none.
+    const [revoked, promoted] = await filesRepo.supersede(db, {
+      currentFileId: input.supersedes,
+      nextFileId: input.fileId,
+      actorEmail: input.actorEmail,
+      reason: input.reason ?? null,
+    });
+
+    if (revoked.meta.changes === 0 || promoted.meta.changes === 0) {
+      throw new AppError(
+        "INVALID_TRANSITION",
+        "No se pudo reemplazar el archivo publicado.",
+      );
+    }
+
+    return { recordId: current.record_id, superseded: input.supersedes };
+  }
+
+  const result = await filesRepo.publish(db, input.fileId, input.actorEmail);
+
+  if (result.meta.changes === 0) {
+    throw new AppError(
+      "INVALID_TRANSITION",
+      "Solo se puede publicar un archivo confirmado.",
+    );
+  }
+
+  return { recordId: current.record_id, superseded: null };
+}
+
+/**
+ * Withdraws a published file from the patient. Terminal: a revoked file is
+ * never published again, so correcting one means uploading a new file. That
+ * keeps published_at and revoked_at unambiguous, which a re-publishable
+ * state would not.
+ */
+export async function revoke(
+  db: D1Database,
+  input: { fileId: string; actorEmail: string; reason: string | null },
+) {
+  return transition(db, {
+    fileId: input.fileId,
+    to: "REVOKED",
+    apply: () => filesRepo.revoke(db, input.fileId, input.actorEmail, input.reason),
+    rejection: "Solo se puede revocar un archivo publicado.",
+  });
+}
