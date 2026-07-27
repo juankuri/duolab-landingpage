@@ -38,14 +38,21 @@ describe("POST /records", () => {
     });
 
     expect(response.status).toBe(400);
-    expect((await json(response)).error).toMatch(/required/i);
+    const body = await json(response);
+    expect(body.code).toBe("INVALID_INPUT");
+    // Every missing field is reported at once, not one per submission.
+    expect(Object.keys(body.fields).sort()).toEqual([
+      "birthDate",
+      "folio",
+      "phoneNumber",
+    ]);
   });
 
   it("rejects fields that are only whitespace", async () => {
     const { response, body } = await createRecord({ fullName: "   " });
 
     expect(response.status).toBe(400);
-    expect(body.error).toMatch(/cannot be empty/i);
+    expect(body.fields.fullName).toBeTruthy();
   });
 
   it("rejects a malformed json body as a validation error, not a crash", async () => {
@@ -58,15 +65,36 @@ describe("POST /records", () => {
     expect(response.status).toBe(400);
   });
 
-  // C8: no format validation today. A date that does not exist and a phone
-  // number that is a single letter are both accepted and stored verbatim.
-  it("C8: accepts impossible dates and nonsense phone numbers", async () => {
-    const { response } = await createRecord({
+  it("rejects impossible dates and nonsense phone numbers", async () => {
+    const { response, body } = await createRecord({
       birthDate: "2026-02-30",
       phoneNumber: "x",
     });
 
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(400);
+    expect(body.fields.birthDate).toBeTruthy();
+    expect(body.fields.phoneNumber).toBeTruthy();
+  });
+
+  it("normalizes what it stores", async () => {
+    const { body } = await createRecord({
+      folio: "malo-010919-77",
+      fullName: "  Maria   Lopez  ",
+      phoneNumber: "+52 938 123 4567",
+    });
+
+    expect(body.folio).toBe("MALO-010919-77");
+
+    const stored = await env.DB.prepare(
+      "SELECT full_name, phone_number FROM patients WHERE patient_id = ?",
+    )
+      .bind(body.patientId)
+      .first();
+
+    expect(stored).toMatchObject({
+      full_name: "Maria Lopez",
+      phone_number: "9381234567",
+    });
   });
 
   it("returns 409 with the existing record when the folio is taken", async () => {
@@ -203,12 +231,20 @@ describe("GET /records/by-folio/:folio", () => {
     expect(response.status).toBe(404);
   });
 
-  // The folio is taken from the path verbatim, so lookup is case sensitive.
-  it("does not match a folio in different case", async () => {
+  // Folios are read off printed paper, so lookup must not care about case.
+  it("matches a folio typed in a different case", async () => {
     await createRecord({ folio: "CASE-010919-01" });
 
     const response = await request("/records/by-folio/case-010919-01");
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(200);
+  });
+
+  it("rejects a folio containing characters that are not allowed", async () => {
+    const response = await request(
+      `/records/by-folio/${encodeURIComponent("../secrets")}`,
+    );
+
+    expect(response.status).toBe(400);
   });
 });
