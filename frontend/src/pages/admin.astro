@@ -163,6 +163,16 @@ import "../styles/clients/duolab.css";
         <h2 id="file-h" class="pane__h">Registros recientes</h2>
 
         <div id="idle">
+          <!-- Manager only, filled from GET /records?status=CONFIRMED. Hidden -->
+          <!-- for an employee: showing an action that will be refused is worse -->
+          <!-- than not showing it, even though the server is the real gate. -->
+          <div id="queue" hidden>
+            <h3 class="pane__sub">Pendientes de publicar</h3>
+            <ul class="recent" id="queue-list"></ul>
+            <p class="status" id="queue-status" role="status" aria-live="polite"
+            ></p>
+          </div>
+
           <p class="empty__sub" id="idle-hint">
             Busca un folio o crea un registro para revisar su archivo aquí.
           </p>
@@ -202,6 +212,18 @@ import "../styles/clients/duolab.css";
             </button>
           </div>
 
+          <!-- Manager only. Publicar is the action that makes a file visible to -->
+          <!-- a patient, so it goes through the same confirmation-dialog pattern -->
+          <!-- as every other destructive or consequential action on this page. -->
+          <div class="actions" id="manager-actions" hidden>
+            <button class="btn btn--danger" id="revoke" type="button" hidden>
+              Revocar publicación
+            </button>
+            <button class="btn" id="publish" type="button" hidden>
+              Publicar
+            </button>
+          </div>
+
           <!-- Opened by the Reemplazar button; the picked file names the -->
           <!-- consequence in the confirm dialog before anything is deleted. -->
           <input id="replace-pdf" type="file" accept="application/pdf" hidden />
@@ -226,6 +248,42 @@ import "../styles/clients/duolab.css";
       </div>
     </dialog>
 
+    <!-- Publishing is the moment a file becomes visible to a patient, so it -->
+    <!-- always asks first — even a plain publish, not only a supersede. -->
+    <dialog id="pub-dialog" aria-labelledby="pub-h">
+      <h2 id="pub-h" class="dlg__h">¿Publicar este archivo?</h2>
+      <p class="dlg__body" id="pub-body"></p>
+      <div class="actions">
+        <button class="btn btn--ghost" id="pub-cancel" type="button">
+          Cancelar
+        </button>
+        <button class="btn" id="pub-go" type="button">
+          Sí, publicar
+        </button>
+      </div>
+    </dialog>
+
+    <dialog id="rvk-dialog" aria-labelledby="rvk-h">
+      <h2 id="rvk-h" class="dlg__h">¿Revocar la publicación?</h2>
+      <p class="dlg__body">
+        El paciente ya no podrá ver ni descargar este archivo. Esta acción no
+        se puede deshacer; si el resultado es correcto, tendrás que
+        publicarlo de nuevo.
+      </p>
+      <div class="field">
+        <label for="rvk-reason">Motivo (opcional)</label>
+        <input id="rvk-reason" type="text" maxlength="500" autocomplete="off" />
+      </div>
+      <div class="actions">
+        <button class="btn btn--ghost" id="rvk-cancel" type="button">
+          Cancelar
+        </button>
+        <button class="btn btn--danger" id="rvk-go" type="button">
+          Sí, revocar
+        </button>
+      </div>
+    </dialog>
+
     <dialog id="rep-dialog" aria-labelledby="rep-h">
       <h2 id="rep-h" class="dlg__h">¿Reemplazar el archivo?</h2>
       <p class="dlg__body" id="rep-body"></p>
@@ -246,6 +304,8 @@ import "../styles/clients/duolab.css";
     <script is:inline>
       // Local Worker. Change when the deployment story is settled.
       const API_BASE = "http://localhost:8787";
+
+      let actorRole = "EMPLOYEE";
 
       const $ = (id) => document.getElementById(id);
       const form = $("record-form");
@@ -404,6 +464,22 @@ import "../styles/clients/duolab.css";
         REVOKED: "Revocado",
       };
 
+      // Which manager action applies to a status, if any. Showing the wrong
+      // one is exactly the kind of mistake that must not be possible: an
+      // employee never sees these regardless of status.
+      const updateManagerActions = (status) => {
+        const wrap = $("manager-actions");
+        const isManager = actorRole === "MANAGER";
+
+        wrap.hidden = !isManager;
+        if (!isManager) return;
+
+        $("publish").hidden = status !== "CONFIRMED";
+        $("revoke").hidden = status !== "PUBLISHED";
+        $("publish").disabled = false;
+        $("revoke").disabled = false;
+      };
+
       const showFile = (record, file) => {
         $("idle").hidden = true;
         $("file").hidden = false;
@@ -428,6 +504,9 @@ import "../styles/clients/duolab.css";
         $("confirm-ask").hidden = !confirmable;
         $("confirm").dataset.fileId = file.fileId;
         $("replace").hidden = false;
+        $("publish").dataset.fileId = file.fileId;
+        $("revoke").dataset.fileId = file.fileId;
+        updateManagerActions(file.status);
 
         // Both buttons disable themselves while their request is in flight, so
         // re-enable here or the next record inherits the previous one's state.
@@ -462,16 +541,10 @@ import "../styles/clients/duolab.css";
         }
       };
 
-      const renderRecent = (records) => {
-        const list = $("recent");
-        list.replaceChildren();
-
-        if (records.length === 0) {
-          $("recent-status").textContent = "Aún no hay registros.";
-          return;
-        }
-
-        $("recent-status").textContent = "";
+      // Shared by the recent list and the manager queue: same row shape, same
+      // in-page navigation, different data source and empty-state text.
+      const renderRecordList = (listEl, records) => {
+        listEl.replaceChildren();
 
         for (const record of records) {
           const item = document.createElement("li");
@@ -493,8 +566,39 @@ import "../styles/clients/duolab.css";
 
           btn.append(main, state);
           item.append(btn);
-          list.append(item);
+          listEl.append(item);
         }
+      };
+
+      const renderRecent = (records) => {
+        renderRecordList($("recent"), records);
+        $("recent-status").textContent =
+          records.length === 0 ? "Aún no hay registros." : "";
+      };
+
+      // Manager only. Confirmed files are exactly the ones waiting on a
+      // publish decision, so the queue reuses the recent-list endpoint with a
+      // status filter rather than being a separate concept on the server.
+      const loadQueue = async () => {
+        if (actorRole !== "MANAGER") return;
+
+        try {
+          const res = await fetch(`${API_BASE}/records?status=CONFIRMED&limit=20`);
+          if (!res.ok) throw new Error();
+          const payload = await res.json();
+          const records = payload.records || [];
+
+          renderRecordList($("queue-list"), records);
+          $("queue-status").textContent =
+            records.length === 0 ? "No hay archivos pendientes de publicar." : "";
+        } catch {
+          $("queue-status").textContent = "No se pudo cargar la lista.";
+        }
+      };
+
+      const refreshLists = () => {
+        loadRecent();
+        loadQueue();
       };
 
       const fillForm = (record) => {
@@ -808,7 +912,7 @@ import "../styles/clients/duolab.css";
 
           submitBtn.textContent = "Registrar y subir";
           $("form-status").textContent = "Archivo subido. Revísalo y confírmalo.";
-          loadRecent();
+          refreshLists();
           $("confirm").focus();
         } catch (error) {
           $("form-status").textContent = error.message;
@@ -840,13 +944,125 @@ import "../styles/clients/duolab.css";
           state.dataset.state = "CONFIRMED";
           $("confirm").hidden = true;
           $("confirm-ask").hidden = true;
+          updateManagerActions("CONFIRMED");
           $("file-status").textContent = "Archivo confirmado.";
           resetBtn.hidden = false;
-          loadRecent();
+          refreshLists();
           resetBtn.focus();
         } catch (error) {
           $("file-status").textContent = error.message;
           btn.disabled = false;
+        }
+      });
+
+      const pubDialog = $("pub-dialog");
+      const rvkDialog = $("rvk-dialog");
+
+      // Holds what a confirmed publish click will do: which file, and (once a
+      // conflict has been named) which currently published file it replaces.
+      // supersedes stays null until the server has told us there is
+      // something to replace — it is never guessed at up front.
+      let pubPending = { fileId: null, supersedes: null };
+
+      const doPublish = async () => {
+        pubDialog.close();
+        $("publish").disabled = true;
+        $("file-status").textContent = "Publicando…";
+
+        const query = pubPending.supersedes
+          ? `?supersedes=${pubPending.supersedes}`
+          : "";
+
+        try {
+          const res = await fetch(
+            `${API_BASE}/files/${pubPending.fileId}/publish${query}`,
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+          );
+          const payload = await res.json().catch(() => ({}));
+
+          if (res.status === 409 && payload.code === "ALREADY_PUBLISHED") {
+            // Named, not silently replaced: the manager sees exactly what
+            // publishing now would revoke, and has to say so again.
+            pubPending.supersedes = payload.currentFileId;
+            $("pub-body").textContent =
+              `Este folio ya tiene publicado "${payload.currentFilename}". ` +
+              "Publicar este archivo revocará el anterior de inmediato.";
+            $("pub-go").textContent = "Sí, reemplazar";
+            $("publish").disabled = false;
+            pubDialog.showModal();
+            return;
+          }
+
+          if (!res.ok) {
+            throw new Error(withRef(payload, "No se pudo publicar el archivo."));
+          }
+
+          const state = $("m-state");
+          state.textContent = STATE_LABEL.PUBLISHED;
+          state.dataset.state = "PUBLISHED";
+          updateManagerActions("PUBLISHED");
+          $("file-status").textContent = "Archivo publicado.";
+          refreshLists();
+          $("revoke").focus();
+        } catch (error) {
+          $("file-status").textContent = error.message;
+          $("publish").disabled = false;
+        }
+      };
+
+      $("publish").addEventListener("click", (event) => {
+        pubPending = { fileId: event.currentTarget.dataset.fileId, supersedes: null };
+        $("pub-body").textContent =
+          `Se publicará "${$("m-file").textContent}". El paciente podrá verlo y descargarlo.`;
+        $("pub-go").textContent = "Sí, publicar";
+        pubDialog.showModal();
+      });
+
+      $("pub-cancel").addEventListener("click", () => {
+        pubDialog.close();
+        $("publish").disabled = false;
+      });
+
+      $("pub-go").addEventListener("click", doPublish);
+
+      $("revoke").addEventListener("click", () => {
+        $("rvk-reason").value = "";
+        rvkDialog.showModal();
+      });
+
+      $("rvk-cancel").addEventListener("click", () => {
+        rvkDialog.close();
+      });
+
+      $("rvk-go").addEventListener("click", async () => {
+        const fileId = $("revoke").dataset.fileId;
+        const reason = $("rvk-reason").value.trim();
+        rvkDialog.close();
+
+        $("revoke").disabled = true;
+        $("file-status").textContent = "Revocando…";
+
+        try {
+          const res = await fetch(`${API_BASE}/files/${fileId}/revoke`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(reason ? { reason } : {}),
+          });
+          const payload = await res.json().catch(() => ({}));
+
+          if (!res.ok) {
+            throw new Error(withRef(payload, "No se pudo revocar el archivo."));
+          }
+
+          const state = $("m-state");
+          state.textContent = STATE_LABEL.REVOKED;
+          state.dataset.state = "REVOKED";
+          updateManagerActions("REVOKED");
+          $("file-status").textContent = "Publicación revocada.";
+          refreshLists();
+        } catch (error) {
+          $("file-status").textContent = error.message;
+          $("revoke").disabled = false;
         }
       });
 
@@ -939,7 +1155,7 @@ import "../styles/clients/duolab.css";
 
           $("file-status").textContent =
             "Archivo reemplazado. Revísalo y confírmalo.";
-          loadRecent();
+          refreshLists();
           $("confirm").focus();
         } catch (error) {
           $("file-status").textContent = error.message;
@@ -973,7 +1189,7 @@ import "../styles/clients/duolab.css";
       // Filing several results in a row is the common case.
       resetBtn.addEventListener("click", () => {
         resetToNew();
-        loadRecent();
+        refreshLists();
         seekInput.focus();
       });
 
@@ -1020,11 +1236,31 @@ import "../styles/clients/duolab.css";
         showPicked();
       });
 
-      loadRecent();
+      // The role decides whether the manager queue and actions render at all.
+      // Every one of those routes checks for itself server side regardless;
+      // this only avoids showing an employee a button that will be refused.
+      const init = async () => {
+        try {
+          const res = await fetch(`${API_BASE}/me`);
+          if (res.ok) {
+            const me = await res.json();
+            actorRole = me.role === "MANAGER" ? "MANAGER" : "EMPLOYEE";
+          }
+        } catch {
+          // Network failure: stay EMPLOYEE, the safer default. Manager
+          // actions remain reachable directly by URL and are still enforced
+          // server side, so nothing is unsafe, only momentarily hidden.
+        }
 
-      // Rehydrate after a reload.
-      const existing = new URL(location.href).searchParams.get("record");
-      if (existing) openRecord(existing);
+        $("queue").hidden = actorRole !== "MANAGER";
+        refreshLists();
+
+        // Rehydrate after a reload.
+        const existing = new URL(location.href).searchParams.get("record");
+        if (existing) openRecord(existing);
+      };
+
+      init();
     </script>
 
     <style>
@@ -1121,6 +1357,19 @@ import "../styles/clients/duolab.css";
         margin: 0 0 var(--space-sm);
         font-size: var(--font-size-title);
         font-weight: var(--font-weight-title);
+      }
+
+      .pane__sub {
+        margin: 0 0 var(--space-xs);
+        font-size: var(--font-size-label);
+        font-weight: var(--font-weight-medium);
+        color: var(--text-secondary);
+      }
+
+      #queue {
+        margin-bottom: var(--space-md);
+        padding-bottom: var(--space-md);
+        border-bottom: 1px solid var(--color-surface-soft);
       }
 
       .field {
@@ -1340,6 +1589,11 @@ import "../styles/clients/duolab.css";
         color: #1c6b4a;
       }
 
+      .recent :global(.rec__state[data-state="PUBLISHED"]) {
+        color: #1c6b4a;
+        font-weight: var(--font-weight-medium);
+      }
+
       .recent :global(.rec__state[data-state="REVOKED"]) {
         color: #b3261e;
       }
@@ -1424,6 +1678,11 @@ import "../styles/clients/duolab.css";
 
       .state[data-state="CONFIRMED"] {
         color: #1c6b4a;
+      }
+
+      .state[data-state="PUBLISHED"] {
+        color: #1c6b4a;
+        font-weight: var(--font-weight-medium);
       }
 
       .state[data-state="REVOKED"] {
