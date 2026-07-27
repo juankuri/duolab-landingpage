@@ -85,6 +85,26 @@ function isLocalDev(c: AppContext): boolean {
   return c.env.ENVIRONMENT === "local";
 }
 
+// createRemoteJWKSet keeps its key cache on the returned function, so building
+// a new one per request re-fetches Cloudflare's signing keys on every call.
+// Cached per team domain at module scope, which lives as long as the isolate.
+const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+function accessJwks(teamDomain: string) {
+  const cached = jwksCache.get(teamDomain);
+
+  if (cached) {
+    return cached;
+  }
+
+  const jwks = createRemoteJWKSet(
+    new URL(`https://${teamDomain}/cdn-cgi/access/certs`),
+  );
+  jwksCache.set(teamDomain, jwks);
+
+  return jwks;
+}
+
 async function requireAccess(c: AppContext, next: Next) {
   if (isLocalDev(c)) {
     c.set("employee", {
@@ -102,10 +122,7 @@ async function requireAccess(c: AppContext, next: Next) {
   }
 
   try {
-    const certsUrl = new URL(
-      `https://${c.env.CLOUDFLARE_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`,
-    );
-    const jwks = createRemoteJWKSet(certsUrl);
+    const jwks = accessJwks(c.env.CLOUDFLARE_ACCESS_TEAM_DOMAIN);
 
     const { payload } = await jwtVerify(token, jwks, {
       issuer: `https://${c.env.CLOUDFLARE_ACCESS_TEAM_DOMAIN}`,
