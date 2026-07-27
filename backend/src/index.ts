@@ -5,6 +5,7 @@ import type { AppContext, AppEnv } from "./env";
 import { onError } from "./http/errors";
 import { isLocalDev, requireAccess } from "./http/middleware/auth";
 import { files } from "./http/routes/files";
+import { me } from "./http/routes/me";
 import { records } from "./http/routes/records";
 
 const app = new Hono<AppEnv>();
@@ -47,8 +48,11 @@ app.get("/health", (c) => {
 // requireAccess is attached here, at the mount, rather than on each handler.
 // A route added inside these modules is therefore protected by construction:
 // forgetting the middleware is not something an individual handler can do.
-app.route("/records", new Hono<AppEnv>().use("*", requireAccess).route("/", records));
-app.route("/files", new Hono<AppEnv>().use("*", requireAccess).route("/", files));
+const protectedRoutes = () => new Hono<AppEnv>().use("*", requireAccess);
+
+app.route("/me", protectedRoutes().route("/", me));
+app.route("/records", protectedRoutes().route("/", records));
+app.route("/files", protectedRoutes().route("/", files));
 
 // Every route in this Worker answers with JSON, so the two paths Hono handles
 // on its own should too. Without these, an unknown path or an unhandled throw

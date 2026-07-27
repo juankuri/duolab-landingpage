@@ -218,7 +218,7 @@ records.post("/:recordId/files", async (c) => {
   const { fileId } = await recordService.uploadResult(c.env, {
     recordId,
     file,
-    uploadedBy: c.get("employee").email,
+    uploadedBy: c.get("actor").email,
     requestId: requestId(c),
   });
 

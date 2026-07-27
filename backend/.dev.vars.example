@@ -1,0 +1,11 @@
+# Copy to .dev.vars for local development. That file is gitignored and is
+# never uploaded on deploy; wrangler reads it only for `wrangler dev`.
+#
+# ENVIRONMENT=local enables the Cloudflare Access bypass in requireAccess(),
+# because Access JWTs are injected at the edge and cannot exist on localhost.
+# It is deliberately NOT set in wrangler.jsonc, whose top-level vars DO ship.
+ENVIRONMENT="local"
+
+# Which role the local bypass identity gets: "employee" or "manager".
+# Restart wrangler dev after changing it.
+DEV_ROLE="employee"

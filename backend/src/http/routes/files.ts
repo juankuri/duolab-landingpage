@@ -44,7 +44,7 @@ files.get("/:fileId", async (c) => {
 
 files.post("/:fileId/confirm", async (c) => {
   const fileId = fileIdParam(c.req.param("fileId"));
-  const employee = c.get("employee");
+  const employee = c.get("actor");
 
   await fileService.transition(c.env.DB, {
     fileId,
