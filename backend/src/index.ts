@@ -2,11 +2,18 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 
 import type { AppContext, AppEnv } from "./env";
+import { onError } from "./http/errors";
 import { isLocalDev, requireAccess } from "./http/middleware/auth";
 import { files } from "./http/routes/files";
 import { records } from "./http/routes/records";
 
 const app = new Hono<AppEnv>();
+
+// First middleware, so every later one and every error handler can report it.
+app.use("*", async (c, next) => {
+  c.set("requestId", crypto.randomUUID().slice(0, 8));
+  await next();
+});
 
 // The admin UI runs on the Astro dev server (:4321) and calls this Worker on
 // :8787, so local requests are cross-origin. The origin callback returns null
@@ -51,13 +58,6 @@ app.notFound((c) => {
   return c.json({ error: "Not found." }, 404);
 });
 
-app.onError((error, c) => {
-  console.error(error);
-
-  // Deliberately generic: the cause is in the logs, not in the response. A
-  // stack trace or a driver message here would describe the schema to anyone
-  // who can trigger a fault.
-  return c.json({ error: "Something went wrong." }, 500);
-});
+app.onError(onError);
 
 export default app;

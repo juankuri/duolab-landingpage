@@ -63,7 +63,9 @@ export function listForRecord(db: D1Database, recordId: string) {
          confirmed_at
        FROM files
        WHERE record_id = ?
-       ORDER BY uploaded_at DESC`,
+       -- file_id breaks the tie when two uploads share a second, so the
+       -- order is stable rather than left to the query planner.
+       ORDER BY uploaded_at DESC, file_id DESC`,
     )
     .bind(recordId)
     .all<RecordFileRow>();

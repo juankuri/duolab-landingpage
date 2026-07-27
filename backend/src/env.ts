@@ -18,6 +18,8 @@ export type EmployeeIdentity = {
 
 export type Variables = {
   employee: EmployeeIdentity;
+  /** Correlates a client-visible failure with the server log line. */
+  requestId: string;
 };
 
 export type AppEnv = {
