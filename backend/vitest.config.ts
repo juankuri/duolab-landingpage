@@ -24,6 +24,8 @@ export default defineConfig({
           // deploy get their own via backend/.dev.vars and `wrangler secret
           // put` respectively, neither of which is checked into git.
           RATE_LIMIT_KEY_SECRET: "test-rate-limit-key-secret-not-for-deploy",
+          // 32 zero bytes, base64-encoded — a valid-shaped key, not a secret.
+          DOWNLOAD_TOKEN_SECRET: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         },
       },
     }),

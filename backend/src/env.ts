@@ -18,6 +18,10 @@ export type Bindings = {
   // Self-generated application secret, not a Cloudflare resource id: set via
   // backend/.dev.vars locally, `wrangler secret put` before deploy.
   RATE_LIMIT_KEY_SECRET: string;
+  // Encrypts public download tokens (domain/download-token.ts). Must decode
+  // from base64 to exactly 32 bytes — generate with `openssl rand -base64
+  // 32`. Self-generated application secret, not a Cloudflare resource id.
+  DOWNLOAD_TOKEN_SECRET: string;
 };
 
 export type Actor = {

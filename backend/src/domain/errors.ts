@@ -15,6 +15,13 @@ export const ERROR_CODES = {
   PAYLOAD_TOO_LARGE: 413,
   UNSUPPORTED_MEDIA_TYPE: 415,
   INTERNAL: 500,
+  // The one response for every public-lookup and public-download failure
+  // that isn't rate limiting: bad input, no such folio, wrong phone, wrong
+  // birth date, no published file, a revoked file, an invalid or expired
+  // download token. Deliberately one code for all of them — see
+  // docs/03-decisions.md on the public lookup for why.
+  LOOKUP_FAILED: 404,
+  RATE_LIMITED: 429,
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_CODES;

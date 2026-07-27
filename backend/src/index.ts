@@ -6,6 +6,7 @@ import { onError } from "./http/errors";
 import { isLocalDev, requireAccess } from "./http/middleware/auth";
 import { files } from "./http/routes/files";
 import { me } from "./http/routes/me";
+import { publicRoutes } from "./http/routes/public";
 import { records } from "./http/routes/records";
 
 const app = new Hono<AppEnv>();
@@ -53,6 +54,10 @@ const protectedRoutes = () => new Hono<AppEnv>().use("*", requireAccess);
 app.route("/me", protectedRoutes().route("/", me));
 app.route("/records", protectedRoutes().route("/", records));
 app.route("/files", protectedRoutes().route("/", files));
+
+// No requireAccess: patients are never Access users (DEC-012). Rate limiting
+// and non-enumerating responses are the boundary here, not authentication.
+app.route("/api/public", publicRoutes);
 
 // Every route in this Worker answers with JSON, so the two paths Hono handles
 // on its own should too. Without these, an unknown path or an unhandled throw
