@@ -75,6 +75,31 @@ Manager
 Folio
 : Stable, human-readable lookup key.
 
+## File Lifecycle
+
+A file moves through four states, each owned by a different actor's decision:
+
+```
+                 confirm            publish           revoke
+    UPLOADED ─────────────> CONFIRMED ────────> PUBLISHED ────────> REVOKED
+        ^                       │                                 (terminal)
+        └────── withdraw ───────┘
+```
+
+UPLOADED
+: An employee attached the PDF. Nobody has vouched for it yet.
+
+CONFIRMED
+: An employee reviewed it and put their name to it. Ready for managerial validation. May be returned to UPLOADED ("withdraw") if the employee confirmed by mistake — this is the only backward move in the lifecycle, and it is confined to before publication, where nothing has been visible to a patient.
+
+PUBLISHED
+: A manager released it. This is the only state a patient may see. At most one file per record may be in this state at a time.
+
+REVOKED
+: A manager withdrew a published file. Terminal — a revoked file is never published again. Correcting a mistake means uploading and confirming a new file, not resurrecting the old one.
+
+Only an UPLOADED file may be deleted outright. A CONFIRMED file must be withdrawn first; a PUBLISHED or REVOKED file is never deleted — after publication, the record of what a patient could see is the point.
+
 ## Business Rules
 
 - A patient must not access unpublished records.
