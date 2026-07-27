@@ -1,0 +1,334 @@
+---
+/**
+ * /resultados — public patient lookup and download.
+ *
+ * No login, no Cloudflare Access: folio + phone + birth date verify the
+ * patient against a PUBLISHED result (backend: POST /api/public/results/lookup,
+ * GET /api/public/results/:downloadToken/download). Deliberately does NOT use
+ * layouts/Layout.astro, same reasoning as admin.astro — this isn't a marketing
+ * surface. Unlike admin.astro it is not disallowed in robots.txt and carries
+ * no Cloudflare Access assumption: patients reach it by a footer link, not a
+ * staff login.
+ *
+ * noindex, not disallowed: it should not turn up in search results (a lab
+ * result lookup form has no reason to be indexed), but it must stay
+ * reachable by anyone who clicks the footer link.
+ *
+ * Every failure — wrong folio, wrong phone, wrong birth date, no such
+ * record, not yet published, revoked, rate limited — renders the same
+ * generic message. Distinguishing them here would undo the backend's
+ * non-enumeration guarantee for nothing but the appearance of a better error
+ * message.
+ */
+import "../styles/clients/duolab.css";
+---
+
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Consulta tu resultado · DúoLab</title>
+  </head>
+  <body>
+    <header class="bar">
+      <a class="bar__brand" href="/">
+        <img src="/logo/logo-mark.svg" alt="" width="28" height="28" />
+        <span class="bar__name">dúolab</span>
+      </a>
+    </header>
+
+    <main class="wrap">
+      <section class="card" aria-labelledby="lookup-h">
+        <h1 id="lookup-h" class="card__h">Consulta tu resultado</h1>
+        <p class="card__lead">
+          Captura los datos exactamente como se registraron en el laboratorio.
+        </p>
+
+        <form id="lookup-form" novalidate>
+          <div class="field">
+            <label for="folio">Folio</label>
+            <input
+              id="folio"
+              name="folio"
+              type="text"
+              required
+              autocomplete="off"
+              inputmode="text"
+            />
+          </div>
+
+          <div class="field">
+            <label for="phone">Teléfono (10 dígitos)</label>
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              required
+              autocomplete="off"
+              inputmode="tel"
+            />
+          </div>
+
+          <div class="field">
+            <label for="birthDate">Fecha de nacimiento</label>
+            <input id="birthDate" name="birthDate" type="date" required />
+          </div>
+
+          <button class="btn" id="submit" type="submit">Buscar resultado</button>
+
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+        </form>
+
+        <div class="result" id="result" hidden>
+          <p class="result__msg">Encontramos tu resultado.</p>
+          <a class="btn btn--download" id="download-link" href="#"
+            >Descargar resultado (PDF)</a
+          >
+          <button class="btn btn--ghost" id="search-again" type="button">
+            Buscar otro folio
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script is:inline>
+      // Local Worker. Change when the deployment story is settled.
+      const API_BASE = "http://localhost:8787";
+
+      const $ = (id) => document.getElementById(id);
+      const form = $("lookup-form");
+      const submitBtn = $("submit");
+      const statusEl = $("status");
+      const resultEl = $("result");
+      const downloadLink = $("download-link");
+
+      // The one message for every failure: wrong folio, wrong phone, wrong
+      // birth date, no such record, not published, revoked or rate limited
+      // are all indistinguishable on the wire, and must stay indistinguishable
+      // here too.
+      const GENERIC_FAILURE =
+        "No encontramos un resultado con esos datos. Verifica el folio, el teléfono y la fecha de nacimiento.";
+      const SERVER_FAILURE = "Ocurrió un error. Intenta de nuevo más tarde.";
+
+      const showForm = () => {
+        resultEl.hidden = true;
+        form.hidden = false;
+      };
+
+      const showResult = (downloadToken) => {
+        form.hidden = true;
+        resultEl.hidden = false;
+        downloadLink.href = `${API_BASE}/api/public/results/${encodeURIComponent(downloadToken)}/download`;
+        downloadLink.focus();
+      };
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        // Sent as a POST body only — never a query string or localStorage —
+        // so verification data never lands in a URL, history entry or log.
+        const folio = $("folio").value.trim();
+        const phone = $("phone").value.trim();
+        const birthDate = $("birthDate").value;
+
+        if (!folio || !phone || !birthDate) {
+          statusEl.textContent = GENERIC_FAILURE;
+          return;
+        }
+
+        submitBtn.disabled = true;
+        statusEl.textContent = "Buscando…";
+
+        try {
+          const res = await fetch(`${API_BASE}/api/public/results/lookup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ folio, phone, birthDate }),
+          });
+
+          if (res.status >= 500) {
+            statusEl.textContent = SERVER_FAILURE;
+            return;
+          }
+
+          if (!res.ok) {
+            // 404 (no match / not published / revoked) and 429 (rate limited)
+            // both render the same copy on purpose.
+            statusEl.textContent = GENERIC_FAILURE;
+            return;
+          }
+
+          const payload = await res.json();
+          statusEl.textContent = "";
+          showResult(payload.downloadToken);
+        } catch {
+          statusEl.textContent = SERVER_FAILURE;
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+
+      $("search-again").addEventListener("click", () => {
+        form.reset();
+        statusEl.textContent = "";
+        showForm();
+        $("folio").focus();
+      });
+    </script>
+
+    <style>
+      :global(body) {
+        margin: 0;
+        font-family: var(--font-body);
+        color: var(--text-primary);
+        background: var(--color-surface-muted);
+        line-height: 1.5;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      .bar {
+        display: flex;
+        align-items: center;
+        padding: var(--space-sm) var(--space-md);
+        background: var(--color-surface);
+        border-bottom: 1px solid var(--color-surface-soft);
+      }
+
+      .bar__brand {
+        display: flex;
+        align-items: center;
+        gap: var(--space-xs);
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .bar__name {
+        font-weight: var(--font-weight-heading);
+        color: var(--color-primary);
+      }
+
+      /* Mobile-first: a single column that never exceeds a comfortable
+         reading/typing width, centered once there's room for it. */
+      .wrap {
+        display: flex;
+        justify-content: center;
+        padding: var(--space-md);
+      }
+
+      .card {
+        width: 100%;
+        max-width: 26rem;
+        background: var(--color-surface);
+        border: 1px solid var(--color-surface-soft);
+        border-radius: var(--radius-md);
+        padding: var(--space-md);
+      }
+
+      @media (min-width: 480px) {
+        .wrap {
+          padding: var(--space-xl) var(--space-md);
+        }
+      }
+
+      .card__h {
+        margin: 0 0 var(--space-xs);
+        font-size: var(--font-size-title);
+        font-weight: var(--font-weight-title);
+      }
+
+      .card__lead {
+        margin: 0 0 var(--space-md);
+        color: var(--text-secondary);
+        font-size: var(--font-size-label);
+      }
+
+      .field {
+        margin-bottom: var(--space-sm);
+      }
+
+      label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: var(--font-size-label);
+        font-weight: var(--font-weight-medium);
+      }
+
+      input {
+        width: 100%;
+        /* 16px avoids iOS Safari zooming in on focus, and the taller
+           padding keeps every field a comfortable touch target. */
+        padding: 14px 12px;
+        font-size: 16px;
+        font-family: inherit;
+        color: inherit;
+        background: var(--color-surface);
+        border: 1px solid #c9c2d4;
+        border-radius: var(--radius-sm);
+      }
+
+      input:focus-visible,
+      button:focus-visible,
+      a:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+      }
+
+      .btn {
+        display: block;
+        width: 100%;
+        margin-top: var(--space-sm);
+        padding: 14px 16px;
+        font: inherit;
+        font-weight: var(--font-weight-title);
+        text-align: center;
+        text-decoration: none;
+        color: var(--text-on-primary);
+        background: var(--color-primary);
+        border: 1px solid var(--color-primary);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+      }
+
+      .btn:hover:not(:disabled) {
+        background: var(--color-primary-dark);
+      }
+
+      .btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .btn--ghost {
+        color: var(--color-primary);
+        background: transparent;
+      }
+
+      .btn--ghost:hover {
+        background: var(--color-surface-soft);
+      }
+
+      .status {
+        margin: var(--space-sm) 0 0;
+        font-size: var(--font-size-label);
+        color: var(--text-secondary);
+      }
+
+      .status:empty {
+        display: none;
+      }
+
+      .result__msg {
+        margin: 0 0 var(--space-sm);
+        font-weight: var(--font-weight-medium);
+      }
+    </style>
+  </body>
+</html>
