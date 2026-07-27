@@ -1,5 +1,7 @@
 import type { Context } from "hono";
 
+import type { Role } from "./domain/roles";
+
 export type Bindings = {
   DB: D1Database;
   RESULTS_BUCKET: R2Bucket;
@@ -9,15 +11,23 @@ export type Bindings = {
   // Access bypass in http/middleware/auth.ts, since Cloudflare Access JWTs
   // cannot exist on localhost.
   ENVIRONMENT?: string;
+  // Which role the local bypass identity gets, so both flows are testable
+  // offline. Read only after the ENVIRONMENT check has already passed.
+  DEV_ROLE?: string;
 };
 
-export type EmployeeIdentity = {
+export type Actor = {
   email: string;
   subject: string;
+  role: Role;
 };
 
 export type Variables = {
-  employee: EmployeeIdentity;
+  /**
+   * Named "actor" rather than "employee": once managers exist, the old name
+   * implied a role it no longer guarantees.
+   */
+  actor: Actor;
   /** Correlates a client-visible failure with the server log line. */
   requestId: string;
 };
