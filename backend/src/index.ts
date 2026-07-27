@@ -58,6 +58,11 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 const PDF_MAGIC_BYTES = [0x25, 0x50, 0x44, 0x46, 0x2d];
 
+// Result PDFs are a few pages of text and tables. 15 MB is far above anything
+// the lab produces and far below what would make an upload expensive to store
+// or slow to stream back to a patient.
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+
 async function isPdf(file: File): Promise<boolean> {
   if (file.size === 0) {
     return false;
@@ -74,6 +79,25 @@ async function isPdf(file: File): Promise<boolean> {
   return PDF_MAGIC_BYTES.every((byte, index) => header[index] === byte);
 }
 
+// The stored filename comes from whatever the employee's machine called the
+// file, so it reaches this header as untrusted input. Stripping only quotes
+// left CR and LF in place, which can terminate the header and inject others.
+//
+// RFC 6266: the quoted form must be plain ASCII, so non-ASCII names are
+// transliterated away there and carried intact in the filename* form, which
+// every current browser prefers when both are present.
+function contentDisposition(filename: string): string {
+  const ascii =
+    filename
+      .replace(/[\\"]/g, "")
+      // Anything outside printable ASCII, which includes CR, LF and every
+      // other control character, cannot appear in the quoted form.
+      .replace(/[^\x20-\x7e]/g, "_")
+      .trim() || "resultado.pdf";
+
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
 // Browsers cannot obtain a Cf-Access-Jwt-Assertion header on localhost: it is
 // injected by Cloudflare's edge, which local dev does not go through. Without
 // this, every protected route returns 401 during frontend development.
@@ -83,6 +107,26 @@ async function isPdf(file: File): Promise<boolean> {
 // deliberately NOT in wrangler.jsonc, whose top-level `vars` DO ship.
 function isLocalDev(c: AppContext): boolean {
   return c.env.ENVIRONMENT === "local";
+}
+
+// createRemoteJWKSet keeps its key cache on the returned function, so building
+// a new one per request re-fetches Cloudflare's signing keys on every call.
+// Cached per team domain at module scope, which lives as long as the isolate.
+const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+function accessJwks(teamDomain: string) {
+  const cached = jwksCache.get(teamDomain);
+
+  if (cached) {
+    return cached;
+  }
+
+  const jwks = createRemoteJWKSet(
+    new URL(`https://${teamDomain}/cdn-cgi/access/certs`),
+  );
+  jwksCache.set(teamDomain, jwks);
+
+  return jwks;
 }
 
 async function requireAccess(c: AppContext, next: Next) {
@@ -102,10 +146,7 @@ async function requireAccess(c: AppContext, next: Next) {
   }
 
   try {
-    const certsUrl = new URL(
-      `https://${c.env.CLOUDFLARE_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`,
-    );
-    const jwks = createRemoteJWKSet(certsUrl);
+    const jwks = accessJwks(c.env.CLOUDFLARE_ACCESS_TEAM_DOMAIN);
 
     const { payload } = await jwtVerify(token, jwks, {
       issuer: `https://${c.env.CLOUDFLARE_ACCESS_TEAM_DOMAIN}`,
@@ -153,88 +194,6 @@ app.get("/health", (c) => {
   return c.json({
     ok: true,
     service: "duolab-api",
-  });
-});
-
-app.post("/learning/d1", async (c) => {
-  const body: { message?: unknown } = await c.req.json().catch(() => ({}));
-  const message =
-    typeof body.message === "string" && body.message.trim()
-      ? body.message.trim()
-      : "D1 connected";
-
-  const result = await c.env.DB.prepare(
-    "INSERT INTO learning_notes (message) VALUES (?) RETURNING id, message, created_at",
-  )
-    .bind(message)
-    .first();
-
-  return c.json(result, 201);
-});
-
-app.get("/learning/d1", async (c) => {
-  const notes = await c.env.DB.prepare(
-    "SELECT id, message, created_at FROM learning_notes ORDER BY id DESC LIMIT 10",
-  ).all();
-
-  return c.json({
-    notes: notes.results,
-  });
-});
-
-app.post("/learning/r2", async (c) => {
-  const formData = await c.req.formData();
-  const file = formData.get("file");
-
-  if (!(file instanceof File)) {
-    return c.json({ error: "No file uploaded, please upload a file." }, 400);
-  }
-
-  if (!(await isPdf(file))) {
-    return c.json({ error: "Only PDF files are allowed." }, 400);
-  }
-
-  const key = `learning/${crypto.randomUUID()}-${file.name}`;
-
-  await c.env.RESULTS_BUCKET.put(key, file.stream(), {
-    httpMetadata: {
-      contentType: file.type || "application/octet-stream",
-    },
-    customMetadata: {
-      originalFilename: file.name,
-    },
-  });
-
-  return c.json(
-    {
-      key,
-      filename: file.name,
-      contentType: file.type || "application/octet-stream",
-      size: file.size,
-    },
-    201,
-  );
-});
-
-app.get("/learning/r2", async (c) => {
-  const key = c.req.query("key");
-
-  if (!key) {
-    return c.json({ error: "Pass the R2 object key as ?key=..." }, 400);
-  }
-
-  const object = await c.env.RESULTS_BUCKET.get(key);
-
-  if (!object) {
-    return c.json({ error: "File not found." }, 404);
-  }
-
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set("etag", object.httpEtag);
-
-  return new Response(object.body, {
-    headers,
   });
 });
 
@@ -524,11 +483,23 @@ app.post("/records/:recordId/files", requireAccess, async (c) => {
       return c.json({ error: "Record not found." }, 404);
     }
 
+    // Best-effort rejection before the body is read. The header is advisory,
+    // so the authoritative check is on the parsed file below.
+    const declaredLength = Number(c.req.header("Content-Length") ?? "");
+
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES) {
+      return c.json({ error: "The file is too large." }, 413);
+    }
+
     const formData = await c.req.formData();
     const file = formData.get("file");
 
     if (!(file instanceof File)) {
       return c.json({ error: "No file uploaded, please upload a file." }, 400);
+    }
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return c.json({ error: "The file is too large." }, 413);
     }
 
     if (!(await isPdf(file))) {
@@ -569,7 +540,6 @@ app.post("/records/:recordId/files", requireAccess, async (c) => {
         fileId,
         recordId,
         status: "UPLOADED",
-        r2Key,
       },
       201,
     );
@@ -631,10 +601,8 @@ app.get("/files/:fileId", requireAccess, async (c) => {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set("content-type", file.mime_type);
-  headers.set(
-    "content-disposition",
-    `inline; filename="${file.original_filename.replaceAll('"', "")}"`,
-  );
+  headers.set("content-disposition", contentDisposition(file.original_filename));
+  headers.set("x-content-type-options", "nosniff");
 
   return new Response(object.body, {
     headers,
@@ -670,6 +638,23 @@ app.post("/files/:fileId/confirm", requireAccess, async (c) => {
     status: "CONFIRMED",
     confirmedBy: employee.email,
   });
+});
+
+// Every route in this Worker answers with JSON, so the two paths Hono handles
+// on its own should too. Without these, an unknown path or an unhandled throw
+// returns text the admin UI cannot parse, and its error handling falls back to
+// a generic message that hides what actually happened.
+app.notFound((c) => {
+  return c.json({ error: "Not found." }, 404);
+});
+
+app.onError((error, c) => {
+  console.error(error);
+
+  // Deliberately generic: the cause is in the logs, not in the response. A
+  // stack trace or a driver message here would describe the schema to anyone
+  // who can trigger a fault.
+  return c.json({ error: "Something went wrong." }, 500);
 });
 
 export default app;
