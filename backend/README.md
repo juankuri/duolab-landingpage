@@ -33,6 +33,13 @@ pnpm dev                          # wrangler dev, default port 8787
 
 `.dev.vars` enables the Cloudflare Access bypass (`ENVIRONMENT=local`) — Access JWTs are injected at Cloudflare's edge and cannot exist on localhost — and picks the role the bypass identity gets (`DEV_ROLE=employee|manager`). Restart `wrangler dev` after changing `DEV_ROLE`.
 
+It also carries two self-generated secrets the public routes need — neither is a Cloudflare resource id, generate your own rather than reusing the values below:
+
+```sh
+RATE_LIMIT_KEY_SECRET=$(openssl rand -base64 24)   # HMAC key for rate-limit fingerprints
+DOWNLOAD_TOKEN_SECRET=$(openssl rand -base64 32)   # AES-256-GCM key for download tokens, must decode to exactly 32 bytes
+```
+
 ### Migrations
 
 ```sh
@@ -40,6 +47,12 @@ pnpm wrangler d1 migrations apply duolab --local
 ```
 
 Migrations are applied in order from `../database/migrations/`. The test suite applies the same files, so there is one schema, not two.
+
+`wrangler dev` does not re-apply migrations to an already-initialized local D1 state on its own — after adding a new migration file, run the command above again (it only applies the ones not yet recorded) before starting the dev server, or requests touching the new table will 500 with `no such table`.
+
+### Public routes
+
+`POST /api/public/results/lookup` and `GET /api/public/results/:downloadToken/download` (`http/routes/public/`) carry no `requireAccess` — patients are never Cloudflare Access users (DEC-012). Everything that keeps them safe to expose is in the handler itself: rate limiting on the lookup route, one generic failure response for every non-rate-limit failure, and an opaque encrypted download token re-checked against a live `PUBLISHED` status on every download (DEC-014, DEC-015). Do not add `requireAccess` to these — and do not widen the internal `GET /files/:fileId` to serve patients instead.
 
 ### Seeding a user
 
@@ -91,3 +104,12 @@ Not done yet — `wrangler.jsonc` still ships placeholders:
 - `vars.CLOUDFLARE_ACCESS_AUDIENCE` is `"my-access-aud"`.
 
 Both must be replaced with real values, and Cloudflare Access must be configured for the admin origin, before this Worker can be deployed. Confirm `.dev.vars` is absent from the deployed bundle (it is gitignored and not read by `wrangler deploy`, but verify).
+
+Also not done: `RATE_LIMIT_KEY_SECRET` and `DOWNLOAD_TOKEN_SECRET` have no production value anywhere — they exist only in each developer's local `.dev.vars`. Before deploying the public routes for real:
+
+```sh
+wrangler secret put RATE_LIMIT_KEY_SECRET
+wrangler secret put DOWNLOAD_TOKEN_SECRET
+```
+
+Use freshly generated values (the commands above), not a copy of a local `.dev.vars` value — those are dev-only by convention, not because of any technical difference.

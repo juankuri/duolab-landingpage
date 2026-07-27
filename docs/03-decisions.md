@@ -134,6 +134,20 @@ Rationale: at single-digit lab staff, a disjoint model deadlocks the moment the 
 
 ## DEC-014: Patient-facing responses must never be cached at the edge
 
-Status: Accepted — applies once the patient flow exists; recorded now because it is cheap now and expensive later
+Status: Accepted — implemented with the patient flow
 
-Revoking a published file must take effect immediately. The patient lookup and download routes (not yet built — see DEC-012) must set cache-control headers that prevent edge or browser caching, and must query `status = 'PUBLISHED'` live on every request. A revoked result served from a stale cache is the worst failure this product can have: it is the exact case the revoke feature exists to prevent, silently defeated by an unrelated performance decision made later by someone who did not have this context.
+Revoking a published file must take effect immediately. The patient lookup and download routes set `Cache-Control: no-store` (`http/routes/public/index.ts`) and query `status = 'PUBLISHED'` live on every request — the download route re-checks it in the same query that fetches the file row, not from a value trusted from an earlier request or the token. A revoked result served from a stale cache is the worst failure this product can have: it is the exact case the revoke feature exists to prevent, silently defeated by an unrelated performance decision made later by someone who did not have this context.
+
+## DEC-015: Public lookup rate limiting and download tokens use only D1, and the token is encrypted, not signed
+
+Status: Accepted
+
+The public lookup (`POST /api/public/results/lookup`) needed two things nothing in the repo had a pattern for: abuse resistance on an unauthenticated endpoint, and a way to hand the browser something that authorizes one download without exposing an internal id.
+
+**Rate limiting** is a D1 table (`public_lookup_attempts`, migration `0006`), not a new Cloudflare binding. Two independent budgets apply per fixed 10-minute window: one keyed to the caller's IP, one keyed to the folio being looked up — either tripping blocks the request, so rotating IPs against one folio or trying many folios from one IP are both bounded. Neither the IP nor the folio is stored as given: both are HMAC-SHA256 fingerprints keyed by a secret (`RATE_LIMIT_KEY_SECRET`), specifically because a plain hash of an IPv4 address is enumerable offline in seconds and a keyed hash isn't. The counter increment is a single `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`, not a `SELECT` followed by an application-side `UPDATE`, so concurrent requests against the same fingerprint can't race the count down.
+
+Rejected: a KV namespace or Durable Object rate limiter. Better suited to high write volume, but each is a new Cloudflare resource requiring a real resource id to deploy — unjustified for a lab at this scale, and D1 was already provisioned.
+
+**Download tokens** are AES-256-GCM ciphertext (`domain/download-token.ts`), not an HMAC-signed payload. A signed-but-unencrypted token is tamper-resistant but not opaque: the client can base64-decode a signed payload and read the internal `fileId` straight out, even without being able to forge a new token. That fails "prefer an opaque download token" in substance even while satisfying it in name. AES-GCM makes the payload unreadable, not just unforgeable, and — because DEC-014 already requires a live `PUBLISHED` re-check at download time regardless of what the token claims — buys that opacity without needing a persisted token table or its cleanup job. The secret (`DOWNLOAD_TOKEN_SECRET`) is applied directly as 32 bytes of key material (`openssl rand -base64 32`), not run through a hand-rolled KDF; a malformed or short secret fails loudly at first use rather than silently degrading.
+
+Both secrets are self-generated application secrets, not Cloudflare resource identifiers — local values live in `backend/.dev.vars` (gitignored), and a deploy needs `wrangler secret put` for both before the public routes can be exposed for real.
