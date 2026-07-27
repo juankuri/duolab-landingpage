@@ -79,6 +79,25 @@ async function isPdf(file: File): Promise<boolean> {
   return PDF_MAGIC_BYTES.every((byte, index) => header[index] === byte);
 }
 
+// The stored filename comes from whatever the employee's machine called the
+// file, so it reaches this header as untrusted input. Stripping only quotes
+// left CR and LF in place, which can terminate the header and inject others.
+//
+// RFC 6266: the quoted form must be plain ASCII, so non-ASCII names are
+// transliterated away there and carried intact in the filename* form, which
+// every current browser prefers when both are present.
+function contentDisposition(filename: string): string {
+  const ascii =
+    filename
+      .replace(/[\\"]/g, "")
+      // Anything outside printable ASCII, which includes CR, LF and every
+      // other control character, cannot appear in the quoted form.
+      .replace(/[^\x20-\x7e]/g, "_")
+      .trim() || "resultado.pdf";
+
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
 // Browsers cannot obtain a Cf-Access-Jwt-Assertion header on localhost: it is
 // injected by Cloudflare's edge, which local dev does not go through. Without
 // this, every protected route returns 401 during frontend development.
@@ -582,10 +601,8 @@ app.get("/files/:fileId", requireAccess, async (c) => {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set("content-type", file.mime_type);
-  headers.set(
-    "content-disposition",
-    `inline; filename="${file.original_filename.replaceAll('"', "")}"`,
-  );
+  headers.set("content-disposition", contentDisposition(file.original_filename));
+  headers.set("x-content-type-options", "nosniff");
 
   return new Response(object.body, {
     headers,
