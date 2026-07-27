@@ -182,7 +182,10 @@ export async function isPdf(file: File): Promise<boolean> {
  * transliterated there and carried intact in the filename* form, which every
  * current browser prefers when both are present.
  */
-export function contentDisposition(filename: string): string {
+export function contentDisposition(
+  filename: string,
+  disposition: "inline" | "attachment" = "inline",
+): string {
   const ascii =
     filename
       .replace(/[\\"]/g, "")
@@ -191,5 +194,5 @@ export function contentDisposition(filename: string): string {
       .replace(/[^\x20-\x7e]/g, "_")
       .trim() || "resultado.pdf";
 
-  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+  return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }

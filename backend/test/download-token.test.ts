@@ -51,10 +51,19 @@ describe("encryptToken / decryptToken", () => {
     expect(result.ok).toBe(false);
   });
 
+  // Flips a character in the middle of the part, not the last one: the
+  // trailing base64url character can carry padding bits outside the actual
+  // byte count, so mutating only it doesn't reliably change the decoded bytes.
+  function flipMiddleChar(value: string): string {
+    const middle = Math.floor(value.length / 2);
+    const flipped = value[middle] === "A" ? "B" : "A";
+    return `${value.slice(0, middle)}${flipped}${value.slice(middle + 1)}`;
+  }
+
   it("rejects a tampered ciphertext", async () => {
     const token = await encryptToken(SECRET, { fileId: "file-123", exp: Date.now() + 60_000 });
     const [iv, ciphertext] = token.split(".");
-    const tampered = `${iv}.${ciphertext.slice(0, -1)}${ciphertext.at(-1) === "A" ? "B" : "A"}`;
+    const tampered = `${iv}.${flipMiddleChar(ciphertext)}`;
 
     const result = await decryptToken(SECRET, tampered);
 
@@ -64,7 +73,7 @@ describe("encryptToken / decryptToken", () => {
   it("rejects a tampered IV", async () => {
     const token = await encryptToken(SECRET, { fileId: "file-123", exp: Date.now() + 60_000 });
     const [iv, ciphertext] = token.split(".");
-    const tampered = `${iv.slice(0, -1)}${iv.at(-1) === "A" ? "B" : "A"}.${ciphertext}`;
+    const tampered = `${flipMiddleChar(iv)}.${ciphertext}`;
 
     const result = await decryptToken(SECRET, tampered);
 

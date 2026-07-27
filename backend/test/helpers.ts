@@ -71,6 +71,30 @@ export async function createRecordWithFile(name = "resultado.pdf") {
   return { record, file: await json(response), response };
 }
 
+const asManager = { envOverrides: { DEV_ROLE: "manager" } };
+
+/** Creates a record, uploads a file, confirms and publishes it. */
+export async function publishedRecord(
+  overrides: Partial<{
+    fullName: string;
+    birthDate: string;
+    phoneNumber: string;
+    folio: string;
+  }> = {},
+) {
+  const { body: record } = await createRecord(overrides);
+
+  const form = new FormData();
+  form.set("file", pdfFile());
+  const uploaded = await json(
+    await request(`/records/${record.recordId}/files`, { method: "POST", body: form }),
+  );
+  await request(`/files/${uploaded.fileId}/confirm`, { method: "POST" });
+  await request(`/files/${uploaded.fileId}/publish`, { method: "POST", ...asManager });
+
+  return { record, fileId: uploaded.fileId as string };
+}
+
 export function fileRow(fileId: string) {
   return env.DB.prepare("SELECT * FROM files WHERE file_id = ?")
     .bind(fileId)

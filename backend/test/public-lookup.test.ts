@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createRecord, json, pdfFile, request } from "./helpers";
+import { createRecord, json, publishedRecord, request } from "./helpers";
 
 const asManager = { envOverrides: { DEV_ROLE: "manager" } };
 
@@ -17,32 +17,22 @@ function lookup(body: unknown, headers: Record<string, string> = {}) {
 }
 
 /** A record with a PUBLISHED file, ready to be looked up publicly. */
-async function publishedRecord(overrides: Partial<{
+function publishedResultRecord(overrides: Partial<{
   folio: string;
   phoneNumber: string;
   birthDate: string;
 }> = {}) {
-  const { body: record } = await createRecord({
+  return publishedRecord({
     folio: FOLIO,
     phoneNumber: PHONE,
     birthDate: BIRTH_DATE,
     ...overrides,
   });
-
-  const form = new FormData();
-  form.set("file", pdfFile());
-  const uploaded = await json(
-    await request(`/records/${record.recordId}/files`, { method: "POST", body: form }),
-  );
-  await request(`/files/${uploaded.fileId}/confirm`, { method: "POST" });
-  await request(`/files/${uploaded.fileId}/publish`, { method: "POST", ...asManager });
-
-  return { record, fileId: uploaded.fileId as string };
 }
 
 describe("POST /api/public/results/lookup", () => {
   it("returns a download token for a correct folio, phone and birth date", async () => {
-    await publishedRecord();
+    await publishedResultRecord();
 
     const response = await lookup({ folio: FOLIO, phone: PHONE, birthDate: BIRTH_DATE });
     const body = await json(response);
@@ -74,7 +64,7 @@ describe("POST /api/public/results/lookup", () => {
     }
 
     it("wrong folio", async () => {
-      await publishedRecord();
+      await publishedResultRecord();
       const a = await expectGenericFailure({
         folio: "WRONG-FOLIO",
         phone: PHONE,
@@ -89,12 +79,12 @@ describe("POST /api/public/results/lookup", () => {
     });
 
     it("wrong phone", async () => {
-      await publishedRecord();
+      await publishedResultRecord();
       await expectGenericFailure({ folio: FOLIO, phone: "9999999999", birthDate: BIRTH_DATE });
     });
 
     it("wrong birth date", async () => {
-      await publishedRecord();
+      await publishedResultRecord();
       await expectGenericFailure({ folio: FOLIO, phone: PHONE, birthDate: "2000-05-05" });
     });
 
@@ -114,7 +104,7 @@ describe("POST /api/public/results/lookup", () => {
     });
 
     it("folio exists but the file was revoked", async () => {
-      const { fileId } = await publishedRecord({ folio: "REV-010190-1" });
+      const { fileId } = await publishedResultRecord({ folio: "REV-010190-1" });
       await request(`/files/${fileId}/revoke`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -150,7 +140,7 @@ describe("POST /api/public/results/lookup", () => {
 
   describe("rate limiting", () => {
     it("returns 429 once the folio-scoped budget is exceeded", async () => {
-      await publishedRecord({ folio: "RATE-010190-1" });
+      await publishedResultRecord({ folio: "RATE-010190-1" });
 
       let last: Response | undefined;
       for (let i = 0; i < 11; i++) {
