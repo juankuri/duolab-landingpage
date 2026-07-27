@@ -6,6 +6,7 @@ import { AppError } from "../../domain/errors";
 import { contentDisposition, isUuid } from "../../domain/validation";
 import type { AppEnv } from "../../env";
 import * as fileService from "../../services/file-service";
+import { requireRole } from "../middleware/auth";
 
 export const files = new Hono<AppEnv>();
 
@@ -77,4 +78,65 @@ files.post("/:fileId/withdraw", async (c) => {
   });
 
   return c.json({ fileId, status: "UPLOADED" });
+});
+
+/** Free-text note on a revocation. Never shown to a patient. */
+function revokeReason(raw: unknown): string | null {
+  if (typeof raw !== "string" || !raw.trim()) {
+    return null;
+  }
+
+  const value = raw.trim();
+
+  if (value.length > 500) {
+    throw new AppError("INVALID_INPUT", "El motivo no puede superar 500 caracteres.");
+  }
+
+  return value;
+}
+
+/**
+ * The moment a result becomes visible to a patient, and the most
+ * consequential action in the product. Manager only, one named file at a
+ * time: there is no bulk publish and no publish-by-folio, so the blast
+ * radius of a mistake is a single file.
+ */
+files.post("/:fileId/publish", requireRole("MANAGER"), async (c) => {
+  const fileId = fileIdParam(c.req.param("fileId"));
+  const supersedes = c.req.query("supersedes");
+
+  if (supersedes !== undefined && !isUuid(supersedes)) {
+    throw new AppError("INVALID_INPUT", "El identificador a reemplazar no es válido.");
+  }
+
+  const body: Record<string, unknown> = await c.req.json().catch(() => ({}));
+  const actor = c.get("actor");
+
+  const result = await fileService.publish(c.env.DB, {
+    fileId,
+    actorEmail: actor.email,
+    supersedes,
+    reason: revokeReason(body.reason),
+  });
+
+  return c.json({
+    fileId,
+    status: "PUBLISHED",
+    publishedBy: actor.email,
+    supersededFileId: result.superseded,
+  });
+});
+
+files.post("/:fileId/revoke", requireRole("MANAGER"), async (c) => {
+  const fileId = fileIdParam(c.req.param("fileId"));
+  const body: Record<string, unknown> = await c.req.json().catch(() => ({}));
+  const actor = c.get("actor");
+
+  await fileService.revoke(c.env.DB, {
+    fileId,
+    actorEmail: actor.email,
+    reason: revokeReason(body.reason),
+  });
+
+  return c.json({ fileId, status: "REVOKED", revokedBy: actor.email });
 });
