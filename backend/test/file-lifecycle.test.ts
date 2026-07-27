@@ -15,6 +15,8 @@ import {
 const ALLOWED: ReadonlyArray<[FileStatus, FileStatus]> = [
   ["UPLOADED", "CONFIRMED"],
   ["CONFIRMED", "PUBLISHED"],
+  // withdraw: the one cycle, confined to the pre-publication half
+  ["CONFIRMED", "UPLOADED"],
   ["PUBLISHED", "REVOKED"],
 ];
 
@@ -47,11 +49,22 @@ describe("canTransition", () => {
 });
 
 describe("canDelete", () => {
-  it("permits removal only before publication", () => {
+  it("permits removal only of a file nobody has vouched for", () => {
     expect(canDelete("UPLOADED")).toBe(true);
-    expect(canDelete("CONFIRMED")).toBe(true);
+    // Confirmed files must be withdrawn first; published ones are revoked.
+    expect(canDelete("CONFIRMED")).toBe(false);
     expect(canDelete("PUBLISHED")).toBe(false);
     expect(canDelete("REVOKED")).toBe(false);
+  });
+});
+
+describe("the withdraw cycle", () => {
+  it("exists only before publication", () => {
+    expect(canTransition("CONFIRMED", "UPLOADED")).toBe(true);
+    // Nothing after publication may step backwards.
+    expect(canTransition("PUBLISHED", "CONFIRMED")).toBe(false);
+    expect(canTransition("PUBLISHED", "UPLOADED")).toBe(false);
+    expect(canTransition("REVOKED", "PUBLISHED")).toBe(false);
   });
 });
 

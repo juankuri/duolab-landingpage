@@ -5,16 +5,20 @@ import * as storage from "../../data/storage";
 import { AppError } from "../../domain/errors";
 import { contentDisposition, isUuid } from "../../domain/validation";
 import type { AppEnv } from "../../env";
+import * as fileService from "../../services/file-service";
 
 export const files = new Hono<AppEnv>();
 
-files.get("/:fileId", async (c) => {
-  const fileId = c.req.param("fileId");
-
-  if (!isUuid(fileId)) {
+function fileIdParam(raw: string | undefined): string {
+  if (!isUuid(raw)) {
     throw new AppError("INVALID_INPUT", "El identificador del archivo no es válido.");
   }
 
+  return raw;
+}
+
+files.get("/:fileId", async (c) => {
+  const fileId = fileIdParam(c.req.param("fileId"));
   const file = await filesRepo.findForPreview(c.env.DB, fileId);
 
   if (!file) {
@@ -39,44 +43,38 @@ files.get("/:fileId", async (c) => {
 });
 
 files.post("/:fileId/confirm", async (c) => {
-  const fileId = c.req.param("fileId");
-
-  if (!isUuid(fileId)) {
-    throw new AppError("INVALID_INPUT", "El identificador del archivo no es válido.");
-  }
-
-  // Read first so "no such file" and "wrong state" can be told apart. They
-  // used to be the same 404, which left the UI unable to say whether the
-  // employee should look for the record or stop trying to confirm twice.
-  const current = await filesRepo.findStatus(c.env.DB, fileId);
-
-  if (!current) {
-    throw new AppError("NOT_FOUND", "No encontramos el archivo.");
-  }
-
-  if (current.status !== "UPLOADED") {
-    throw new AppError(
-      "INVALID_TRANSITION",
-      "El archivo ya no está pendiente de confirmar.",
-      { currentStatus: current.status },
-    );
-  }
-
+  const fileId = fileIdParam(c.req.param("fileId"));
   const employee = c.get("employee");
-  const result = await filesRepo.confirm(c.env.DB, fileId, employee.email);
 
-  // The UPDATE carries `AND status = 'UPLOADED'`, so zero changes here means
-  // a concurrent request won the race between the read above and this write.
-  if (result.meta.changes === 0) {
-    throw new AppError(
-      "INVALID_TRANSITION",
-      "El archivo ya no está pendiente de confirmar.",
-    );
-  }
+  await fileService.transition(c.env.DB, {
+    fileId,
+    to: "CONFIRMED",
+    apply: () => filesRepo.confirm(c.env.DB, fileId, employee.email),
+    rejection: "El archivo ya no está pendiente de confirmar.",
+  });
 
   return c.json({
     fileId,
     status: "CONFIRMED",
     confirmedBy: employee.email,
   });
+});
+
+/**
+ * Un-vouches for a file confirmed by mistake, so it can be replaced or
+ * removed. Pre-publication only: a PUBLISHED file was visible to a patient
+ * and is withdrawn by a manager revoking it, not by an employee stepping
+ * back from a confirmation.
+ */
+files.post("/:fileId/withdraw", async (c) => {
+  const fileId = fileIdParam(c.req.param("fileId"));
+
+  await fileService.transition(c.env.DB, {
+    fileId,
+    to: "UPLOADED",
+    apply: () => filesRepo.withdraw(c.env.DB, fileId),
+    rejection: "Solo se puede retirar la confirmación de un archivo confirmado.",
+  });
+
+  return c.json({ fileId, status: "UPLOADED" });
 });

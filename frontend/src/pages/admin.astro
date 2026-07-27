@@ -189,8 +189,8 @@ import "../styles/clients/duolab.css";
           ></iframe>
 
           <p class="confirm__ask" id="confirm-ask">
-            Revisa que el PDF corresponda a este paciente. Confirmar no se puede
-            deshacer.
+            Revisa que el PDF corresponda a este paciente. Si te equivocas,
+            puedes reemplazar el archivo mientras no esté publicado.
           </p>
 
           <div class="actions">
@@ -866,8 +866,13 @@ import "../styles/clients/duolab.css";
           return;
         }
 
-        $("rep-body").textContent =
-          `${picked.name} reemplazará a ${$("m-file").textContent}.`;
+        // Read the displayed state, not current.record: confirming updates
+        // the former in place and leaves the latter as it was when loaded.
+        const wasConfirmed = $("m-state").dataset.state === "CONFIRMED";
+
+        $("rep-body").textContent = wasConfirmed
+          ? `${picked.name} reemplazará a ${$("m-file").textContent}. Se retirará la confirmación del archivo actual.`
+          : `${picked.name} reemplazará a ${$("m-file").textContent}.`;
         repDialog.showModal();
       });
 
@@ -879,6 +884,7 @@ import "../styles/clients/duolab.css";
       $("rep-go").addEventListener("click", async () => {
         repDialog.close();
 
+        const wasConfirmed = $("m-state").dataset.state === "CONFIRMED";
         const picked = replaceInput.files[0];
         const { recordId, fileId, record } = current;
         if (!picked || !recordId || !fileId) return;
@@ -888,6 +894,22 @@ import "../styles/clients/duolab.css";
         $("file-status").textContent = "Eliminando el archivo anterior…";
 
         try {
+          // Only an unvouched-for file can be deleted, so a confirmed one is
+          // withdrawn first. Two calls rather than one, but the alternative is
+          // a server that lets a confirmation disappear silently.
+          if (wasConfirmed) {
+            const undo = await fetch(`${API_BASE}/files/${fileId}/withdraw`, {
+              method: "POST",
+            });
+
+            if (!undo.ok) {
+              const payload = await undo.json().catch(() => ({}));
+              throw new Error(
+                withRef(payload, "No se pudo retirar la confirmación."),
+              );
+            }
+          }
+
           const res = await fetch(
             `${API_BASE}/records/${recordId}/files/${fileId}`,
             { method: "DELETE" },

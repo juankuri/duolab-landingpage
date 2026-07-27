@@ -1,6 +1,7 @@
 import * as filesRepo from "../data/files.repo";
 import * as storage from "../data/storage";
 import { AppError, logEvent } from "../domain/errors";
+import { canDelete, isFileStatus } from "../domain/file-lifecycle";
 import type { Bindings } from "../env";
 
 /**
@@ -77,7 +78,24 @@ export async function deleteResult(
   const file = await filesRepo.findInRecord(env.DB, input.recordId, input.fileId);
 
   if (!file) {
-    throw new AppError("NOT_FOUND", "File not found.");
+    throw new AppError("NOT_FOUND", "No encontramos el archivo.");
+  }
+
+  if (!isFileStatus(file.status)) {
+    throw new AppError("INTERNAL", "El archivo tiene un estado desconocido.");
+  }
+
+  // Deleting is only for a file nobody has vouched for yet. A confirmed file
+  // has to be withdrawn first, and a published one is revoked rather than
+  // erased, because what a patient could see is the thing worth keeping.
+  if (!canDelete(file.status)) {
+    throw new AppError(
+      "INVALID_TRANSITION",
+      file.status === "CONFIRMED"
+        ? "Retira la confirmación antes de eliminar el archivo."
+        : "Un archivo publicado no se elimina; revócalo.",
+      { currentStatus: file.status },
+    );
   }
 
   await filesRepo.remove(env.DB, input.fileId);

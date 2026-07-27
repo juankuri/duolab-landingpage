@@ -90,13 +90,34 @@ export function findStatus(db: D1Database, fileId: string) {
 
 export function findInRecord(db: D1Database, recordId: string, fileId: string) {
   return db
-    .prepare("SELECT file_id, r2_key FROM files WHERE file_id = ? AND record_id = ?")
+    .prepare(
+      "SELECT file_id, r2_key, status FROM files WHERE file_id = ? AND record_id = ?",
+    )
     .bind(fileId, recordId)
-    .first<{ file_id: string; r2_key: string }>();
+    .first<{ file_id: string; r2_key: string; status: string }>();
 }
 
 export function remove(db: D1Database, fileId: string) {
   return db.prepare("DELETE FROM files WHERE file_id = ?").bind(fileId).run();
+}
+
+/**
+ * Clears the confirmation as well as the status. A file sitting in UPLOADED
+ * while still naming who confirmed it would be a record of something that is
+ * no longer true, and the next confirmation is the one that counts.
+ */
+export function withdraw(db: D1Database, fileId: string) {
+  return db
+    .prepare(
+      `UPDATE files
+         SET status = 'UPLOADED',
+             confirmed_by = NULL,
+             confirmed_at = NULL
+       WHERE file_id = ?
+         AND status = 'CONFIRMED'`,
+    )
+    .bind(fileId)
+    .run();
 }
 
 /**
