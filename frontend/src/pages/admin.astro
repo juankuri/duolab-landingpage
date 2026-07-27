@@ -271,8 +271,15 @@ import "../styles/clients/duolab.css";
       // Extract 4-letter initials from patient full name.
       // "Maria Lopez" → "MALO", "Mario Jimenez Perez" → "MAJP",
       // "Alejandro" → "ALEJ", etc.
+      // "Ángel Núñez" must suggest ANNU, not ÁNNÚ: the folio travels in a URL
+      // path and the server only accepts A-Z, 0-9 and hyphens. Decomposing to
+      // NFD splits the accent into its own combining mark, which is then
+      // dropped, leaving the base letter.
+      const stripDiacritics = (text) =>
+        text.normalize("NFD").replace(/\p{M}/gu, "");
+
       const initialsFromName = (name) => {
-        const cleaned = name
+        const cleaned = stripDiacritics(name)
           .trim()
           .replace(SPANISH_PARTICLES, "")
           .split(/\s+/)
@@ -352,6 +359,29 @@ import "../styles/clients/duolab.css";
         document.querySelectorAll("[data-err]").forEach((el) => {
           el.textContent = "";
         });
+
+      // The server reports per-field problems as { fields: { folio: "..." } }.
+      // Showing them against the field beats one combined sentence the
+      // employee has to map back onto the form themselves.
+      const applyFieldErrors = (payload) => {
+        if (!payload?.fields) return false;
+
+        for (const [name, msg] of Object.entries(payload.fields)) {
+          setErr(name, msg);
+        }
+
+        const first = document.querySelector('[aria-invalid="true"]');
+        if (first) first.focus();
+
+        return true;
+      };
+
+      // Failures carry the request id that the server logged. Showing it means
+      // a report of "it did not save" comes with the exact line to look up.
+      const withRef = (payload, fallback) => {
+        const message = payload?.error || fallback;
+        return payload?.requestId ? `${message} (Ref: ${payload.requestId})` : message;
+      };
 
       const STATE_LABEL = {
         // CONFIRMED is an internal verification. It is NOT publication: PUBLISHED
@@ -540,12 +570,44 @@ import "../styles/clients/duolab.css";
           }
         }
 
+        // These mirror the server rules so the employee finds out before the
+        // round trip. The server stays the authority: this is convenience,
+        // not a check anyone is trusting.
+        if (ok) {
+          if (!/^[A-Za-z0-9-]{3,32}$/.test(String(data.folio).trim())) {
+            setErr("folio", "El folio solo admite letras, números y guiones.");
+            ok = false;
+          }
+
+          const digits = String(data.phoneNumber).replace(/\D/g, "");
+          if (digits.length !== 10 && !(digits.length === 12 && digits.startsWith("52"))) {
+            setErr("phoneNumber", "El teléfono debe tener 10 dígitos.");
+            ok = false;
+          }
+
+          const birth = String(data.birthDate).trim();
+          const parsed = new Date(`${birth}T00:00:00Z`);
+          if (
+            Number.isNaN(parsed.getTime()) ||
+            parsed.toISOString().slice(0, 10) !== birth
+          ) {
+            setErr("birthDate", "Revisa la fecha de nacimiento.");
+            ok = false;
+          } else if (parsed.getTime() > Date.now()) {
+            setErr("birthDate", "La fecha no puede estar en el futuro.");
+            ok = false;
+          }
+        }
+
         const file = fileInput.files[0];
         if (!file) {
           setErr("pdf", "Selecciona el archivo PDF.");
           ok = false;
         } else if (file.type !== "application/pdf") {
           setErr("pdf", "Solo se aceptan archivos PDF.");
+          ok = false;
+        } else if (file.size > 15 * 1024 * 1024) {
+          setErr("pdf", "El archivo supera los 15 MB.");
           ok = false;
         }
 
@@ -581,7 +643,7 @@ import "../styles/clients/duolab.css";
               payload = JSON.parse(xhr.responseText);
             } catch {}
             if (xhr.status >= 200 && xhr.status < 300) resolve(payload);
-            else reject(new Error(payload.error || "No se pudo subir el archivo."));
+            else reject(new Error(withRef(payload, "No se pudo subir el archivo.")));
           });
 
           xhr.addEventListener("error", () =>
@@ -707,8 +769,17 @@ import "../styles/clients/duolab.css";
               return;
             }
 
+            // Per-field problems belong next to the field, not in the status
+            // line. Anything else falls through to the general message.
+            if (res.status === 400 && applyFieldErrors(created)) {
+              $("form-status").textContent = "";
+              $("prog").hidden = true;
+              submitBtn.disabled = false;
+              return;
+            }
+
             if (!res.ok) {
-              throw new Error(created.error || "No se pudo crear el registro.");
+              throw new Error(withRef(created, "No se pudo crear el registro."));
             }
 
             recordId = created.recordId;
@@ -761,7 +832,7 @@ import "../styles/clients/duolab.css";
           const payload = await res.json().catch(() => ({}));
 
           if (!res.ok) {
-            throw new Error(payload.error || "No se pudo confirmar el archivo.");
+            throw new Error(withRef(payload, "No se pudo confirmar el archivo."));
           }
 
           const state = $("m-state");
@@ -825,7 +896,7 @@ import "../styles/clients/duolab.css";
           if (!res.ok) {
             const payload = await res.json().catch(() => ({}));
             throw new Error(
-              payload.error || "No se pudo eliminar el archivo anterior.",
+              withRef(payload, "No se pudo eliminar el archivo anterior."),
             );
           }
 
