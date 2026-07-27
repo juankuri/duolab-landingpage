@@ -10,6 +10,7 @@ declare namespace Cloudflare {
     CLOUDFLARE_ACCESS_TEAM_DOMAIN: string;
     CLOUDFLARE_ACCESS_AUDIENCE: string;
     ENVIRONMENT?: string;
+    RATE_LIMIT_KEY_SECRET: string;
     /** Supplied by vitest.config.ts, applied by test/setup.ts. */
     TEST_MIGRATIONS: import("@cloudflare/vitest-pool-workers").D1Migration[];
   }

@@ -12,6 +12,7 @@ beforeEach(async () => {
     env.DB.prepare("DELETE FROM files"),
     env.DB.prepare("DELETE FROM records"),
     env.DB.prepare("DELETE FROM patients"),
+    env.DB.prepare("DELETE FROM public_lookup_attempts"),
   ]);
 
   const stored = await env.RESULTS_BUCKET.list();

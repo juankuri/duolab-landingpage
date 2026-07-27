@@ -14,6 +14,10 @@ export type Bindings = {
   // Which role the local bypass identity gets, so both flows are testable
   // offline. Read only after the ENVIRONMENT check has already passed.
   DEV_ROLE?: string;
+  // Keys the public lookup's rate-limit fingerprints (domain/fingerprint.ts).
+  // Self-generated application secret, not a Cloudflare resource id: set via
+  // backend/.dev.vars locally, `wrangler secret put` before deploy.
+  RATE_LIMIT_KEY_SECRET: string;
 };
 
 export type Actor = {

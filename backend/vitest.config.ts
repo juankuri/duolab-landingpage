@@ -20,6 +20,10 @@ export default defineConfig({
           // unauthenticated request override it per call.
           ENVIRONMENT: "local",
           TEST_MIGRATIONS: migrations,
+          // Fixed test-fixture values, not real secrets: local dev and
+          // deploy get their own via backend/.dev.vars and `wrangler secret
+          // put` respectively, neither of which is checked into git.
+          RATE_LIMIT_KEY_SECRET: "test-rate-limit-key-secret-not-for-deploy",
         },
       },
     }),
