@@ -69,6 +69,7 @@ describe("POST /records/:recordId/files", () => {
     });
 
     expect(response.status).toBe(400);
+    expect((await json(response)).code).toBe("INVALID_INPUT");
   });
 
   it("rejects a file whose bytes are not a pdf", async () => {
@@ -79,9 +80,10 @@ describe("POST /records/:recordId/files", () => {
 
     const response = await upload(record.recordId, notPdf);
 
-    // Currently 400. Iteration 5 makes unsupported content 415.
-    expect(response.status).toBe(400);
-    expect((await json(response)).error).toMatch(/pdf/i);
+    // Declared as PDF, but the bytes disagree: the content is what is
+    // unsupported, so 415 rather than 400.
+    expect(response.status).toBe(415);
+    expect((await json(response)).code).toBe("UNSUPPORTED_MEDIA_TYPE");
   });
 
   it("rejects a real pdf declared as another content type", async () => {
@@ -90,14 +92,14 @@ describe("POST /records/:recordId/files", () => {
       type: "image/png",
     });
 
-    expect((await upload(record.recordId, mislabelled)).status).toBe(400);
+    expect((await upload(record.recordId, mislabelled)).status).toBe(415);
   });
 
   it("rejects an empty file", async () => {
     const { body: record } = await createRecord();
     const empty = new File([], "vacio.pdf", { type: "application/pdf" });
 
-    expect((await upload(record.recordId, empty)).status).toBe(400);
+    expect((await upload(record.recordId, empty)).status).toBe(415);
   });
 
   it("rejects an upload over the size cap with 413", async () => {
@@ -189,9 +191,7 @@ describe("POST /files/:fileId/confirm", () => {
     expect(row!.confirmed_at).toBeTruthy();
   });
 
-  // C9: an already-confirmed file and a file that does not exist are
-  // indistinguishable to the caller. Iteration 5 splits these into 409 and 404.
-  it("C9: returns 404 for both a second confirm and an unknown file", async () => {
+  it("tells a second confirm apart from a file that does not exist", async () => {
     const { file } = await createRecordWithFile();
     await request(`/files/${file.fileId}/confirm`, { method: "POST" });
 
@@ -200,9 +200,15 @@ describe("POST /files/:fileId/confirm", () => {
       method: "POST",
     });
 
-    expect(second.status).toBe(404);
+    // Confirming twice is a state problem; an unknown id is a missing thing.
+    expect(second.status).toBe(409);
+    expect(await json(second)).toMatchObject({
+      code: "INVALID_TRANSITION",
+      currentStatus: "CONFIRMED",
+    });
+
     expect(missing.status).toBe(404);
-    expect(await json(second)).toEqual(await json(missing));
+    expect((await json(missing)).code).toBe("NOT_FOUND");
   });
 });
 

@@ -80,6 +80,14 @@ export function findForPreview(db: D1Database, fileId: string) {
     .first<FilePreviewRow>();
 }
 
+/** Current lifecycle state, for telling "not found" apart from "wrong state". */
+export function findStatus(db: D1Database, fileId: string) {
+  return db
+    .prepare("SELECT file_id, record_id, status FROM files WHERE file_id = ?")
+    .bind(fileId)
+    .first<{ file_id: string; record_id: string; status: string }>();
+}
+
 export function findInRecord(db: D1Database, recordId: string, fileId: string) {
   return db
     .prepare("SELECT file_id, r2_key FROM files WHERE file_id = ? AND record_id = ?")
