@@ -10,7 +10,7 @@
  * (requires seo/business props, emits canonical + Open Graph + MedicalBusiness
  * JSON-LD). An internal tool needs none of it and must not be indexed.
  */
-import "../styles/clients/duolab.css";
+import "../../styles/clients/duolab.css";
 ---
 
 <!doctype html>
@@ -301,9 +301,15 @@ import "../styles/clients/duolab.css";
       </div>
     </dialog>
 
-    <script is:inline>
-      // Local Worker. Change when the deployment story is settled.
-      const API_BASE = "http://localhost:8787";
+    <script>
+      // Bundled, not is:inline — this script imports the shared admin modules,
+      // and import.meta.env (inside api.js) is only substituted at build time in
+      // a processed script.
+      import { API_BASE, withRef } from "../../scripts/admin/api.js";
+      import { statusOf } from "../../scripts/admin/status.js";
+      import { suggestFolio } from "../../scripts/admin/folio.js";
+      import { validateCreation } from "../../scripts/admin/validation.js";
+      import { uploadResult } from "../../scripts/admin/upload.js";
 
       let actorRole = "EMPLOYEE";
 
@@ -324,76 +330,17 @@ import "../styles/clients/duolab.css";
       // the URL cannot carry.
       const current = { recordId: null, fileId: null, record: null };
 
-      // Folio auto-suggestion state
+      // Folio auto-suggestion state. The suggestion itself lives in
+      // scripts/admin/folio.js so every creation screen proposes the same folio.
       let folioTouched = false;
-      const SPANISH_PARTICLES = /\b(de|del|la|las|los|y)\b/gi;
 
-      // Extract 4-letter initials from patient full name.
-      // "Maria Lopez" → "MALO", "Mario Jimenez Perez" → "MAJP",
-      // "Alejandro" → "ALEJ", etc.
-      // "Ángel Núñez" must suggest ANNU, not ÁNNÚ: the folio travels in a URL
-      // path and the server only accepts A-Z, 0-9 and hyphens. Decomposing to
-      // NFD splits the accent into its own combining mark, which is then
-      // dropped, leaving the base letter.
-      const stripDiacritics = (text) =>
-        text.normalize("NFD").replace(/\p{M}/gu, "");
-
-      const initialsFromName = (name) => {
-        const cleaned = stripDiacritics(name)
-          .trim()
-          .replace(SPANISH_PARTICLES, "")
-          .split(/\s+/)
-          .filter((word) => word.length > 0)
-          .map((word) => word.toUpperCase());
-
-        if (cleaned.length === 0) return "";
-        if (cleaned.length === 1) {
-          return (cleaned[0] + "XXXX").slice(0, 4);
-        }
-        if (cleaned.length === 2) {
-          return (cleaned[0].slice(0, 2) + cleaned[1].slice(0, 2)).slice(0, 4);
-        }
-        if (cleaned.length === 3) {
-          return (
-            cleaned[0].slice(0, 2) +
-            cleaned[1].slice(0, 1) +
-            cleaned[2].slice(0, 1)
-          ).slice(0, 4);
-        }
-        return cleaned
-          .slice(0, 4)
-          .map((word) => word[0])
-          .join("");
-      };
-
-      // Format today's date as DDMMYY
-      const todayDDMMYY = () => {
-        const now = new Date();
-        const pad = (n) => String(n).padStart(2, "0");
-        return (
-          pad(now.getDate()) +
-          pad(now.getMonth() + 1) +
-          pad(now.getFullYear() % 100)
-        );
-      };
-
-      // Suggest folio as ${initials}-${DDMMYY}-
       const updateFolioSuggestion = () => {
         if (folioTouched) return;
-        const nameInput = $("fullName");
+
         const folioInput = $("folio");
-        const name = nameInput.value;
+        folioInput.value = suggestFolio($("fullName").value);
 
-        if (!name.trim()) {
-          folioInput.value = "";
-          return;
-        }
-
-        const initials = initialsFromName(name);
-        const date = todayDDMMYY();
-        folioInput.value = `${initials}-${date}-`;
-
-        // Move cursor to the end so employee can type the sequence number
+        // Move cursor to the end so the employee can type the sequence number.
         folioInput.setSelectionRange(
           folioInput.value.length,
           folioInput.value.length
@@ -436,32 +383,15 @@ import "../styles/clients/duolab.css";
         return true;
       };
 
-      // Failures carry the request id that the server logged. Showing it means
-      // a report of "it did not save" comes with the exact line to look up.
-      const withRef = (payload, fallback) => {
-        const message = payload?.error || fallback;
-        return payload?.requestId ? `${message} (Ref: ${payload.requestId})` : message;
-      };
-
-      const STATE_LABEL = {
-        // CONFIRMED is an internal verification. It is NOT publication: PUBLISHED
-        // is a separate state in the schema and is not implemented yet, so the
-        // patient cannot see this file.
-        UPLOADED: "Subido · pendiente de confirmar",
-        CONFIRMED: "Confirmado · verificado internamente",
-        PUBLISHED: "Publicado",
-        REVOKED: "Revocado",
-      };
-
-      // Short forms for the recent list, where the row has no space to explain
-      // itself. NO_FILE is not a stored status: the API reports it for records
-      // whose PDF is still missing.
-      const SHORT_LABEL = {
-        NO_FILE: "Sin archivo",
-        UPLOADED: "Borrador",
-        CONFIRMED: "Confirmado",
-        PUBLISHED: "Publicado",
-        REVOKED: "Revocado",
+      // withRef now comes from scripts/admin/api.js.
+      //
+      // The status vocabulary lives in scripts/admin/status.js. It used to exist
+      // twice in this file, as STATE_LABEL and SHORT_LABEL, which disagreed:
+      // UPLOADED read "Subido" in the detail pane but "Borrador" in list rows.
+      // One noun everywhere now; the explanation is the status's `hint`.
+      const detailLabel = (value) => {
+        const state = statusOf(value);
+        return state.hint ? `${state.label} · ${state.hint}` : state.label;
       };
 
       // Which manager action applies to a status, if any. Showing the wrong
@@ -492,7 +422,7 @@ import "../styles/clients/duolab.css";
         $("m-file").textContent = file.originalFilename;
 
         const state = $("m-state");
-        state.textContent = STATE_LABEL[file.status] || file.status;
+        state.textContent = detailLabel(file.status);
         state.dataset.state = file.status;
 
         $("preview").src = `${API_BASE}/files/${file.fileId}`;
@@ -562,7 +492,7 @@ import "../styles/clients/duolab.css";
           const state = document.createElement("span");
           state.className = "rec__state";
           state.dataset.state = record.status;
-          state.textContent = SHORT_LABEL[record.status] || record.status;
+          state.textContent = statusOf(record.status).label;
 
           btn.append(main, state);
           item.append(btn);
@@ -655,106 +585,38 @@ import "../styles/clients/duolab.css";
         }
       };
 
+      // Field rules live in scripts/admin/validation.js, mirroring
+      // backend/src/domain/validation.ts. The server stays the authority; this is
+      // convenience so the employee finds out before the round trip.
+      //
+      // Every field is checked before any is reported, matching the server's
+      // one-response-names-every-problem behaviour.
       const validate = () => {
         clearErrs();
+
         const data = Object.fromEntries(new FormData(form));
-        let ok = true;
+        const { values, errors, ok } = validateCreation({
+          ...data,
+          pdf: fileInput.files[0],
+        });
 
-        const required = {
-          folio: "Captura el folio.",
-          fullName: "Captura el nombre completo.",
-          birthDate: "Captura la fecha de nacimiento.",
-          phoneNumber: "Captura el teléfono.",
-        };
+        if (ok) return { ...data, ...values };
 
-        for (const [name, msg] of Object.entries(required)) {
-          if (!String(data[name] || "").trim()) {
-            setErr(name, msg);
-            ok = false;
-          }
-        }
+        for (const [name, message] of Object.entries(errors)) setErr(name, message);
 
-        // These mirror the server rules so the employee finds out before the
-        // round trip. The server stays the authority: this is convenience,
-        // not a check anyone is trusting.
-        if (ok) {
-          if (!/^[A-Za-z0-9-]{3,32}$/.test(String(data.folio).trim())) {
-            setErr("folio", "El folio solo admite letras, números y guiones.");
-            ok = false;
-          }
+        const first = document.querySelector('[aria-invalid="true"]');
+        if (first) first.focus();
+        else fileInput.focus();
 
-          const digits = String(data.phoneNumber).replace(/\D/g, "");
-          if (digits.length !== 10 && !(digits.length === 12 && digits.startsWith("52"))) {
-            setErr("phoneNumber", "El teléfono debe tener 10 dígitos.");
-            ok = false;
-          }
-
-          const birth = String(data.birthDate).trim();
-          const parsed = new Date(`${birth}T00:00:00Z`);
-          if (
-            Number.isNaN(parsed.getTime()) ||
-            parsed.toISOString().slice(0, 10) !== birth
-          ) {
-            setErr("birthDate", "Revisa la fecha de nacimiento.");
-            ok = false;
-          } else if (parsed.getTime() > Date.now()) {
-            setErr("birthDate", "La fecha no puede estar en el futuro.");
-            ok = false;
-          }
-        }
-
-        const file = fileInput.files[0];
-        if (!file) {
-          setErr("pdf", "Selecciona el archivo PDF.");
-          ok = false;
-        } else if (file.type !== "application/pdf") {
-          setErr("pdf", "Solo se aceptan archivos PDF.");
-          ok = false;
-        } else if (file.size > 15 * 1024 * 1024) {
-          setErr("pdf", "El archivo supera los 15 MB.");
-          ok = false;
-        }
-
-        if (!ok) {
-          const first = document.querySelector('[aria-invalid="true"]');
-          if (first) first.focus();
-          else fileInput.focus();
-        }
-
-        return ok ? data : null;
+        return null;
       };
 
-      // fetch() cannot report upload progress, so the PDF goes over XHR to drive
-      // a bar that reflects real transferred bytes.
+      // uploadResult (scripts/admin/upload.js) drives the progress bar with the
+      // real transferred byte count. Adding a result never replaces an existing one.
       const uploadPdf = (recordId, file) =>
-        new Promise((resolve, reject) => {
-          const body = new FormData();
-          body.append("file", file);
-
-          const xhr = new XMLHttpRequest();
-          xhr.open("POST", `${API_BASE}/records/${recordId}/files`);
-
-          xhr.upload.addEventListener("progress", (e) => {
-            if (!e.lengthComputable) return;
-            const pct = Math.round((e.loaded / e.total) * 100);
-            $("prog-bar").value = pct;
-            $("prog-txt").textContent = `Subiendo ${pct}%`;
-          });
-
-          xhr.addEventListener("load", () => {
-            let payload = {};
-            try {
-              payload = JSON.parse(xhr.responseText);
-            } catch {}
-            if (xhr.status >= 200 && xhr.status < 300) resolve(payload);
-            else reject(new Error(withRef(payload, "No se pudo subir el archivo.")));
-          });
-
-          xhr.addEventListener("error", () =>
-            reject(new Error("No se pudo conectar con el servidor.")),
-          );
-
-          xhr.send(body);
+        uploadResult(recordId, file, (pct) => {
+          $("prog-bar").value = pct;
+          $("prog-txt").textContent = `Subiendo ${pct}%`;
         });
 
       // Folio-first entry. There are only two outcomes: the folio exists and we
@@ -940,7 +802,7 @@ import "../styles/clients/duolab.css";
           }
 
           const state = $("m-state");
-          state.textContent = STATE_LABEL.CONFIRMED;
+          state.textContent = detailLabel("CONFIRMED");
           state.dataset.state = "CONFIRMED";
           $("confirm").hidden = true;
           $("confirm-ask").hidden = true;
@@ -998,7 +860,7 @@ import "../styles/clients/duolab.css";
           }
 
           const state = $("m-state");
-          state.textContent = STATE_LABEL.PUBLISHED;
+          state.textContent = detailLabel("PUBLISHED");
           state.dataset.state = "PUBLISHED";
           updateManagerActions("PUBLISHED");
           $("file-status").textContent = "Archivo publicado.";
@@ -1055,7 +917,7 @@ import "../styles/clients/duolab.css";
           }
 
           const state = $("m-state");
-          state.textContent = STATE_LABEL.REVOKED;
+          state.textContent = detailLabel("REVOKED");
           state.dataset.state = "REVOKED";
           updateManagerActions("REVOKED");
           $("file-status").textContent = "Publicación revocada.";
@@ -1397,7 +1259,7 @@ import "../styles/clients/duolab.css";
         font: inherit;
         color: inherit;
         background: var(--color-surface);
-        border: 1px solid #c9c2d4;
+        border: 1px solid var(--color-border);
         border-radius: var(--radius-sm);
       }
 
@@ -1409,7 +1271,7 @@ import "../styles/clients/duolab.css";
       }
 
       input[aria-invalid="true"] {
-        border-color: #b3261e;
+        border-color: var(--color-danger);
       }
 
       .err:empty {
@@ -1419,12 +1281,12 @@ import "../styles/clients/duolab.css";
       .err {
         margin: 4px 0 0;
         font-size: var(--font-size-label);
-        color: #b3261e;
+        color: var(--color-danger);
       }
 
       .drop {
         padding: var(--space-sm);
-        border: 1px dashed #c9c2d4;
+        border: 1px dashed var(--color-border);
         border-radius: var(--radius-sm);
         background: var(--color-surface-muted);
       }
@@ -1586,16 +1448,16 @@ import "../styles/clients/duolab.css";
       }
 
       .recent :global(.rec__state[data-state="CONFIRMED"]) {
-        color: #1c6b4a;
+        color: var(--color-success);
       }
 
       .recent :global(.rec__state[data-state="PUBLISHED"]) {
-        color: #1c6b4a;
+        color: var(--color-success);
         font-weight: var(--font-weight-medium);
       }
 
       .recent :global(.rec__state[data-state="REVOKED"]) {
-        color: #b3261e;
+        color: var(--color-danger);
       }
 
       dialog {
@@ -1625,17 +1487,17 @@ import "../styles/clients/duolab.css";
       }
 
       .dlg__warn {
-        color: #b3261e;
+        color: var(--color-danger);
       }
 
       .btn--danger {
         color: var(--text-on-primary);
-        background: #b3261e;
-        border-color: #b3261e;
+        background: var(--color-danger);
+        border-color: var(--color-danger);
       }
 
       .btn--danger:hover:not(:disabled) {
-        background: #8f1e18;
+        background: var(--color-danger-hover);
       }
 
       .meta {
@@ -1677,16 +1539,16 @@ import "../styles/clients/duolab.css";
       }
 
       .state[data-state="CONFIRMED"] {
-        color: #1c6b4a;
+        color: var(--color-success);
       }
 
       .state[data-state="PUBLISHED"] {
-        color: #1c6b4a;
+        color: var(--color-success);
         font-weight: var(--font-weight-medium);
       }
 
       .state[data-state="REVOKED"] {
-        color: #b3261e;
+        color: var(--color-danger);
       }
 
       .preview {

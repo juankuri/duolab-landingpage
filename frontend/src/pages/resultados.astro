@@ -94,9 +94,11 @@ import "../styles/clients/duolab.css";
       </section>
     </main>
 
-    <script is:inline>
-      // Local Worker. Change when the deployment story is settled.
-      const API_BASE = "http://localhost:8787";
+    <script>
+      // Bundled, not is:inline — import.meta.env is only substituted at build
+      // time in a processed script, so PUBLIC_API_BASE would otherwise reach the
+      // browser as literal source.
+      import { API_BASE } from "../scripts/admin/api.js";
 
       const $ = (id) => document.getElementById(id);
       const form = $("lookup-form");
@@ -270,7 +272,7 @@ import "../styles/clients/duolab.css";
         font-family: inherit;
         color: inherit;
         background: var(--color-surface);
-        border: 1px solid #c9c2d4;
+        border: 1px solid var(--color-border);
         border-radius: var(--radius-sm);
       }
 

@@ -20,6 +20,32 @@
   --text-secondary: #5a5a5a;         /* supporting text: captions, metadata */
   --text-on-primary: #ffffff;        /* text/icons set on a primary-colored surface */
 
+  /* Structure — borders exist on internal surfaces (forms, tables, result rows).
+     The landing deliberately has none: there, separation comes from background
+     tint. See branding/guidelines.md, "The Tint-Not-Shadow Rule". */
+  --color-border: #d4d4d4;           /* default hairline on inputs, rows, panels */
+  --color-border-strong: #b8b8b8;    /* hover / filled state of the same */
+
+  /* Functional status — success / warning / danger.
+     A separate category from the brand palette: these communicate outcome, not
+     identity, so "The One Purple Rule" does not apply to them. They are used only
+     on internal surfaces and never as a CTA, a link or a section ground.
+     Each has ink, a tinted surface and a border so a badge reads without relying
+     on color alone (icon + text still carry the meaning — WCAG 1.4.1). */
+  --color-success: #2f6b4a;
+  --color-success-surface: #eaf2ed;
+  --color-success-border: #c3ddcd;
+  --color-warning: #8a5a10;
+  --color-warning-surface: #f7f0e0;
+  --color-warning-border: #e4d3ab;
+  --color-danger: #b3261e;
+  --color-danger-hover: #8f1e18;
+  --color-danger-surface: #fbeceb;
+  --color-danger-border: #eecac6;
+  --color-neutral: #4a4a4a;          /* ink for a state with no outcome yet (draft) */
+  --color-neutral-surface: #f1f1f1;
+  --color-neutral-border: #dcdcdc;
+
   /* Typography — one family by default; hierarchy via weight */
   --font-heading: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;

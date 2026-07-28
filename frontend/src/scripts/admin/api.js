@@ -1,0 +1,40 @@
+/**
+ * The one place the admin surfaces learn where the API lives.
+ *
+ * Previously this constant was copy-pasted into admin.astro and resultados.astro,
+ * which meant the deployment story had to be remembered in two files. It now comes
+ * from PUBLIC_API_BASE, which Astro inlines at build time — note this only works in
+ * a bundled <script>, never in <script is:inline>, where import.meta.env is left
+ * untouched and would reach the browser as literal source.
+ */
+export const API_BASE =
+  import.meta.env.PUBLIC_API_BASE || "http://localhost:8787";
+
+/**
+ * Failures carry the request id that the server logged. Showing it means a report
+ * of "it did not save" comes with the exact line to look up.
+ */
+export function withRef(payload, fallback) {
+  const message = payload?.error || fallback;
+  return payload?.requestId ? `${message} (Ref: ${payload.requestId})` : message;
+}
+
+/**
+ * A JSON call that always resolves to { ok, status, payload }.
+ *
+ * Deliberately does not throw on a non-2xx: every caller in this module branches
+ * on the status code (409 folio conflict, 400 field errors, 404 not found) and a
+ * thrown error would force each of them to unwrap it again. A network failure is
+ * still a rejection, because that is the one case with no payload to inspect.
+ */
+export async function apiJson(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, options);
+  const payload = await res.json().catch(() => ({}));
+
+  return { ok: res.ok, status: res.status, payload };
+}
+
+/** Same, for a request whose body is FormData (no Content-Type: the browser sets the boundary). */
+export function apiForm(path, formData, method = "POST") {
+  return apiJson(path, { method, body: formData });
+}

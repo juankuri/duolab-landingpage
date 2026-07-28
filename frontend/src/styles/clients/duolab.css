@@ -37,6 +37,33 @@
   --text-secondary: #5a6472;         /* Gris Texto — supporting text */
   --text-on-primary: #ffffff;        /* white on purple surfaces */
 
+  /* Structure — internal surfaces only. Lilac-tinted rather than a cold grey so
+     the admin tool still reads as DúoLab (DESIGN.md "No Cold-White Rule"). */
+  --color-border: #c9c2d4;
+  --color-border-strong: #b0a6bf;
+
+  /* Functional status. These are outcome colors, not brand colors: the One Purple
+     Rule constrains Azul from becoming a second brand color and does not govern
+     success/warning/danger, which have no identity role. Confined to /admin —
+     the public landing uses none of them.
+     Ink values are the ones already proven in the admin tool; the surface and
+     border tints are derived from them and warmed slightly toward Fondo Suave. */
+  --color-success: #1c6b4a;
+  --color-success-surface: #e6f2ec;
+  --color-success-border: #bcdcca;
+  --color-warning: #8a5a10;
+  --color-warning-surface: #f8efdc;
+  --color-warning-border: #e6d3a8;
+  --color-danger: #b3261e;
+  --color-danger-hover: #8f1e18;
+  --color-danger-surface: #fdecea;
+  --color-danger-border: #f0c8c4;
+  /* Carbón at reduced strength rather than Gris Texto: on a tinted surface the
+     latter is borderline for contrast (branding/guidelines.md). */
+  --color-neutral: #454d5c;
+  --color-neutral-surface: #f1eff4;
+  --color-neutral-border: #dcd8e2;
+
   /* Typography — single family, weight-driven hierarchy (branding.md, DESIGN.md) */
   --font-heading: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
