@@ -50,6 +50,11 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
     <h2 class="sect">Folios recientes</h2>
   </div>
   <ul class="results" id="recent-list"></ul>
+  <div class="empty" id="recent-empty" hidden>
+    <p class="empty__title">Sin folios todavía</p>
+    <p class="empty__sub">Empieza dando de alta un paciente y su primer resultado.</p>
+    <a class="btn" href="/admin/nuevo">+ Nuevo paciente y resultado</a>
+  </div>
   <p class="status" id="recent-status" role="status" aria-live="polite"></p>
 
   <div class="row row--between">
@@ -57,6 +62,10 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
   </div>
   <p class="tiny">Resultados confirmados, esperando publicación.</p>
   <ul class="results" id="queue-list"></ul>
+  <div class="empty" id="queue-empty" hidden>
+    <p class="empty__title">Nada esperando publicación</p>
+    <p class="empty__sub">Los resultados confirmados por recepción aparecerán aquí.</p>
+  </div>
   <p class="status" id="queue-status" role="status" aria-live="polite"></p>
   </div>
 
@@ -90,11 +99,13 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       return li;
     };
 
-    const loadList = async (path, listId, statusId, emptyMessage) => {
+    const loadList = async (path, listId, statusId, emptyId) => {
       const { ok, payload } = await apiJson(path);
       const status = $(statusId);
+      const empty = $(emptyId);
 
       if (!ok) {
+        empty.hidden = true;
         status.textContent = withRef(payload, "No se pudo cargar la lista.");
         status.dataset.tone = "error";
         return;
@@ -104,10 +115,12 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       delete status.dataset.tone;
 
       if (payload.records.length === 0) {
-        status.textContent = emptyMessage;
+        $(listId).replaceChildren();
+        empty.hidden = false;
         return;
       }
 
+      empty.hidden = true;
       $(listId).replaceChildren(...payload.records.map(folioRow));
     };
 
@@ -137,12 +150,12 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
         location.href = `/admin/buscar?q=${encodeURIComponent(query)}`;
       });
 
-      loadList("/records?limit=8", "recent-list", "recent-status", "Sin folios todavía.");
+      loadList("/records?limit=8", "recent-list", "recent-status", "recent-empty");
       loadList(
         "/records?limit=8&status=CONFIRMED",
         "queue-list",
         "queue-status",
-        "Nada esperando publicación.",
+        "queue-empty",
       );
     };
 

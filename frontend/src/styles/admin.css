@@ -621,12 +621,20 @@ body {
 .field input[type="text"],
 .field input[type="date"],
 .field input[type="tel"],
-.field input[type="search"] {
+.field input[type="search"],
+#hero-q {
   width: 100%;
-  padding: 10px 12px;
+  /* 13px vertical padding + the explicit 16px line brings every admin input
+     to ~44px tall, matching the patient page's touch targets (which were
+     ~48px only there) instead of the ~38px these resolved to before —
+     below the 44px iOS/Material floor. font-size is now explicit rather
+     than resolving to --font-size-body by accident: safe from iOS zoom
+     today either way, but only on purpose now. */
+  padding: 13px 12px;
+  font-size: 16px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md, 8px);
-  font: inherit;
+  font-family: inherit;
   color: var(--text-primary);
   background: var(--color-surface, #fff);
 }
