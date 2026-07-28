@@ -433,6 +433,24 @@ body {
   background: var(--color-danger-hover);
 }
 
+/*
+ * Used by ConfirmSheet.astro's "Cancelar" and a couple of other dismiss
+ * buttons (nuevo.astro, folio.astro). It had no rule at all until now, which
+ * meant it fell back to plain .btn — a solid primary-colored button visually
+ * identical to the destructive confirm sitting right next to it in every
+ * revoke/publish sheet. That is a misclick hazard on the product's most
+ * consequential actions, not a cosmetic gap. Ported from the rule that
+ * already existed correctly in resultados.astro's scoped styles.
+ */
+.btn--ghost {
+  color: var(--color-primary);
+  background: transparent;
+}
+
+.btn--ghost:hover {
+  background: var(--color-surface-soft);
+}
+
 .btn--sm {
   padding: 7px 12px;
   font-size: 12px;
@@ -683,6 +701,14 @@ body {
   height: 8px;
   margin-top: 12px;
   accent-color: var(--color-success, currentColor);
+}
+
+/* Also had no rule — the Cancelar/Confirmar pair inside a sheet stacked as
+   unspaced full-width blocks instead of sitting on one row. */
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 @media (max-width: 640px) {

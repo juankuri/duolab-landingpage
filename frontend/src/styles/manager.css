@@ -190,24 +190,23 @@
   text-align: center;
 }
 
-/* ---------- confirm sheets: full-width stacked actions on a phone ---------- */
-
-.mgr-sheet-actions {
-  display: flex;
+/* ---------- confirm sheets: full-width stacked actions on a phone ----------
+ * ConfirmSheet.astro's own `.actions` (admin.css) is a row justified to the
+ * end — fine on desktop, wrong here: two 40-ish-px buttons side by side on a
+ * phone is exactly the "destructive next to benign" layout DEC-021 rules
+ * out. Overridden for these two sheets specifically, by id rather than by
+ * relying on manager.css loading after admin.css (load order between the
+ * two is not something to depend on for a rule this load-bearing).
+ */
+#publish-sheet .actions,
+#revoke-sheet .actions {
   flex-direction: column;
-  gap: 10px;
 }
 
-.mgr-sheet-actions .btn {
+#publish-sheet .actions .btn,
+#revoke-sheet .actions .btn {
   width: 100%;
   min-height: 56px;
-  font-size: 17px;
-}
-
-/* The optional revoke-reason input, when shown, must clear 16px or iOS
-   Safari zooms the viewport on focus and never zooms back out. */
-.mgr-sheet-actions ~ textarea,
-#revoke-sheet textarea {
   font-size: 17px;
 }
 
