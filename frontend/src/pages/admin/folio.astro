@@ -329,11 +329,15 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
       await load(current.folio);
     });
 
-    /** One open menu at a time, and Esc closes it. */
-    const closeMenus = () => {
+    /** One open menu at a time. Esc closes it and returns focus to its toggle. */
+    const closeMenus = ({ returnFocus = false } = {}) => {
       for (const list of document.querySelectorAll(".menu__list")) {
+        if (list.hidden) continue;
+
+        const toggle = list.previousElementSibling;
         list.hidden = true;
-        list.previousElementSibling.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-expanded", "false");
+        if (returnFocus) toggle.focus();
       }
     };
 
@@ -342,8 +346,28 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
     });
 
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeMenus();
+      if (event.key !== "Escape") return;
+      if (event.target.closest(".menu__list")) closeMenus({ returnFocus: true });
+      else closeMenus();
     });
+
+    /**
+     * ↑/↓ move focus between menu items and wrap at the ends; Enter/Space
+     * activate the focused item (native button behaviour already covers
+     * that, this only owns the arrow keys).
+     */
+    const wireMenuKeyboardNav = (list) => {
+      list.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+
+        event.preventDefault();
+        const items = [...list.querySelectorAll("button")];
+        const index = items.indexOf(document.activeElement);
+        const delta = event.key === "ArrowDown" ? 1 : -1;
+        const next = items[(index + delta + items.length) % items.length];
+        next?.focus();
+      });
+    };
 
     /* ---------- rendering ---------- */
 
@@ -390,6 +414,8 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
         toggle.setAttribute("aria-expanded", String(open));
         if (open) list.querySelector("button")?.focus();
       });
+
+      wireMenuKeyboardNav(list);
 
       menu.append(toggle, list);
       return menu;
