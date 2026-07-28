@@ -146,6 +146,22 @@ export function isUuid(value: unknown): value is string {
   return typeof value === "string" && UUID.test(value);
 }
 
+/**
+ * `GET /records?include=` accepts exactly one literal today. A list rather
+ * than a single constant on purpose — the day a second value exists (e.g.
+ * `patient`), this is where it grows, not a second ad hoc check next to it.
+ */
+const RECORD_INCLUDES = ["files"] as const;
+
+export type RecordInclude = (typeof RECORD_INCLUDES)[number];
+
+export function isRecordInclude(value: unknown): value is RecordInclude {
+  return (
+    typeof value === "string" &&
+    (RECORD_INCLUDES as readonly string[]).includes(value)
+  );
+}
+
 const PDF_MAGIC_BYTES = [0x25, 0x50, 0x44, 0x46, 0x2d];
 
 // Result PDFs are a few pages of text and tables. 15 MB is far above anything

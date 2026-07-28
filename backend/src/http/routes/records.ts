@@ -7,6 +7,7 @@ import { isFileStatus } from "../../domain/file-lifecycle";
 import {
   MAX_UPLOAD_BYTES,
   isPdf,
+  isRecordInclude,
   isUuid,
   validateBirthDate,
   validateFolio,
@@ -164,16 +165,58 @@ records.get("/", async (c) => {
     throw new AppError("INVALID_INPUT", "El estado solicitado no existe.");
   }
 
+  const include = c.req.query("include");
+
+  if (include !== undefined && !isRecordInclude(include)) {
+    throw new AppError("INVALID_INPUT", "El include solicitado no existe.");
+  }
+
   const rows = await recordsRepo.listRecent(c.env.DB, limit, status);
 
+  // Additive: without ?include=files the response is byte-identical to
+  // before, which is what keeps every existing caller (the employee home's
+  // two /records calls) working untouched.
+  let filesByRecord: Map<string, recordsRepo.QueueFileRow[]> | null = null;
+
+  if (include === "files") {
+    const recordIds = rows.results.map((row) => row.record_id);
+    const fileRows = await recordsRepo.listFilesForRecords(c.env.DB, recordIds, status);
+
+    filesByRecord = new Map();
+    for (const file of fileRows) {
+      const bucket = filesByRecord.get(file.record_id) ?? [];
+      bucket.push(file);
+      filesByRecord.set(file.record_id, bucket);
+    }
+  }
+
   return c.json({
-    records: rows.results.map((row) => ({
-      recordId: row.record_id,
-      folio: row.folio,
-      patientName: row.full_name,
-      results: recordsRepo.tallyFromCounts(row),
-      updatedAt: row.latest_uploaded_at ?? row.created_at,
-    })),
+    records: rows.results.map((row) => {
+      const base = {
+        recordId: row.record_id,
+        folio: row.folio,
+        patientName: row.full_name,
+        results: recordsRepo.tallyFromCounts(row),
+        updatedAt: row.latest_uploaded_at ?? row.created_at,
+      };
+
+      if (!filesByRecord) {
+        return base;
+      }
+
+      return {
+        ...base,
+        files: (filesByRecord.get(row.record_id) ?? []).map((file) => ({
+          fileId: file.file_id,
+          originalFilename: file.original_filename,
+          status: file.status,
+          sequence: file.sequence,
+          uploadedAt: file.uploaded_at,
+          // Employee/manager-only, same convention as the detail endpoint.
+          previewUrl: `/files/${file.file_id}`,
+        })),
+      };
+    }),
   });
 });
 

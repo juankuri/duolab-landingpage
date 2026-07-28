@@ -344,6 +344,82 @@ describe("GET /records", () => {
 
     expect(body.records).toHaveLength(1);
   });
+
+  it("rejects an unknown ?include= value", async () => {
+    const response = await request("/records?include=bogus");
+
+    expect(response.status).toBe(400);
+    expect((await json(response)).code).toBe("INVALID_INPUT");
+  });
+
+  it("omits the files key entirely without ?include=files", async () => {
+    // Backward-compat guard: this is what keeps the employee home's two
+    // /records calls (no ?include=) working untouched.
+    await createRecordWithFile();
+
+    const body = await json(await request("/records"));
+
+    expect(body.records[0].files).toBeUndefined();
+  });
+
+  it("attaches each record's files with ?include=files", async () => {
+    const { record, file } = await createRecordWithFile("informe.pdf");
+
+    const body = await json(await request("/records?include=files"));
+
+    const found = body.records.find((r: { recordId: string }) => r.recordId === record.recordId);
+    expect(found.files).toEqual([
+      {
+        fileId: file.fileId,
+        originalFilename: "informe.pdf",
+        status: "UPLOADED",
+        sequence: 1,
+        uploadedAt: expect.any(String),
+        previewUrl: `/files/${file.fileId}`,
+      },
+    ]);
+  });
+
+  it("filters the attached files to the requested status, not just the record", async () => {
+    // Same fixture as the "any of its results" test above: a folio whose
+    // first result is CONFIRMED and a second, freshly uploaded draft on top.
+    const { body: record } = await createRecord({ folio: "MIXF-010919-01" });
+    await request(`/files/${record.fileId}/confirm`, { method: "POST" });
+
+    const form2 = new FormData();
+    form2.set("file", new File([PDF_BYTES], "b.pdf", { type: "application/pdf" }));
+    await request(`/records/${record.recordId}/files`, { method: "POST", body: form2 });
+
+    const body = await json(await request("/records?status=CONFIRMED&include=files"));
+
+    const found = body.records.find((r: { folio: string }) => r.folio === "MIXF-010919-01");
+    expect(found.files).toHaveLength(1);
+    expect(found.files[0]).toMatchObject({ fileId: record.fileId, status: "CONFIRMED" });
+  });
+
+  it("returns an empty files array for a record with none", async () => {
+    const { body: record } = await createRecord({ folio: "ZERO-010919-01" });
+    await request(`/records/${record.recordId}/files/${record.fileId}`, { method: "DELETE" });
+
+    const body = await json(await request("/records?include=files"));
+
+    const found = body.records.find((r: { recordId: string }) => r.recordId === record.recordId);
+    expect(found.files).toEqual([]);
+  });
+
+  it("attaches files for more than one chunk of records (D1's 100-binding ceiling)", async () => {
+    for (let index = 0; index < 60; index += 1) {
+      await createRecord({ folio: `CHNK-0109${String(index).padStart(2, "0")}-01` });
+    }
+
+    const body = await json(await request("/records?limit=100&include=files"));
+
+    const chunked = body.records.filter((r: { folio: string }) => r.folio.startsWith("CHNK-"));
+    expect(chunked).toHaveLength(60);
+    for (const record of chunked) {
+      expect(record.files).toHaveLength(1);
+    }
+  });
 });
 
 describe("GET /records/:recordId", () => {

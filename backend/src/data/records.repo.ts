@@ -268,6 +268,74 @@ export function listRecent(db: D1Database, limit: number, status?: string) {
     .all<RecordListRow>();
 }
 
+export type QueueFileRow = {
+  record_id: string;
+  file_id: string;
+  original_filename: string;
+  status: string;
+  sequence: number | null;
+  uploaded_at: string;
+};
+
+/**
+ * The manager queue's per-file detail, for a batch of records at once —
+ * `?include=files` on the list endpoint. Two round trips total regardless of
+ * `limit`: this one plus `listRecent` above, never one query per record.
+ *
+ * D1 caps a single statement at 100 bound parameters. A caller passing
+ * `limit=100` would put 100 ids in the IN-list already, and the optional
+ * `status` binding would push it over — so ids are chunked at 50 and the
+ * results merged, rather than trusting the caller's `limit` to always leave
+ * headroom.
+ *
+ * `status`, when given, filters the FILES returned, not the records: the
+ * list's `?status=` already selected records that have at least one file in
+ * that state (see listRecent's comment), and a record can have others besides
+ * — an older PUBLISHED file alongside a fresh CONFIRMED draft, say. The
+ * manager queue wants only the file it can act on for that tab.
+ */
+export async function listFilesForRecords(
+  db: D1Database,
+  recordIds: string[],
+  status?: string,
+): Promise<QueueFileRow[]> {
+  if (recordIds.length === 0) {
+    return [];
+  }
+
+  const CHUNK_SIZE = 50;
+  const rows: QueueFileRow[] = [];
+
+  for (let start = 0; start < recordIds.length; start += CHUNK_SIZE) {
+    const chunk = recordIds.slice(start, start + CHUNK_SIZE);
+    const placeholders = chunk.map(() => "?").join(", ");
+    const statusClause = status ? "AND status = ?" : "";
+    const bindings = status ? [...chunk, status] : chunk;
+
+    const result = await db
+      .prepare(
+        `SELECT
+           record_id,
+           file_id,
+           original_filename,
+           status,
+           sequence,
+           uploaded_at
+         FROM files
+         WHERE record_id IN (${placeholders})
+           ${statusClause}
+         -- Same tie-break as listForRecord, so ordering agrees across endpoints.
+         ORDER BY record_id, uploaded_at DESC, file_id DESC`,
+      )
+      .bind(...bindings)
+      .all<QueueFileRow>();
+
+    rows.push(...result.results);
+  }
+
+  return rows;
+}
+
 /**
  * Folios matching a folio, patient name, or phone query — the three criteria
  * the unified search box supports in one input.
