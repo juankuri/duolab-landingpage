@@ -1,7 +1,13 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
-import { createRecord, createRecordWithFile, json, request } from "./helpers";
+import {
+  PDF_BYTES,
+  createRecord,
+  createRecordWithFile,
+  json,
+  request,
+} from "./helpers";
 
 // Characterization tests: these describe what the API does today, warts
 // included. Assertions that pin down a known defect name it, so that when a
@@ -143,7 +149,7 @@ describe("POST /records", () => {
 });
 
 describe("GET /records", () => {
-  it("reports NO_FILE for a record with no upload", async () => {
+  it("reports an empty tally for a record with no upload", async () => {
     await createRecord({ folio: "NONE-010919-01" });
 
     const body = await json(await request("/records"));
@@ -151,16 +157,60 @@ describe("GET /records", () => {
     expect(body.records).toHaveLength(1);
     expect(body.records[0]).toMatchObject({
       folio: "NONE-010919-01",
-      status: "NO_FILE",
+      results: { total: 0, byStatus: {} },
     });
   });
 
-  it("reports the status of the latest file", async () => {
+  it("tallies a record's results by status", async () => {
     await createRecordWithFile();
 
     const body = await json(await request("/records"));
 
-    expect(body.records[0].status).toBe("UPLOADED");
+    expect(body.records[0].results).toEqual({
+      total: 1,
+      byStatus: { UPLOADED: 1 },
+    });
+  });
+
+  it("includes a folio in the ?status= filter when ANY of its results is in that state, not only the latest", async () => {
+    // This is the regression the tally rewrite fixes: a folio whose latest
+    // result is a fresh draft used to disappear from the manager queue even
+    // though it still had an older CONFIRMED result waiting on it.
+    const { body: record } = await createRecord({ folio: "MIXD-010919-01" });
+
+    const form1 = new FormData();
+    form1.set("file", new File([PDF_BYTES], "a.pdf", { type: "application/pdf" }));
+    const first = await json(
+      await request(`/records/${record.recordId}/files`, {
+        method: "POST",
+        body: form1,
+      }),
+    );
+    await request(`/files/${first.fileId}/confirm`, { method: "POST" });
+
+    const form2 = new FormData();
+    form2.set("file", new File([PDF_BYTES], "b.pdf", { type: "application/pdf" }));
+    await request(`/records/${record.recordId}/files`, {
+      method: "POST",
+      body: form2,
+    });
+
+    const body = await json(await request("/records?status=CONFIRMED"));
+
+    const found = body.records.find((r: { folio: string }) => r.folio === "MIXD-010919-01");
+    expect(found).toBeTruthy();
+    expect(found.results).toEqual({
+      total: 2,
+      byStatus: { UPLOADED: 1, CONFIRMED: 1 },
+    });
+  });
+
+  it("excludes a folio from the ?status= filter when none of its results match", async () => {
+    await createRecordWithFile();
+
+    const body = await json(await request("/records?status=PUBLISHED"));
+
+    expect(body.records).toHaveLength(0);
   });
 
   it("clamps the limit between 1 and 100", async () => {

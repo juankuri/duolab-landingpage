@@ -45,12 +45,14 @@ export default defineConfig({
         // some branches only trigger under real D1/R2 failure injection.
         "src/domain/**": { statements: 90, branches: 85 },
         "src/services/**": { statements: 90, branches: 80 },
-        // Branches held at the measured floor, not the target: users.repo.ts
+        // Branches held near the measured floor, not the target: users.repo.ts
         // has no direct test today (only exercised indirectly through
         // auth.ts) and sits at 0%. Documented as a known gap in
         // docs/06-quality.md rather than papered over with a lower number
-        // that would hide it; raise this the day that gap is closed.
-        "src/data/**": { statements: 80, branches: 55 },
+        // that would hide it; raise this further the day that gap is closed.
+        // Raised from 55 to 75 once search.ts's queries brought the measured
+        // branch coverage in this directory up for real.
+        "src/data/**": { statements: 85, branches: 75 },
         "src/http/**": { statements: 80, branches: 70 },
       },
     },

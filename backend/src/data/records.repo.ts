@@ -1,6 +1,8 @@
 // All SQL touching patients and records. Handlers call these; they never
 // build a statement themselves.
 
+import { normalizeForSearch } from "../domain/search";
+
 export type RecordDetailRow = {
   record_id: string;
   folio: string;
@@ -15,9 +17,50 @@ export type RecordListRow = {
   folio: string;
   created_at: string;
   full_name: string;
-  latest_status: string | null;
+  total_count: number;
+  uploaded_count: number;
+  confirmed_count: number;
+  published_count: number;
+  revoked_count: number;
   latest_uploaded_at: string | null;
 };
+
+export type ResultTally = {
+  total: number;
+  byStatus: Partial<Record<"UPLOADED" | "CONFIRMED" | "PUBLISHED" | "REVOKED", number>>;
+};
+
+/**
+ * Turns the four SUM(CASE ...) columns every tally query selects into the
+ * shape the API actually returns. A status only appears in byStatus when its
+ * count is non-zero — an absent key reads as "none", never a 0 the caller
+ * has to filter back out.
+ */
+export function tallyFromCounts(row: {
+  total_count: number;
+  uploaded_count: number;
+  confirmed_count: number;
+  published_count: number;
+  revoked_count: number;
+}): ResultTally {
+  const byStatus: ResultTally["byStatus"] = {};
+
+  if (row.uploaded_count) byStatus.UPLOADED = row.uploaded_count;
+  if (row.confirmed_count) byStatus.CONFIRMED = row.confirmed_count;
+  if (row.published_count) byStatus.PUBLISHED = row.published_count;
+  if (row.revoked_count) byStatus.REVOKED = row.revoked_count;
+
+  return { total: row.total_count, byStatus };
+}
+
+/** Shared by every query that groups files by record and needs per-status counts. */
+const TALLY_COLUMNS = `
+  COUNT(files.file_id) AS total_count,
+  SUM(CASE WHEN files.status = 'UPLOADED' THEN 1 ELSE 0 END) AS uploaded_count,
+  SUM(CASE WHEN files.status = 'CONFIRMED' THEN 1 ELSE 0 END) AS confirmed_count,
+  SUM(CASE WHEN files.status = 'PUBLISHED' THEN 1 ELSE 0 END) AS published_count,
+  SUM(CASE WHEN files.status = 'REVOKED' THEN 1 ELSE 0 END) AS revoked_count
+`;
 
 export type NewRecord = {
   recordId: string;
@@ -37,13 +80,14 @@ export function insertPatientAndRecord(db: D1Database, record: NewRecord) {
   return db.batch([
     db
       .prepare(
-        "INSERT INTO patients (patient_id, full_name, birth_date, phone_number) VALUES (?, ?, ?, ?)",
+        "INSERT INTO patients (patient_id, full_name, birth_date, phone_number, search_name) VALUES (?, ?, ?, ?, ?)",
       )
       .bind(
         record.patientId,
         record.fullName,
         record.birthDate,
         record.phoneNumber,
+        normalizeForSearch(record.fullName),
       ),
     db
       .prepare("INSERT INTO records (record_id, folio, patient_id) VALUES (?, ?, ?)")
@@ -122,27 +166,21 @@ export function exists(db: D1Database, recordId: string) {
 }
 
 /**
- * uploaded_at is CURRENT_TIMESTAMP, which resolves to the second. Two files
- * uploaded to one record within the same second used to tie, and the previous
- * MAX(uploaded_at) subquery matched both, listing that record twice. The
- * window function picks exactly one row per record, and file_id breaks any
- * remaining tie so the choice is at least stable between calls.
+ * Every record with its results' tally, newest activity first.
  *
- * Deliberately not solved by giving uploaded_at sub-second precision: mixing
- * "YYYY-MM-DD HH:MM:SS" with an ISO "...T...Z" string sorts wrongly, because
- * a space sorts before "T". That would need a backfill of every existing row
- * to buy nothing this does not already.
+ * `status` used to filter to "the latest file is in this state", which
+ * quietly dropped a folio from the manager queue (`?status=CONFIRMED`) the
+ * moment a newer draft was added on top of an older confirmed result — the
+ * confirmed one didn't go anywhere, but the query stopped seeing it. It now
+ * means "has at least one result in this state", via HAVING on the same
+ * per-status counts the tally already computes, so the fix and the tally
+ * share one query instead of disagreeing with each other.
+ *
+ * uploaded_at resolves to the second, so file_id breaks ties for
+ * "most recent activity" the same way it does everywhere else in this file.
  */
-export function listRecent(
-  db: D1Database,
-  limit: number,
-  /**
-   * Filters to records whose latest file is in this state. The manager queue
-   * is `status=CONFIRMED`: everything reviewed and waiting for release.
-   */
-  status?: string,
-) {
-  const filter = status ? "WHERE latest.status = ?" : "";
+export function listRecent(db: D1Database, limit: number, status?: string) {
+  const having = status ? "HAVING SUM(CASE WHEN files.status = ? THEN 1 ELSE 0 END) > 0" : "";
   const bindings = status ? [status, limit] : [limit];
 
   return db
@@ -152,22 +190,107 @@ export function listRecent(
          records.folio,
          records.created_at,
          patients.full_name,
-         latest.status AS latest_status,
-         latest.uploaded_at AS latest_uploaded_at
+         ${TALLY_COLUMNS},
+         MAX(files.uploaded_at) AS latest_uploaded_at
        FROM records
        JOIN patients ON patients.patient_id = records.patient_id
-       LEFT JOIN (
-         SELECT record_id, status, uploaded_at,
-                ROW_NUMBER() OVER (
-                  PARTITION BY record_id
-                  ORDER BY uploaded_at DESC, file_id DESC
-                ) AS rn
-         FROM files
-       ) latest ON latest.record_id = records.record_id AND latest.rn = 1
-       ${filter}
-       ORDER BY COALESCE(latest.uploaded_at, records.created_at) DESC
+       LEFT JOIN files ON files.record_id = records.record_id
+       GROUP BY records.record_id
+       ${having}
+       ORDER BY COALESCE(MAX(files.uploaded_at), records.created_at) DESC
        LIMIT ?`,
     )
     .bind(...bindings)
     .all<RecordListRow>();
+}
+
+/**
+ * Folios matching a folio, patient name, or phone query — the three criteria
+ * the unified search box supports in one input.
+ *
+ * An exact folio match sorts first, then a folio prefix match, then
+ * everything else (name/phone matches) by recency — an employee typing a
+ * full folio expects that folio, not whichever record was touched last.
+ *
+ * `phoneDigits` is empty when the query has no digits in it at all, in which
+ * case the phone branch is skipped rather than matching every row with a
+ * `LIKE '%'` — the caller passes `null` for that branch's binding when so,
+ * and this function only reads it if it might apply.
+ */
+export function searchFolios(
+  db: D1Database,
+  input: { normalizedQuery: string; folioQuery: string; phoneDigits: string | null },
+  limit: number,
+) {
+  const phoneClause = input.phoneDigits ? "OR patients.phone_number LIKE ? || '%'" : "";
+  const phoneBinding = input.phoneDigits ? [input.phoneDigits] : [];
+
+  return db
+    .prepare(
+      `SELECT
+         records.record_id,
+         records.folio,
+         records.created_at,
+         patients.full_name,
+         ${TALLY_COLUMNS}
+       FROM records
+       JOIN patients ON patients.patient_id = records.patient_id
+       LEFT JOIN files ON files.record_id = records.record_id
+       WHERE UPPER(records.folio) LIKE UPPER(?) || '%'
+          OR patients.search_name LIKE '%' || ? || '%'
+          ${phoneClause}
+       GROUP BY records.record_id
+       ORDER BY
+         CASE
+           WHEN UPPER(records.folio) = UPPER(?) THEN 0
+           WHEN UPPER(records.folio) LIKE UPPER(?) || '%' THEN 1
+           ELSE 2
+         END,
+         records.created_at DESC
+       LIMIT ?`,
+    )
+    .bind(
+      input.folioQuery,
+      input.normalizedQuery,
+      ...phoneBinding,
+      input.folioQuery,
+      input.folioQuery,
+      limit,
+    )
+    .all<RecordListRow>();
+}
+
+export type PatientSearchRow = {
+  patient_id: string;
+  full_name: string;
+  phone_number: string;
+  folio_count: number;
+};
+
+/** Patients matching a name or phone query, each with how many folios they have. */
+export function searchPatients(
+  db: D1Database,
+  input: { normalizedQuery: string; phoneDigits: string | null },
+  limit: number,
+) {
+  const phoneClause = input.phoneDigits ? "OR patients.phone_number LIKE ? || '%'" : "";
+  const phoneBinding = input.phoneDigits ? [input.phoneDigits] : [];
+
+  return db
+    .prepare(
+      `SELECT
+         patients.patient_id,
+         patients.full_name,
+         patients.phone_number,
+         COUNT(records.record_id) AS folio_count
+       FROM patients
+       LEFT JOIN records ON records.patient_id = patients.patient_id
+       WHERE patients.search_name LIKE '%' || ? || '%'
+          ${phoneClause}
+       GROUP BY patients.patient_id
+       ORDER BY patients.full_name ASC
+       LIMIT ?`,
+    )
+    .bind(input.normalizedQuery, ...phoneBinding, limit)
+    .all<PatientSearchRow>();
 }

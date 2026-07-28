@@ -111,7 +111,7 @@ records.get("/", async (c) => {
       recordId: row.record_id,
       folio: row.folio,
       patientName: row.full_name,
-      status: row.latest_status ?? "NO_FILE",
+      results: recordsRepo.tallyFromCounts(row),
       updatedAt: row.latest_uploaded_at ?? row.created_at,
     })),
   });

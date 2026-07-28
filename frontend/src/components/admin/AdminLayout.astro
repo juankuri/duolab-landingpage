@@ -44,26 +44,26 @@ import "../../styles/admin.css";
 
       {
         /*
-         * Folio-only for now, which is all the API can match on. It becomes the
-         * unified folio/name/phone search once GET /search exists; the box keeps
-         * its place in the bar so the change is a swap of action and field name,
-         * not a new piece of chrome appearing.
+         * One box, three criteria: folio, patient name, phone — GET /search
+         * matches on all three. Present on every /admin/* screen except the
+         * two where it would be redundant: /admin/buscar IS the search, and
+         * /admin/revisar is a focused, single-result context.
          */
         search && (
-          <form class="topbar__search" action="/admin/folio" method="get" role="search">
+          <form class="topbar__search" action="/admin/buscar" method="get" role="search">
             <label class="vh" for="f">
-              Buscar folio
+              Buscar folio, nombre o teléfono
             </label>
             <span class="search__icon" aria-hidden="true">
               ⌕
             </span>
             <input
               id="f"
-              name="f"
+              name="q"
               type="search"
               value={query}
               autocomplete="off"
-              placeholder="Buscar folio…"
+              placeholder="Folio · nombre · teléfono…"
             />
           </form>
         )

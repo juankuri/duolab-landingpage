@@ -1,0 +1,184 @@
+---
+/**
+ * /admin/buscar?q=… — unified search results.
+ *
+ * Backs onto GET /search, which matches a folio (exact/prefix), a patient
+ * name (accent-insensitive substring) and a phone (digit prefix) in one
+ * query. Two groups, because they answer different questions: "which folio"
+ * vs "which patient" — a patient with three folios is one row here, not
+ * three.
+ *
+ * This page IS the search, so AdminLayout's topbar box is hidden — showing
+ * it here would be two search boxes doing the same thing on one screen.
+ */
+import AdminLayout from "../../components/admin/AdminLayout.astro";
+---
+
+<AdminLayout title="Buscar" search={false}>
+  <form class="row" id="search-form" role="search" style="margin-bottom: 16px;">
+    <label class="vh" for="q">Buscar folio, nombre o teléfono</label>
+    <input
+      id="q"
+      name="q"
+      type="search"
+      autocomplete="off"
+      placeholder="Folio · nombre · teléfono…"
+      style="flex: 1; min-width: 240px;"
+    />
+    <button class="btn" type="submit">Buscar</button>
+  </form>
+
+  <div id="results">
+    <section id="folios-section" hidden>
+      <h2 class="sect">Folios</h2>
+      <ul class="results" id="folios-list"></ul>
+    </section>
+
+    <section id="patients-section" hidden>
+      <h2 class="sect">Pacientes</h2>
+      <ul class="results" id="patients-list"></ul>
+    </section>
+  </div>
+
+  <div class="empty" id="empty" hidden>
+    <p class="empty__title" id="empty-title">Busca un folio o un paciente</p>
+    <p class="empty__sub" id="empty-sub">
+      Escribe un folio, un nombre o un teléfono arriba.
+    </p>
+    <a class="btn" id="empty-create" href="/admin/nuevo" hidden>
+      + Crear un paciente nuevo
+    </a>
+  </div>
+
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+
+  <script>
+    import { apiJson, withRef } from "../../scripts/admin/api.js";
+    import { initials, tallyNode } from "../../scripts/admin/render.js";
+
+    const $ = (id) => document.getElementById(id);
+
+    const setStatus = (message, tone) => {
+      const el = $("status");
+      el.textContent = message || "";
+      if (tone) el.dataset.tone = tone;
+      else delete el.dataset.tone;
+    };
+
+    const showEmpty = (title, sub, offerCreate) => {
+      $("folios-section").hidden = true;
+      $("patients-section").hidden = true;
+      $("empty-title").textContent = title;
+      $("empty-sub").textContent = sub;
+      $("empty-create").hidden = !offerCreate;
+      $("empty").hidden = false;
+    };
+
+    const folioRow = (folio) => {
+      const li = document.createElement("li");
+      li.className = "frow";
+
+      const link = document.createElement("a");
+      link.href = `/admin/folio?f=${encodeURIComponent(folio.folio)}`;
+      link.className = "frow__body";
+      link.style.textDecoration = "none";
+      link.style.color = "inherit";
+
+      const name = document.createElement("p");
+      name.className = "frow__name";
+      name.textContent = folio.folio;
+
+      const meta = document.createElement("p");
+      meta.className = "frow__meta";
+      meta.textContent = folio.patientName;
+
+      link.append(name, meta);
+      li.append(link, tallyNode(folio.results));
+      return li;
+    };
+
+    const patientRow = (patient) => {
+      const li = document.createElement("li");
+      li.className = "frow";
+
+      const avatar = document.createElement("span");
+      avatar.className = "pavatar";
+      avatar.setAttribute("aria-hidden", "true");
+      avatar.textContent = initials(patient.fullName);
+
+      const link = document.createElement("a");
+      link.href = `/admin/paciente?id=${encodeURIComponent(patient.patientId)}`;
+      link.className = "frow__body";
+      link.style.textDecoration = "none";
+      link.style.color = "inherit";
+
+      const name = document.createElement("p");
+      name.className = "frow__name";
+      name.textContent = patient.fullName;
+
+      const meta = document.createElement("p");
+      meta.className = "frow__meta";
+      const folioWord = patient.folioCount === 1 ? "folio" : "folios";
+      meta.textContent = `${patient.phoneNumber} · ${patient.folioCount} ${folioWord}`;
+
+      link.append(name, meta);
+      li.append(avatar, link);
+      return li;
+    };
+
+    const render = (payload, query) => {
+      const hasFolios = payload.folios.length > 0;
+      const hasPatients = payload.patients.length > 0;
+
+      if (!hasFolios && !hasPatients) {
+        showEmpty(
+          `No encontramos resultados para "${query}"`,
+          "Revisa el folio, el nombre o el teléfono.",
+          true,
+        );
+        return;
+      }
+
+      $("empty").hidden = true;
+
+      $("folios-section").hidden = !hasFolios;
+      $("folios-list").replaceChildren(...payload.folios.map(folioRow));
+
+      $("patients-section").hidden = !hasPatients;
+      $("patients-list").replaceChildren(...payload.patients.map(patientRow));
+    };
+
+    const search = async (query) => {
+      if (!query) {
+        showEmpty("Busca un folio o un paciente", "Escribe un folio, un nombre o un teléfono arriba.", false);
+        setStatus("");
+        return;
+      }
+
+      setStatus("Buscando…");
+      const { ok, payload } = await apiJson(`/search?q=${encodeURIComponent(query)}`);
+
+      if (!ok) {
+        setStatus(withRef(payload, "No se pudo buscar."), "error");
+        return;
+      }
+
+      render(payload, query);
+      setStatus("");
+    };
+
+    $("search-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const query = $("q").value.trim();
+      const url = new URL(location.href);
+      if (query) url.searchParams.set("q", query);
+      else url.searchParams.delete("q");
+      history.replaceState(null, "", url);
+      search(query);
+    });
+
+    const initial = new URL(location.href).searchParams.get("q") || "";
+    $("q").value = initial;
+    search(initial.trim());
+  </script>
+</AdminLayout>
