@@ -19,6 +19,14 @@ export default defineConfig({
           // The Access bypass is keyed on this. Tests that need an
           // unauthenticated request override it per call.
           ENVIRONMENT: "local",
+          // Pinned, not inherited. Loading wrangler.jsonc also loads
+          // backend/.dev.vars, so without this line the suite takes whichever
+          // DEV_ROLE the developer happens to have set locally — and
+          // roles.test.ts, which asserts an employee is an EMPLOYEE, fails on
+          // any machine where someone flipped it to "manager" to try the
+          // publish flow. A gitignored file must not be able to change what
+          // the tests assert.
+          DEV_ROLE: "employee",
           TEST_MIGRATIONS: migrations,
           // Fixed test-fixture values, not real secrets: local dev and
           // deploy get their own via backend/.dev.vars and `wrangler secret
