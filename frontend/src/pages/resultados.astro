@@ -14,13 +14,22 @@
  * result lookup form has no reason to be indexed), but it must stay
  * reachable by anyone who clicks the footer link.
  *
- * Every failure — wrong folio, wrong phone, wrong birth date, no such
- * record, not yet published, revoked, rate limited — renders the same
- * generic message. Distinguishing them here would undo the backend's
- * non-enumeration guarantee for nothing but the appearance of a better error
- * message.
+ * Every non-2xx that isn't empty-input or rate-limiting — wrong folio, wrong
+ * phone, wrong birth date, no such record, not yet published, revoked —
+ * renders the same generic message (see scripts/public/lookup.js's
+ * lookupErrorMessage). Distinguishing them here would undo the backend's
+ * non-enumeration guarantee (DEC-015) for nothing but the appearance of a
+ * better error message. The "aún no está listo" reassurance below is static
+ * copy for exactly that reason — it is shown always, not only when true, so
+ * it never becomes a signal.
  */
+import WhatsAppButton from "../components/landing/WhatsAppButton.astro";
+import content from "../config/site.js";
 import "../styles/clients/duolab.css";
+
+const whatsappMessage =
+  content.whatsapp.messages.find((m) => m.context === "resultados")?.text ??
+  content.whatsapp.messages[0].text;
 ---
 
 <!doctype html>
@@ -47,6 +56,13 @@ import "../styles/clients/duolab.css";
           Captura los datos exactamente como se registraron en el laboratorio.
         </p>
 
+        <!--
+          novalidate + required is not a contradiction: novalidate turns off
+          the browser's own validation bubble (inconsistent styling, fires at
+          the wrong time for the copy below), while `required` still gives
+          assistive tech the field's required semantics regardless. Custom
+          validation lives in the script, not in these attributes.
+        -->
         <form id="lookup-form" novalidate>
           <div class="field">
             <label for="folio">Folio</label>
@@ -56,8 +72,13 @@ import "../styles/clients/duolab.css";
               type="text"
               required
               autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
               inputmode="text"
+              aria-describedby="folio-hint"
+              autofocus
             />
+            <p class="field__hint" id="folio-hint">Lo encuentras en tu ticket de entrega.</p>
           </div>
 
           <div class="field">
@@ -69,27 +90,48 @@ import "../styles/clients/duolab.css";
               required
               autocomplete="off"
               inputmode="tel"
+              maxlength="10"
             />
           </div>
 
           <div class="field">
             <label for="birthDate">Fecha de nacimiento</label>
-            <input id="birthDate" name="birthDate" type="date" required />
+            <input id="birthDate" name="birthDate" type="date" required min="1900-01-01" />
           </div>
 
           <button class="btn" id="submit" type="submit">Buscar resultado</button>
-
-          <p class="status" id="status" role="status" aria-live="polite"></p>
         </form>
 
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+
         <div class="result" id="result" hidden>
-          <p class="result__msg">Encontramos tu resultado.</p>
-          <a class="btn btn--download" id="download-link" href="#"
-            >Descargar resultado (PDF)</a
-          >
+          <p class="result__msg" id="result-msg"></p>
+          <a class="btn" id="download-link" href="#">Descargar resultado (PDF)</a>
+          <p class="result__expiry" id="result-expiry"></p>
           <button class="btn btn--ghost" id="search-again" type="button">
             Buscar otro folio
           </button>
+        </div>
+
+        <!--
+          Static, unconditional copy — shown on every load, never in response
+          to a specific lookup outcome. Answering "is my result not ready
+          yet?" (docs/01-domain.md's patient story) this way costs nothing in
+          non-enumeration (DEC-015): it says the same thing to every patient
+          regardless of what is or isn't true for their folio.
+        -->
+        <p class="reassurance">
+          Si tu resultado aún no está listo, aparecerá aquí en cuanto el laboratorio lo
+          publique. Normalmente está disponible el mismo día del estudio.
+        </p>
+
+        <div class="help">
+          <WhatsAppButton
+            phoneNumber={content.whatsapp.phoneNumber}
+            message={whatsappMessage}
+            label="Ayuda por WhatsApp"
+            variant="outline"
+          />
         </div>
       </section>
     </main>
@@ -99,50 +141,114 @@ import "../styles/clients/duolab.css";
       // time in a processed script, so PUBLIC_API_BASE would otherwise reach the
       // browser as literal source.
       import { API_BASE } from "../scripts/admin/api.js";
+      import {
+        digitsOnly,
+        firstEmptyField,
+        formatMsLeft,
+        lookupErrorMessage,
+        tokenExpiry,
+      } from "../scripts/public/lookup.js";
 
       const $ = (id) => document.getElementById(id);
       const form = $("lookup-form");
       const submitBtn = $("submit");
       const statusEl = $("status");
       const resultEl = $("result");
+      const resultMsg = $("result-msg");
+      const resultExpiry = $("result-expiry");
       const downloadLink = $("download-link");
+      const folioInput = $("folio");
+      const phoneInput = $("phone");
+      const birthDateInput = $("birthDate");
 
-      // The one message for every failure: wrong folio, wrong phone, wrong
-      // birth date, no such record, not published, revoked or rate limited
-      // are all indistinguishable on the wire, and must stay indistinguishable
-      // here too.
-      const GENERIC_FAILURE =
-        "No encontramos un resultado con esos datos. Verifica el folio, el teléfono y la fecha de nacimiento.";
-      const SERVER_FAILURE = "Ocurrió un error. Intenta de nuevo más tarde.";
+      // Computed at load, not at build time (this is a static page) — a
+      // build-time date would go stale the day after deploy.
+      birthDateInput.max = new Date().toISOString().slice(0, 10);
+
+      const setStatus = (message, tone) => {
+        statusEl.textContent = message || "";
+        if (tone) statusEl.dataset.tone = tone;
+        else delete statusEl.dataset.tone;
+      };
 
       const showForm = () => {
         resultEl.hidden = true;
         form.hidden = false;
       };
 
-      const showResult = (downloadToken) => {
+      /* ---------- download-token expiry (5 minutes, previously discarded) ---------- */
+
+      let expiryTimer = null;
+
+      const clearExpiryTimer = () => {
+        if (expiryTimer) clearInterval(expiryTimer);
+        expiryTimer = null;
+      };
+
+      const handleExpired = () => {
+        clearExpiryTimer();
+        downloadLink.setAttribute("aria-disabled", "true");
+        downloadLink.removeAttribute("href");
+        showForm();
+        setStatus("Tu enlace para descargar expiró. Busca tu resultado de nuevo.", "error");
+        folioInput.focus();
+      };
+
+      const tickExpiry = (expiresAt) => {
+        const { expired, msLeft } = tokenExpiry(expiresAt);
+
+        if (expired) {
+          handleExpired();
+          return;
+        }
+
+        resultExpiry.textContent = `Este enlace es válido ${formatMsLeft(msLeft)} más.`;
+      };
+
+      /* ---------- lookup ---------- */
+
+      const showResult = (folio, downloadToken, expiresAt) => {
         form.hidden = true;
         resultEl.hidden = false;
+        resultMsg.textContent = `Encontramos tu resultado del folio ${folio}.`;
+        downloadLink.removeAttribute("aria-disabled");
         downloadLink.href = `${API_BASE}/api/public/results/${encodeURIComponent(downloadToken)}/download`;
         downloadLink.focus();
+
+        clearExpiryTimer();
+        tickExpiry(expiresAt);
+        expiryTimer = setInterval(() => tickExpiry(expiresAt), 15_000);
       };
+
+      // As-you-type digit filter — a phone typed with spaces or punctuation
+      // ("938 123 4567") is otherwise indistinguishable from a wrong number
+      // once trimmed, and rebounds as the generic failure for no reason.
+      phoneInput.addEventListener("input", () => {
+        phoneInput.value = digitsOnly(phoneInput.value).slice(0, 10);
+      });
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
         // Sent as a POST body only — never a query string or localStorage —
         // so verification data never lands in a URL, history entry or log.
-        const folio = $("folio").value.trim();
-        const phone = $("phone").value.trim();
-        const birthDate = $("birthDate").value;
+        const folio = folioInput.value.trim();
+        const phone = phoneInput.value.trim();
+        const birthDate = birthDateInput.value;
 
-        if (!folio || !phone || !birthDate) {
-          statusEl.textContent = GENERIC_FAILURE;
+        const empty = firstEmptyField({ folio, phone, birthDate });
+        if (empty) {
+          // Purely a client-side check — no request was made, so saying so
+          // plainly (rather than the generic "no encontramos…") leaks
+          // nothing about any folio.
+          setStatus("Completa los tres campos para buscar tu resultado.", "error");
+          $(empty).focus();
           return;
         }
 
         submitBtn.disabled = true;
-        statusEl.textContent = "Buscando…";
+        submitBtn.setAttribute("aria-busy", "true");
+        setStatus("Buscando…");
 
         try {
           const res = await fetch(`${API_BASE}/api/public/results/lookup`, {
@@ -151,33 +257,28 @@ import "../styles/clients/duolab.css";
             body: JSON.stringify({ folio, phone, birthDate }),
           });
 
-          if (res.status >= 500) {
-            statusEl.textContent = SERVER_FAILURE;
-            return;
-          }
-
           if (!res.ok) {
-            // 404 (no match / not published / revoked) and 429 (rate limited)
-            // both render the same copy on purpose.
-            statusEl.textContent = GENERIC_FAILURE;
+            setStatus(lookupErrorMessage(res.status), "error");
             return;
           }
 
           const payload = await res.json();
-          statusEl.textContent = "";
-          showResult(payload.downloadToken);
+          setStatus("");
+          showResult(folio, payload.downloadToken, payload.expiresAt);
         } catch {
-          statusEl.textContent = SERVER_FAILURE;
+          setStatus("Ocurrió un error. Intenta de nuevo más tarde.", "error");
         } finally {
           submitBtn.disabled = false;
+          submitBtn.removeAttribute("aria-busy");
         }
       });
 
       $("search-again").addEventListener("click", () => {
+        clearExpiryTimer();
         form.reset();
-        statusEl.textContent = "";
+        setStatus("");
         showForm();
-        $("folio").focus();
+        folioInput.focus();
       });
     </script>
 
@@ -263,6 +364,12 @@ import "../styles/clients/duolab.css";
         font-weight: var(--font-weight-medium);
       }
 
+      .field__hint {
+        margin: 4px 0 0;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+
       input {
         width: 100%;
         /* 16px avoids iOS Safari zooming in on focus, and the taller
@@ -303,7 +410,8 @@ import "../styles/clients/duolab.css";
         background: var(--color-primary-dark);
       }
 
-      .btn:disabled {
+      .btn:disabled,
+      .btn[aria-disabled="true"] {
         opacity: 0.55;
         cursor: not-allowed;
       }
@@ -323,6 +431,10 @@ import "../styles/clients/duolab.css";
         color: var(--text-secondary);
       }
 
+      .status[data-tone="error"] {
+        color: var(--color-danger);
+      }
+
       .status:empty {
         display: none;
       }
@@ -330,6 +442,34 @@ import "../styles/clients/duolab.css";
       .result__msg {
         margin: 0 0 var(--space-sm);
         font-weight: var(--font-weight-medium);
+      }
+
+      .result__expiry {
+        margin: var(--space-xs) 0 0;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+
+      .result__expiry:empty {
+        display: none;
+      }
+
+      .reassurance {
+        margin: var(--space-md) 0 0;
+        padding-top: var(--space-sm);
+        border-top: 1px solid var(--color-surface-soft);
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+      }
+
+      .help {
+        margin-top: var(--space-sm);
+        display: flex;
+        justify-content: center;
+      }
+
+      .help :global(.wa-button) {
+        width: 100%;
       }
     </style>
   </body>

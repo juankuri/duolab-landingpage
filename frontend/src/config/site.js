@@ -68,6 +68,10 @@ const content = {
                 context: "services",
                 text: "Hola, tengo una indicación médica y quisiera saber la preparación, disponibilidad y tiempo de entrega del estudio.",
             },
+            {
+                context: "resultados",
+                text: "Hola, tengo problemas para consultar mi resultado en la página.",
+            },
         ],
     },
 
