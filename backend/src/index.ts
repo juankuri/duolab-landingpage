@@ -6,6 +6,7 @@ import { onError } from "./http/errors";
 import { isLocalDev, requireAccess } from "./http/middleware/auth";
 import { files } from "./http/routes/files";
 import { me } from "./http/routes/me";
+import { patients } from "./http/routes/patients";
 import { publicRoutes } from "./http/routes/public";
 import { records } from "./http/routes/records";
 import { search } from "./http/routes/search";
@@ -56,6 +57,7 @@ app.route("/me", protectedRoutes().route("/", me));
 app.route("/records", protectedRoutes().route("/", records));
 app.route("/files", protectedRoutes().route("/", files));
 app.route("/search", protectedRoutes().route("/", search));
+app.route("/patients", protectedRoutes().route("/", patients));
 
 // No requireAccess: patients are never Access users (DEC-012). Rate limiting
 // and non-enumerating responses are the boundary here, not authentication.

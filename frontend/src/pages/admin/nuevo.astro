@@ -1,38 +1,41 @@
 ---
 /**
  * /admin/nuevo — create a patient + folio + first result in one submission
- * (Flow A), or just a folio + PDF for an existing patient via `?patient=ID`
- * (Flow C — added in the next slice, alongside /admin/paciente; this page
- * already accepts the query param so that slice does not have to touch this
- * form's structure, only add the patient-chip branch).
+ * (Flow A), or — with `?patient=ID` — just a folio + PDF for a patient the
+ * system already knows (Flow C, reached from /admin/paciente's
+ * "+ Nuevo folio"). Flow C swaps the name/birth date/phone fields for a
+ * PatientChip; the folio and PDF fields are identical either way.
  *
  * There is no draft: the form clears on every load. A folio is either
  * created now or it isn't — nothing here is worth persisting half-filled.
  */
 import AdminLayout from "../../components/admin/AdminLayout.astro";
+import PatientChip from "../../components/admin/PatientChip.astro";
 ---
 
 <AdminLayout title="Nuevo paciente" search={true}>
   <nav class="crumb" aria-label="Ubicación">
     <a href="/admin">Inicio</a>
     <span aria-hidden="true">›</span>
-    <b>Nuevo paciente y resultado</b>
+    <b id="crumb-title">Nuevo paciente y resultado</b>
   </nav>
 
+  <PatientChip />
+
   <form id="create-form" novalidate>
-    <div class="field">
+    <div class="field" id="field-fullName">
       <label for="fullName">Nombre completo</label>
       <input id="fullName" name="fullName" type="text" autocomplete="off" />
       <p class="err" id="err-fullName" data-err></p>
     </div>
 
-    <div class="field">
+    <div class="field" id="field-birthDate">
       <label for="birthDate">Fecha de nacimiento</label>
       <input id="birthDate" name="birthDate" type="date" />
       <p class="err" id="err-birthDate" data-err></p>
     </div>
 
-    <div class="field">
+    <div class="field" id="field-phoneNumber">
       <label for="phoneNumber">Teléfono</label>
       <input id="phoneNumber" name="phoneNumber" type="tel" autocomplete="off" />
       <p class="err" id="err-phoneNumber" data-err></p>
@@ -72,13 +75,21 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
   </dialog>
 
   <script>
+    import { apiJson, withRef } from "../../scripts/admin/api.js";
     import { suggestFolio } from "../../scripts/admin/folio.js";
+    import { initials } from "../../scripts/admin/render.js";
     import { createRecord } from "../../scripts/admin/upload.js";
     import { validateCreation, validatePdf } from "../../scripts/admin/validation.js";
 
     const $ = (id) => document.getElementById(id);
 
-    const fields = ["fullName", "birthDate", "phoneNumber", "folio"];
+    // Flow C: a patient already chosen (?patient=ID) means the name/birth
+    // date/phone fields are replaced by the chip, and only folio + PDF are
+    // validated and submitted.
+    const existingPatientId = new URL(location.href).searchParams.get("patient");
+    const fields = existingPatientId
+      ? ["folio"]
+      : ["fullName", "birthDate", "phoneNumber", "folio"];
     let pendingFile = null;
     let folioTouchedByHand = false;
 
@@ -158,7 +169,7 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
         pdf: pendingFile,
       };
 
-      const { values, errors, ok } = validateCreation(input);
+      const { values, errors, ok } = validateCreation(input, [...fields, "pdf"]);
 
       if (!ok) {
         applyFieldErrors(errors);
@@ -172,12 +183,14 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       setStatus("Creando…");
 
       const response = await createRecord(
-        {
-          fullName: values.fullName,
-          birthDate: values.birthDate,
-          phoneNumber: values.phoneNumber,
-          folio: values.folio,
-        },
+        existingPatientId
+          ? { patientId: existingPatientId, folio: values.folio }
+          : {
+              fullName: values.fullName,
+              birthDate: values.birthDate,
+              phoneNumber: values.phoneNumber,
+              folio: values.folio,
+            },
         values.pdf,
         (percent) => ($("progress").value = percent),
       );
@@ -218,5 +231,32 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       const { folio, fileId } = response.payload;
       location.href = `/admin/revisar?f=${encodeURIComponent(folio)}&r=${fileId}`;
     });
+
+    /* ---------- Flow C: a patient already chosen ---------- */
+
+    const initFlowC = async () => {
+      for (const name of ["fullName", "birthDate", "phoneNumber"]) {
+        $(`field-${name}`).hidden = true;
+      }
+
+      $("crumb-title").textContent = "Nuevo folio";
+      document.title = "Nuevo folio · DúoLab";
+
+      const { ok, payload } = await apiJson(`/patients/${existingPatientId}`);
+
+      if (!ok) {
+        setStatus(withRef(payload, "No se pudo cargar al paciente."), "error");
+        return;
+      }
+
+      const patient = payload.patient;
+      $("chip-initials").textContent = initials(patient.fullName);
+      $("chip-name").textContent = patient.fullName;
+      $("chip-phone").textContent = patient.phoneNumber;
+      $("chip-change").href = "/admin/buscar";
+      $("patient-chip").hidden = false;
+    };
+
+    if (existingPatientId) initFlowC();
   </script>
 </AdminLayout>

@@ -131,6 +131,34 @@ export function createRecordWithFile(
   return db.batch(statements);
 }
 
+export type PatientFolioRow = {
+  record_id: string;
+  folio: string;
+  total_count: number;
+  uploaded_count: number;
+  confirmed_count: number;
+  published_count: number;
+  revoked_count: number;
+};
+
+/** Every folio belonging to one patient, each with its own tally. Newest first. */
+export function listFoliosForPatient(db: D1Database, patientId: string) {
+  return db
+    .prepare(
+      `SELECT
+         records.record_id,
+         records.folio,
+         ${TALLY_COLUMNS}
+       FROM records
+       LEFT JOIN files ON files.record_id = records.record_id
+       WHERE records.patient_id = ?
+       GROUP BY records.record_id
+       ORDER BY records.created_at DESC`,
+    )
+    .bind(patientId)
+    .all<PatientFolioRow>();
+}
+
 /**
  * D1 surfaces a constraint violation as an Error whose message embeds the
  * SQLite text. There is no stable error code exposed, so the message is

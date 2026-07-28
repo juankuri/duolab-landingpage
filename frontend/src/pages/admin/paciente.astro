@@ -1,0 +1,128 @@
+---
+/**
+ * /admin/paciente?id=PATIENT_ID — one patient, every folio they have.
+ *
+ * "+ Nuevo folio" is Flow C: a new folio for a patient the system already
+ * knows, asking only for a folio and a PDF (see /admin/nuevo's
+ * `?patient=` branch).
+ */
+import AdminLayout from "../../components/admin/AdminLayout.astro";
+---
+
+<AdminLayout title="Paciente" search={true}>
+  <nav class="crumb" aria-label="Ubicación">
+    <a href="/admin">Inicio</a>
+    <span aria-hidden="true">›</span>
+    <b id="crumb-name">Paciente</b>
+  </nav>
+
+  <section class="card" id="patient" hidden aria-labelledby="patient-name">
+    <span class="pavatar" id="patient-initials" aria-hidden="true"></span>
+    <div class="card__body">
+      <h1 class="card__title" id="patient-name"></h1>
+      <p class="card__meta" id="patient-meta"></p>
+    </div>
+  </section>
+
+  <div class="row row--between" id="folios-head" hidden>
+    <h2 class="sect">Folios</h2>
+    <a class="btn btn--secondary btn--sm" id="new-folio" href="/admin/nuevo">
+      + Nuevo folio
+    </a>
+  </div>
+
+  <ul class="results" id="folios-list"></ul>
+
+  <div class="empty" id="empty" hidden>
+    <p class="empty__title" id="empty-title">No encontramos al paciente</p>
+    <p class="empty__sub" id="empty-sub">Búscalo de nuevo desde el inicio.</p>
+  </div>
+
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+
+  <script>
+    import { apiJson, withRef } from "../../scripts/admin/api.js";
+    import { initials, tallyNode } from "../../scripts/admin/render.js";
+
+    const $ = (id) => document.getElementById(id);
+
+    const setStatus = (message, tone) => {
+      const el = $("status");
+      el.textContent = message || "";
+      if (tone) el.dataset.tone = tone;
+      else delete el.dataset.tone;
+    };
+
+    const showEmpty = (title, sub) => {
+      $("patient").hidden = true;
+      $("folios-head").hidden = true;
+      $("empty-title").textContent = title;
+      $("empty-sub").textContent = sub;
+      $("empty").hidden = false;
+    };
+
+    const folioRow = (folio) => {
+      const li = document.createElement("li");
+      li.className = "frow";
+
+      const link = document.createElement("a");
+      link.href = `/admin/folio?f=${encodeURIComponent(folio.folio)}`;
+      link.className = "frow__body";
+      link.style.textDecoration = "none";
+      link.style.color = "inherit";
+
+      const name = document.createElement("p");
+      name.className = "frow__name";
+      name.textContent = folio.folio;
+
+      link.append(name);
+      li.append(link, tallyNode(folio.results));
+      return li;
+    };
+
+    const init = async () => {
+      const patientId = new URL(location.href).searchParams.get("id");
+
+      if (!patientId) {
+        showEmpty("Falta el paciente", "Ábrelo de nuevo desde una búsqueda.");
+        return;
+      }
+
+      setStatus("Cargando…");
+      const { ok, status, payload } = await apiJson(`/patients/${patientId}`);
+
+      if (status === 404) {
+        showEmpty("No encontramos al paciente", "Búscalo de nuevo desde el inicio.");
+        setStatus("");
+        return;
+      }
+
+      if (!ok) {
+        setStatus(withRef(payload, "No se pudo abrir al paciente."), "error");
+        return;
+      }
+
+      const patient = payload.patient;
+
+      $("patient").hidden = false;
+      $("patient-initials").textContent = initials(patient.fullName);
+      $("patient-name").textContent = patient.fullName;
+      $("patient-meta").textContent = `${patient.birthDate} · ${patient.phoneNumber}`;
+      $("crumb-name").textContent = patient.fullName;
+      document.title = `${patient.fullName} · DúoLab`;
+
+      $("new-folio").href = `/admin/nuevo?patient=${encodeURIComponent(patient.patientId)}`;
+      $("folios-head").hidden = false;
+
+      if (patient.folios.length === 0) {
+        $("folios-list").replaceChildren();
+        setStatus("Este paciente todavía no tiene folios.");
+      } else {
+        $("folios-list").replaceChildren(...patient.folios.map(folioRow));
+        setStatus("");
+      }
+    };
+
+    init();
+  </script>
+</AdminLayout>

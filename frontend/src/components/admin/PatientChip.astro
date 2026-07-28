@@ -1,0 +1,20 @@
+---
+/**
+ * Compact "this is who the folio is for" chip — Flow C on /admin/nuevo,
+ * once a patient is already chosen (`?patient=ID`), replaces the name/
+ * birth date/phone fields so the employee is not asked to retype data the
+ * system already has.
+ *
+ * Static markup only; /admin/nuevo's script fills in the name and phone
+ * and wires "Cambiar" once it has fetched GET /patients/:id.
+ */
+---
+
+<div class="card" id="patient-chip" hidden>
+  <span class="pavatar" id="chip-initials" aria-hidden="true"></span>
+  <div class="card__body">
+    <p class="card__title" id="chip-name"></p>
+    <p class="card__meta" id="chip-phone"></p>
+  </div>
+  <a class="btn btn--ghost btn--sm" href="/admin/buscar" id="chip-change">Cambiar</a>
+</div>
