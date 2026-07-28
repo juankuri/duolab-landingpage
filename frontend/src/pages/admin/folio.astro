@@ -149,13 +149,29 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
      * always re-reads the folio afterwards rather than patching its own idea of
      * the state — which is how a list of four results drifts out of sync.
      */
+    /**
+     * ALREADY_PUBLISHED is the one failure worth a message of its own: the
+     * generic one ("no se pudo completar la acción") does not tell the
+     * employee this isn't a transient error, or what to do about it. Only
+     * one result per folio may be PUBLISHED at a time (DEC-010) — the fix is
+     * "Reemplazar" on the currently published result, not retrying this one.
+     */
+    const actionErrorMessage = (payload, fallback) => {
+      if (payload?.code === "ALREADY_PUBLISHED") {
+        const name = payload.currentFilename ? ` (${payload.currentFilename})` : "";
+        return `Este folio ya tiene un resultado publicado${name}. Usa "Reemplazar archivo…" sobre ese resultado para corregirlo, o revócalo primero.`;
+      }
+
+      return withRef(payload, fallback);
+    };
+
     const act = async (button, request, pending, done) => {
       button.disabled = true;
       setStatus(pending);
 
       try {
         const { ok, payload } = await request();
-        if (!ok) throw new Error(withRef(payload, "No se pudo completar la acción."));
+        if (!ok) throw new Error(actionErrorMessage(payload, "No se pudo completar la acción."));
 
         setStatus(done);
         await load(current.folio);
