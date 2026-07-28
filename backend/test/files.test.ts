@@ -163,6 +163,30 @@ describe("GET /files/:fileId", () => {
     expect(await response.text()).toContain("%PDF-");
   });
 
+  it("never lets an edge or shared cache keep serving a revoked file", async () => {
+    const { file } = await createRecordWithFile();
+
+    const response = await request(`/files/${file.fileId}`);
+
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  // The stored mime_type is whatever the browser reported at upload, not
+  // what R2 actually holds — a stray value there would make the file
+  // permanently unrenderable under nosniff. The row is forced here since
+  // isPdf() at upload time would never let this value through the real path.
+  it("serves a PDF as application/pdf even if the stored mime_type is wrong", async () => {
+    const { file } = await createRecordWithFile();
+
+    await env.DB.prepare("UPDATE files SET mime_type = ? WHERE file_id = ?")
+      .bind("application/octet-stream", file.fileId)
+      .run();
+
+    const response = await request(`/files/${file.fileId}`);
+
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+  });
+
   // A filename carrying CRLF cannot survive multipart encoding, so it is
   // written straight to the row here. That is the case that matters anyway:
   // the header is built from whatever the database holds.

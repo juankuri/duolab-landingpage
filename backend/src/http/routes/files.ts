@@ -36,9 +36,22 @@ files.get("/:fileId", async (c) => {
 
   const headers = new Headers();
   object.writeHttpMetadata(headers);
-  headers.set("content-type", file.mime_type);
+  // file.mime_type is whatever the browser reported at upload time, not what
+  // R2 actually stores (always application/pdf — see storage.ts's
+  // putResult). With nosniff below, a stray value there (an empty string, or
+  // something a browser guessed) would make the file permanently
+  // unrenderable in a viewer relying on this header. Coalesce rather than
+  // trust it; isPdf() already verified the bytes are a real PDF at upload.
+  headers.set(
+    "content-type",
+    file.mime_type === "application/pdf" ? file.mime_type : "application/pdf",
+  );
   headers.set("content-disposition", contentDisposition(file.original_filename));
   headers.set("x-content-type-options", "nosniff");
+  // Never at the edge or in a shared cache — same reasoning as the patient
+  // download route (DEC-014): a revoke must take effect on the very next
+  // request, and a cached response would keep serving a hidden result.
+  headers.set("cache-control", "private, no-store");
 
   return new Response(object.body, { headers });
 });
