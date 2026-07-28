@@ -33,6 +33,7 @@ export default defineConfig({
         "src/scripts/admin/session.js",
         "src/scripts/admin/pdf-view.js",
         "src/scripts/admin/manager.js",
+        "src/scripts/public/lookup.js",
       ],
       thresholds: {
         statements: 85,
