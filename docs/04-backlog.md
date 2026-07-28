@@ -14,6 +14,9 @@
 - Patient can download the published PDF file attached to a record. ✅
 - Patient receives the same clear feedback whether the folio, phone, birth date or publication state was the reason for no match. ✅ — see DEC-015 and the non-enumeration tests in `backend/test/public-lookup.test.ts`.
 - Rate limiting on the lookup endpoint. ✅ (DEC-015)
+- Patient's download link stays usable, or fails clearly, across its whole 5-minute window — no dead link that dumps raw JSON if they wait past it. ✅
+- Patient has a WhatsApp escape hatch if the lookup doesn't work. ✅ — see `docs/01-domain.md`'s patient user stories.
+- Patient sees a static reassurance that an unreleased result "isn't missing, just not ready yet" — without the page ever confirming a specific folio exists. ✅
 
 ## Admin Portal
 
@@ -57,5 +60,5 @@
 - CI (GitHub Actions or equivalent) running `check` + `test` + `test:coverage` + `build` on every push — deliberately not set up alongside the coverage/QA policy in this pass; the policy is enforced by convention (`docs/06-quality.md`) until it's enforced by a pipeline.
 - `Range`/`Accept-Ranges` support on `GET /files/:fileId` — not needed today since the manager viewer fetches the whole file as one `ArrayBuffer` (DEC-022), but would let pdf.js load progressively if result PDFs ever grow well past a few pages.
 - Cursor pagination on `GET /records` — `limit` is a hard ceiling (max 100, chunked at 50 for `?include=files`'s D1 binding limit), not a real page; fine while a folio list or a manager tab stays in the low tens, worth revisiting if either grows past that.
-- `admin.css`'s orphan `.actions`/`.btn--ghost` classes (used in `revisar.astro`/`folio.astro`'s markup, no matching rule) — cosmetic gap noticed while auditing the stylesheet for the manager work, not introduced by it.
 - pdf.js standard fonts/CMaps, deliberately left disabled (DEC-022) — add if a real lab result PDF ever renders with missing glyphs.
+- **Open decision, needs a person, not an agent:** whether to relax DEC-015 for a caller who has already supplied a correct folio+phone+birth date, so `/resultados` could say "found your record, it's just not published yet" instead of the collapsed generic message. `docs/01-domain.md`'s patient story asks for exactly that; DEC-015 currently wins and the story is answered with static, unconditional copy instead. Revisit only with the product owner in the room — it's a real trade against `public-lookup.test.ts`'s non-enumeration guarantee, not a bug.

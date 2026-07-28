@@ -11,7 +11,7 @@ Data / services / HTTP
 : Everything that touches D1 or R2 is exercised through the HTTP route, inside workerd, against real D1 and R2 bindings via Miniflare (`@cloudflare/vitest-pool-workers`, see `backend/vitest.config.ts` and `backend/test/helpers.ts`). Nothing here is mocked at the repository boundary — `data/` is the only code allowed to hold SQL or bucket calls (DEC-005), and the tests confirm what it does, not what it was told to do.
 
 Frontend pure modules
-: `frontend/src/scripts/admin/status.js`, `folio.js`, `render.js`, `validation.js`, `session.js`, `manager.js`, `pdf-view.js` — tested with Vitest + jsdom (`frontend/vitest.config.js`). `api.js` and `upload.js` are thin `fetch()`/XHR wrappers; they are exercised by the manual smoke walk, not unit tests, for the same reason `data/` on the backend is thinner than `domain/` — the interesting behavior is on the other side of the I/O call. `session.js`'s `loadActor()` is the one exception worth naming: it wraps `fetch` but is tested anyway (via a stubbed global) because it decides the manager/employee redirect, and that decision is worth pinning even though the call itself is thin.
+: `frontend/src/scripts/admin/status.js`, `folio.js`, `render.js`, `validation.js`, `session.js`, `manager.js`, `pdf-view.js`, and `frontend/src/scripts/public/lookup.js` — tested with Vitest + jsdom (`frontend/vitest.config.js`). `api.js` and `upload.js` are thin `fetch()`/XHR wrappers; they are exercised by the manual smoke walk, not unit tests, for the same reason `data/` on the backend is thinner than `domain/` — the interesting behavior is on the other side of the I/O call. `session.js`'s `loadActor()` is the one exception worth naming: it wraps `fetch` but is tested anyway (via a stubbed global) because it decides the manager/employee redirect, and that decision is worth pinning even though the call itself is thin.
 
 Pages
 : Astro pages (`admin/*.astro`, `resultados.astro`) are **not** covered by an automated suite. Rendering full Astro output and stubbing `fetch` would cost more than it buys while the manual smoke walk is still the actual gate for page behavior. If that stops being true — Playwright/Cypress gets added — this section changes with it.
@@ -36,7 +36,7 @@ In this order. A step skipped is a step reported as skipped, not silently droppe
   - `backend/src/services/**` — statements 90 / branches 80.
   - `backend/src/data/**` — statements 80 / branches 55 (see gap below).
   - `backend/src/http/**` — statements 80 / branches 70.
-  - `frontend/src/scripts/admin/{status,folio,render,validation,session,manager,pdf-view}.js` — statements 85 / branches 75.
+  - `frontend/src/scripts/admin/{status,folio,render,validation,session,manager,pdf-view}.js` and `frontend/src/scripts/public/lookup.js` — statements 85 / branches 75.
 - **Known gap, not hidden:** `backend/src/data/users.repo.ts` has no direct test (0% today, only exercised indirectly through `auth.ts`), which is why `src/data/**` branches sits at 55 instead of the 70 every other layer clears. Raise it the day a test is added, not before — a threshold set above what's actually measured just teaches everyone to ignore the coverage command.
 
 ## What a new unit test needs
@@ -89,6 +89,14 @@ Run against `wrangler dev` (backend) + `astro dev --background` (frontend), one 
 6. Force `ALREADY_PUBLISHED` (confirm a second result on the same folio from the employee flow, then publish it here) → confirm the sheet offers to replace the published one, and that it resolves in two taps.
 7. Revoke a published result → confirm the copy says it is **definitive**, and that the revoked item offers no actions afterward.
 8. With `DEV_ROLE="employee"`, confirm `/admin/manager` bounces to `/admin`; confirm `/admin?desktop=1` as a manager does not redirect.
+
+**Flow E — Consulta del paciente: expiración, copy, no-enumeración**
+1. Publish a result for a seeded patient (e.g. `MANB-140385-01` / `9381110001` / `1985-03-14`). Look it up on `/resultados` → success panel, folio echoed back, download works.
+2. Wait out the 5-minute token window (or lower `TOKEN_TTL_MS` locally) → confirm the countdown updates, and that at expiry the page returns to the form with a clear message — never a raw JSON response replacing the page.
+3. Submit with one or more fields blank → confirm "Completa los tres campos…", not the generic failure, and that focus lands on the first empty field.
+4. **Non-enumeration, the regression this flow exists to catch:** run a wrong folio, a wrong phone, a wrong birth date, and a real folio with nothing published yet — confirm all four render the exact same message. If any of these ever differs, the bug is in the frontend copy or the backend response, never in this test.
+5. Trigger the rate limit (repeat lookups past the folio or IP budget) → confirm the distinct "demasiados intentos" message, not the generic one.
+6. Confirm the WhatsApp button is present and pre-filled correctly in both the form and the result states.
 
 ## Reporting
 

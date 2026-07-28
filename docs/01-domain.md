@@ -44,7 +44,7 @@ Landing
 : Public website used by prospective patients to understand DuoLab and contact the lab.
 
 Patient Portal
-: Private area where patients consult published result files.
+: Public, per-lookup area (`/resultados`, no login) where a patient who supplies the right folio, phone and birth date consults their published result files. "Private" here means per-patient-verified, not access-gated like the Admin Portal — there is no Cloudflare Access boundary on this surface (see DEC-015).
 
 Admin Portal
 : Internal area where authorized staff upload and publish result files.
@@ -120,9 +120,9 @@ A result's PDF may also be **replaced** — from UPLOADED, CONFIRMED, or PUBLISH
 ### Patient
 
 - As a patient, I want to find my results using my folio, phone number, and birth date so I can access my available result files.
-- As a patient, I want to download all published PDFs associated with my record so I can receive results released on different dates.
-- As a patient, I want to know when my results are not yet available so I understand I should check back later.
-- As a patient, I want to have an help button to whatsapp so when I have an issue or a problem I cant contact the lab and get help.
+- As a patient, I want to download all published PDFs associated with my record so I can receive results released on different dates. — blocked on multi-publish (`docs/04-backlog.md` → Later); today a record holds at most one PUBLISHED file at a time (DEC-010/DEC-011).
+- As a patient, I want to know when my results are not yet available so I understand I should check back later. — answered with static, unconditional copy on `/resultados` ("aún no está listo, aparecerá aquí…"), never a response to a specific lookup outcome. A version that confirmed "your folio exists, just not published yet" was considered and rejected: it would make "does this folio exist" distinguishable from "wrong data", which is exactly what DEC-015's non-enumeration guarantee exists to prevent.
+- As a patient, I want to have an help button to whatsapp so when I have an issue or a problem I cant contact the lab and get help. — built on `/resultados`, reusing `components/landing/WhatsAppButton.astro` and `config/site.js`'s WhatsApp number/messages, pinned under the form and the result panel alike.
 
 ### Employee
 
