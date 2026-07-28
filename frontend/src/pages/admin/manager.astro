@@ -1,29 +1,530 @@
 ---
 /**
- * /admin/manager — mobile-first surface, exclusive to MANAGER.
+ * /admin/manager — mobile-first, exclusive to MANAGER (see session.js's
+ * roleRedirect and docs/03-decisions.md DEC-021).
  *
- * Stub for now: the redirect in /admin/index.astro needs a real page to
- * land on before the queue/detail/preview work (docs/03-decisions.md
- * DEC-021) lands in a following commit — an EMPLOYEE hitting this page is
- * bounced straight back to /admin.
+ * The manager's whole job here is two actions — publish, revoke — done from
+ * an iPhone in one hand. Everything on this page exists to get from "open
+ * the queue" to "publish this result" in as few, as large, as unambiguous
+ * taps as possible: no search, no menus, the PDF visible without ever
+ * leaving the page (DEC-022), and a batch rhythm that does not force a
+ * return to the list between results.
  */
 import AdminLayout from "../../components/admin/AdminLayout.astro";
+import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
+import "../../styles/manager.css";
 ---
 
 <AdminLayout title="Gerencia">
   <p class="tiny" id="gate-loading">Cargando…</p>
+
   <div id="gate-content" hidden>
-    <p class="tiny">La cola de publicación llega en el siguiente paso.</p>
+    <!-- ---------- queue ---------- -->
+    <section id="mgr-queue">
+      <div class="mgr-tabs" role="tablist" aria-label="Estado de los resultados">
+        <button class="mgr-tab" role="tab" id="tab-pending" type="button" aria-selected="true">
+          Por publicar<span class="mgr-tab__count" id="count-pending"></span>
+        </button>
+        <button class="mgr-tab" role="tab" id="tab-published" type="button" aria-selected="false">
+          Publicados<span class="mgr-tab__count" id="count-published"></span>
+        </button>
+        <button class="mgr-tab" role="tab" id="tab-revoked" type="button" aria-selected="false">
+          Revocados<span class="mgr-tab__count" id="count-revoked"></span>
+        </button>
+      </div>
+
+      <ul class="results" id="queue-list" style="list-style: none; padding: 0; margin: var(--space-sm) 0 0;"></ul>
+      <p class="status" id="queue-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- ---------- detail + preview ---------- -->
+    <section id="mgr-detail" hidden>
+      <div class="mgr-detail__head">
+        <button class="mgr-back" id="detail-back" type="button" aria-label="Volver a la lista">←</button>
+        <div style="flex: 1;">
+          <p class="card__title" id="detail-name" style="margin: 0; font-size: 18px;"></p>
+          <p class="card__meta" id="detail-meta" style="margin: 0;"></p>
+        </div>
+        <span id="detail-badge"></span>
+      </div>
+
+      <div class="mgr-viewer" id="mgr-viewer">
+        <canvas id="mgr-canvas" aria-label="Vista previa del resultado"></canvas>
+        <p class="vh" id="mgr-page-text" aria-live="polite"></p>
+        <div class="mgr-pdfbar">
+          <div class="mgr-pdfbar__group">
+            <button id="pdf-prev" type="button" aria-label="Página anterior">‹</button>
+            <span class="mgr-pdfbar__page" id="pdf-page-indicator"></span>
+            <button id="pdf-next" type="button" aria-label="Página siguiente">›</button>
+          </div>
+          <div class="mgr-pdfbar__group">
+            <button id="pdf-zoom-out" type="button" aria-label="Alejar">−</button>
+            <button id="pdf-zoom-in" type="button" aria-label="Acercar">+</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="status" id="detail-status" role="status" aria-live="polite"></p>
+
+      <div class="mgr-actionbar" id="mgr-actions"></div>
+    </section>
   </div>
 
+  <ConfirmSheet id="publish-sheet" title="¿Publicar este resultado?" confirmLabel="Sí, publicar" />
+  <ConfirmSheet id="revoke-sheet" title="¿Revocar este resultado?" confirmLabel="Sí, revocar definitivamente" />
+
   <script>
+    import { API_BASE, apiJson } from "../../scripts/admin/api.js";
+    import {
+      TABS,
+      nextPending,
+      publishRecovery,
+      queueItems,
+      revokeConfirmBody,
+      revokedExplanation,
+      statusForTab,
+      transitionConflictMessage,
+    } from "../../scripts/admin/manager.js";
+    import {
+      canvasPixels,
+      clampPage,
+      fitWidthScale,
+      nextZoom,
+    } from "../../scripts/admin/pdf-view.js";
+    import { formatMoment, statusBadge } from "../../scripts/admin/render.js";
     import { fillWho, loadActor, roleRedirect } from "../../scripts/admin/session.js";
+    import { actionErrorMessage, labelOf } from "../../scripts/admin/status.js";
 
     const $ = (id) => document.getElementById(id);
 
+    /** One in-memory cache per tab, invalidated wholesale after any mutation. */
+    const cache = { pending: null, published: null, revoked: null };
+    let activeTab = "pending";
+    let currentItem = null; // the queue row currently open in the detail view
+
+    /* ---------- queue ---------- */
+
+    const cardNode = (item) => {
+      const li = document.createElement("li");
+      li.style.listStyle = "none";
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "mgr-card";
+      button.append(
+        Object.assign(document.createElement("p"), {
+          className: "mgr-card__name",
+          textContent: item.patientName,
+        }),
+        Object.assign(document.createElement("p"), {
+          className: "mgr-card__meta",
+          textContent: `${item.folio} · ${item.originalFilename ?? ""} · ${formatMoment(item.uploadedAt)}`,
+        }),
+      );
+      button.addEventListener("click", () => openDetail(item));
+
+      li.append(button);
+      return li;
+    };
+
+    const tabQueueStatus = $("queue-status");
+
+    async function loadTab(tabId) {
+      const status = statusForTab(tabId);
+      const { ok, payload } = await apiJson(
+        `/records?limit=50&status=${status}&include=files`,
+      );
+
+      if (!ok) {
+        cache[tabId] = null;
+        return { ok: false, payload };
+      }
+
+      cache[tabId] = queueItems(payload.records, status);
+      return { ok: true };
+    }
+
+    function renderQueue() {
+      const items = cache[activeTab];
+
+      for (const tab of TABS) {
+        $(`count-${tab.id}`).textContent = cache[tab.id] ? ` (${cache[tab.id].length})` : "";
+        $(`tab-${tab.id}`).setAttribute("aria-selected", String(tab.id === activeTab));
+      }
+
+      if (!items) {
+        tabQueueStatus.textContent = "No se pudo cargar la lista.";
+        tabQueueStatus.dataset.tone = "error";
+        $("queue-list").replaceChildren();
+        return;
+      }
+
+      tabQueueStatus.textContent = "";
+      delete tabQueueStatus.dataset.tone;
+
+      if (items.length === 0) {
+        const empty = {
+          pending: "Nada esperando publicación.",
+          published: "Nada publicado todavía.",
+          revoked: "Nada revocado.",
+        }[activeTab];
+        tabQueueStatus.textContent = empty;
+        $("queue-list").replaceChildren();
+        return;
+      }
+
+      $("queue-list").replaceChildren(...items.map(cardNode));
+    }
+
+    async function refreshTab(tabId) {
+      await loadTab(tabId);
+      if (tabId === activeTab) renderQueue();
+    }
+
+    async function refreshAllTabs() {
+      await Promise.all(TABS.map((tab) => loadTab(tab.id)));
+      renderQueue();
+    }
+
+    for (const tab of TABS) {
+      $(`tab-${tab.id}`).addEventListener("click", async () => {
+        activeTab = tab.id;
+        if (!cache[tab.id]) await loadTab(tab.id);
+        renderQueue();
+      });
+    }
+
+    /* ---------- detail + pdf.js viewer ---------- */
+
+    let pdfDoc = null;
+    let pdfPage = 1;
+    let pdfZoom = "fit-width";
+    const CANVAS_PIXEL_CAP = 10_000_000; // iOS Safari blanks a canvas past its own ceiling silently.
+
+    async function renderPage() {
+      if (!pdfDoc) return;
+
+      const total = pdfDoc.numPages;
+      pdfPage = clampPage(pdfPage, total);
+
+      const page = await pdfDoc.getPage(pdfPage);
+      const base = page.getViewport({ scale: 1 });
+      const dpr = window.devicePixelRatio || 1;
+
+      const requestedScale =
+        pdfZoom === "fit-width"
+          ? fitWidthScale($("mgr-viewer").clientWidth || 320, base.width)
+          : pdfZoom;
+
+      const { scale } = canvasPixels(requestedScale, base.width, base.height, dpr, CANVAS_PIXEL_CAP);
+      const viewport = page.getViewport({ scale });
+
+      const canvas = $("mgr-canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width = `${viewport.width / dpr}px`;
+      canvas.style.height = `${viewport.height / dpr}px`;
+
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+
+      $("pdf-page-indicator").textContent = `${pdfPage} de ${total}`;
+      $("pdf-prev").disabled = pdfPage <= 1;
+      $("pdf-next").disabled = pdfPage >= total;
+
+      // The one thing that makes the PDF non-opaque to a screen reader.
+      const text = await page.getTextContent();
+      $("mgr-page-text").textContent = text.items.map((i) => i.str).join(" ");
+    }
+
+    $("pdf-prev").addEventListener("click", () => {
+      pdfPage -= 1;
+      renderPage();
+    });
+    $("pdf-next").addEventListener("click", () => {
+      pdfPage += 1;
+      renderPage();
+    });
+    $("pdf-zoom-in").addEventListener("click", () => {
+      pdfZoom = nextZoom(pdfZoom, 1);
+      sessionStorage.setItem("duolab-manager-zoom", String(pdfZoom));
+      renderPage();
+    });
+    $("pdf-zoom-out").addEventListener("click", () => {
+      pdfZoom = nextZoom(pdfZoom, -1);
+      sessionStorage.setItem("duolab-manager-zoom", String(pdfZoom));
+      renderPage();
+    });
+
+    async function loadPdf(fileId) {
+      // Fetched as an ArrayBuffer and handed to pdf.js directly, never as a
+      // URL: a URL would make pdf.js negotiate Range requests, which are not
+      // a CORS-simple header and would preflight against a policy that only
+      // allows Content-Type (see docs/03-decisions.md DEC-022). Do not
+      // "optimize" this back into a URL.
+      const res = await fetch(`${API_BASE}/files/${fileId}`);
+      if (!res.ok) throw new Error("No se pudo cargar el PDF.");
+      const data = await res.arrayBuffer();
+
+      const pdfjs = await import("pdfjs-dist/build/pdf.mjs");
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+        "pdfjs-dist/build/pdf.worker.min.mjs",
+        import.meta.url,
+      ).href;
+
+      pdfDoc = await pdfjs.getDocument({ data }).promise;
+      pdfPage = 1;
+      pdfZoom = sessionStorage.getItem("duolab-manager-zoom") || "fit-width";
+      await renderPage();
+    }
+
+    /* ---------- actions ---------- */
+
+    function renderActionBar(item) {
+      const bar = $("mgr-actions");
+      bar.replaceChildren();
+
+      if (item.status === "CONFIRMED") {
+        const button = document.createElement("button");
+        button.className = "btn";
+        button.type = "button";
+        button.textContent = "Publicar resultado";
+        button.addEventListener("click", () => openPublishSheet(item));
+        bar.append(button);
+        return;
+      }
+
+      if (item.status === "PUBLISHED") {
+        const button = document.createElement("button");
+        button.className = "btn btn--danger";
+        button.type = "button";
+        button.textContent = "Revocar publicación";
+        button.addEventListener("click", () => openRevokeSheet(item));
+        bar.append(button);
+        return;
+      }
+
+      if (item.status === "REVOKED") {
+        const note = document.createElement("p");
+        note.className = "tiny";
+        note.textContent = revokedExplanation({
+          revokedBy: item.revokedBy,
+          revokedAt: item.revokedAt,
+          formatMoment,
+        });
+        bar.append(note);
+      }
+    }
+
+    /**
+     * The queue's `?include=files` payload is deliberately thin (no
+     * revokedBy/At — see the backend handler's own comment on why). Opening
+     * a specific item is worth one extra request for the fields the detail
+     * view needs, same trade the employee folio screen already makes.
+     */
+    async function fetchDetailFields(item) {
+      const { ok, payload } = await apiJson(`/records/${item.recordId}`);
+      if (!ok) return item;
+
+      const file = payload.record.files.find((f) => f.fileId === item.fileId);
+      return file ? { ...item, ...file } : item;
+    }
+
+    function renderBatchBar(remaining, onNext) {
+      const bar = $("mgr-actions");
+      bar.replaceChildren();
+
+      const wrap = document.createElement("div");
+      wrap.className = "mgr-next";
+
+      const done = document.createElement("p");
+      done.className = "status";
+      done.dataset.tone = "success";
+      done.textContent = "Publicado ✓";
+      wrap.append(done);
+
+      if (remaining > 0) {
+        const next = document.createElement("button");
+        next.className = "btn";
+        next.type = "button";
+        next.textContent = `Ver siguiente por publicar (${remaining})`;
+        next.addEventListener("click", onNext);
+        wrap.append(next);
+      } else {
+        const note = document.createElement("p");
+        note.className = "tiny";
+        note.textContent = "No queda nada por publicar.";
+        wrap.append(note);
+      }
+
+      const back = document.createElement("button");
+      back.className = "btn btn--secondary";
+      back.type = "button";
+      back.textContent = "Volver a la lista";
+      back.addEventListener("click", closeDetail);
+      wrap.append(back);
+
+      bar.append(wrap);
+    }
+
+    async function openDetail(rawItem, { pushHistory = true } = {}) {
+      // REVOKED needs revokedBy/At, which the queue payload deliberately
+      // omits; fetching once here is cheaper than widening that payload for
+      // every row in every tab.
+      const item = rawItem.status === "REVOKED" ? await fetchDetailFields(rawItem) : rawItem;
+
+      currentItem = item;
+      $("mgr-queue").hidden = true;
+      $("mgr-detail").hidden = false;
+      $("detail-name").textContent = item.patientName;
+      $("detail-meta").textContent = `${item.folio} · ${item.originalFilename ?? ""}`;
+      $("detail-badge").replaceChildren(statusBadge(item.status));
+      $("detail-status").textContent = "";
+      delete $("detail-status").dataset.tone;
+
+      renderActionBar(item);
+
+      if (pushHistory) history.pushState({ mgrDetail: item.fileId }, "", location.pathname);
+
+      $("detail-status").textContent = "Cargando resultado…";
+      try {
+        await loadPdf(item.fileId);
+        $("detail-status").textContent = "";
+      } catch (error) {
+        $("detail-status").textContent = error.message;
+        $("detail-status").dataset.tone = "error";
+      }
+    }
+
+    function closeDetail() {
+      currentItem = null;
+      pdfDoc = null;
+      $("mgr-detail").hidden = true;
+      $("mgr-queue").hidden = false;
+      renderQueue();
+    }
+
+    $("detail-back").addEventListener("click", () => history.back());
+    window.addEventListener("popstate", () => {
+      if (!$("mgr-detail").hidden) closeDetail();
+    });
+
+    /* ---------- publish sheet, with ALREADY_PUBLISHED -> supersede recovery ---------- */
+
+    let publishTarget = null;
+    let publishSupersedes = null;
+
+    function openPublishSheet(item) {
+      publishTarget = item;
+      publishSupersedes = null;
+      $("publish-sheet-body").textContent =
+        `${item.patientName} · ${item.folio}. El paciente podrá verlo y descargarlo de inmediato con su folio.`;
+      $("publish-sheet-status").textContent = "";
+      delete $("publish-sheet-status").dataset.tone;
+      $("publish-sheet-confirm").textContent = "Sí, publicar";
+      $("publish-sheet").showModal();
+    }
+
+    $("publish-sheet-cancel").addEventListener("click", () => $("publish-sheet").close());
+
+    $("publish-sheet-confirm").addEventListener("click", async () => {
+      const button = $("publish-sheet-confirm");
+      button.disabled = true;
+      $("publish-sheet-status").textContent = "Publicando…";
+      delete $("publish-sheet-status").dataset.tone;
+
+      const query = publishSupersedes ? `?supersedes=${publishSupersedes}` : "";
+      const { ok, payload } = await apiJson(`/files/${publishTarget.fileId}/publish${query}`, {
+        method: "POST",
+      });
+
+      if (!ok) {
+        const recovery = publishRecovery(payload);
+
+        if (recovery) {
+          publishSupersedes = recovery.supersedes;
+          $("publish-sheet-body").textContent = recovery.currentFilename
+            ? `Este folio ya tiene un resultado publicado (${recovery.currentFilename}).`
+            : "Este folio ya tiene un resultado publicado.";
+          $("publish-sheet-confirm").textContent = "Reemplazar el publicado";
+          $("publish-sheet-status").textContent = "";
+          button.disabled = false;
+          return;
+        }
+
+        if (payload?.code === "INVALID_TRANSITION") {
+          $("publish-sheet-status").textContent = transitionConflictMessage(payload, labelOf);
+        } else {
+          $("publish-sheet-status").textContent = actionErrorMessage(
+            payload,
+            "No se pudo publicar.",
+          );
+        }
+        $("publish-sheet-status").dataset.tone = "error";
+        button.disabled = false;
+        return;
+      }
+
+      $("publish-sheet").close();
+      button.disabled = false;
+
+      const publishedRecordId = publishTarget.recordId;
+      await refreshAllTabs();
+
+      const pending = cache.pending ?? [];
+      const next = nextPending(pending, publishedRecordId);
+      renderBatchBar(next ? next.remaining : 0, () => {
+        if (next) {
+          const nextItem = pending.find((i) => i.fileId === next.fileId);
+          if (nextItem) openDetail(nextItem, { pushHistory: false });
+        }
+      });
+    });
+
+    /* ---------- revoke sheet ---------- */
+
+    let revokeTarget = null;
+
+    function openRevokeSheet(item) {
+      revokeTarget = item;
+      $("revoke-sheet-body").textContent = revokeConfirmBody({
+        patientName: item.patientName,
+        folio: item.folio,
+      });
+      $("revoke-sheet-status").textContent = "";
+      delete $("revoke-sheet-status").dataset.tone;
+      $("revoke-sheet").showModal();
+    }
+
+    $("revoke-sheet-cancel").addEventListener("click", () => $("revoke-sheet").close());
+
+    $("revoke-sheet-confirm").addEventListener("click", async () => {
+      const button = $("revoke-sheet-confirm");
+      button.disabled = true;
+      $("revoke-sheet-status").textContent = "Revocando…";
+
+      const { ok, payload } = await apiJson(`/files/${revokeTarget.fileId}/revoke`, {
+        method: "POST",
+      });
+
+      if (!ok) {
+        $("revoke-sheet-status").textContent =
+          payload?.code === "INVALID_TRANSITION"
+            ? transitionConflictMessage(payload, labelOf)
+            : actionErrorMessage(payload, "No se pudo revocar.");
+        $("revoke-sheet-status").dataset.tone = "error";
+        button.disabled = false;
+        return;
+      }
+
+      $("revoke-sheet").close();
+      button.disabled = false;
+      await refreshAllTabs();
+      closeDetail();
+    });
+
+    /* ---------- boot ---------- */
+
     const init = async () => {
-      // desktop=1 only ever affects landing on /admin; there is no escape
-      // hatch off this page itself (see session.js's roleRedirect).
       const { role } = await loadActor();
       const target = roleRedirect(role, location.pathname);
 
@@ -35,6 +536,8 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       fillWho(role);
       $("gate-loading").hidden = true;
       $("gate-content").hidden = false;
+
+      await refreshAllTabs();
     };
 
     init();

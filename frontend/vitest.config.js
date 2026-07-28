@@ -31,6 +31,8 @@ export default defineConfig({
         "src/scripts/admin/render.js",
         "src/scripts/admin/validation.js",
         "src/scripts/admin/session.js",
+        "src/scripts/admin/pdf-view.js",
+        "src/scripts/admin/manager.js",
       ],
       thresholds: {
         statements: 85,
