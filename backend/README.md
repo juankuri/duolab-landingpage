@@ -28,8 +28,14 @@ Both should print nothing. See `docs/03-decisions.md` DEC-005 for why the struct
 ```sh
 cp .dev.vars.example .dev.vars    # first time only; gitignored, never deployed
 pnpm install
+pnpm dev:setup                    # applies pending D1 migrations — do this first
 pnpm dev                          # wrangler dev, default port 8787
+pnpm dev:seed                     # in another terminal, with dev running
 ```
+
+`dev:setup` before `dev` is not optional after pulling a branch that added a migration: `wrangler dev` will happily start against a stale local schema and every request touching the new column 500s with `no such column`. It is idempotent, so running it when nothing is pending costs nothing.
+
+`dev:seed` fills the local database with data worth walking a QA script over — an accented patient name, one patient with two folios, and a folio carrying all four result states at once. It talks to the running Worker rather than to D1 directly, so R2 and D1 stay in step (see `scripts/seed.mjs`). Publishing needs `DEV_ROLE=manager`.
 
 `.dev.vars` enables the Cloudflare Access bypass (`ENVIRONMENT=local`) — Access JWTs are injected at Cloudflare's edge and cannot exist on localhost — and picks the role the bypass identity gets (`DEV_ROLE=employee|manager`). Restart `wrangler dev` after changing `DEV_ROLE`.
 
@@ -96,20 +102,67 @@ pnpm wrangler r2 object delete duolab-results/records/<recordId>/<fileId>.pdf
 
 There is no automated reconciliation sweep. Add one if these start appearing at a rate this can't keep up with.
 
-## Before deploying
+## Deploying
 
-Not done yet — `wrangler.jsonc` still ships placeholders:
+One Worker serves both the built frontend and the API on a single origin (DEC-020). `pnpm deploy` from the repo root builds the frontend with an empty `PUBLIC_API_BASE` and then deploys the Worker — run it that way rather than `wrangler deploy` directly, or the Worker ships whatever `frontend/dist` happened to be lying around, built against the wrong API base.
 
-- `d1_databases[0].database_id` is `00000000-0000-0000-0000-000000000000`.
-- `vars.CLOUDFLARE_ACCESS_AUDIENCE` is `"my-access-aud"`.
+Nothing below has been done yet. In order:
 
-Both must be replaced with real values, and Cloudflare Access must be configured for the admin origin, before this Worker can be deployed. Confirm `.dev.vars` is absent from the deployed bundle (it is gitignored and not read by `wrangler deploy`, but verify).
-
-Also not done: `RATE_LIMIT_KEY_SECRET` and `DOWNLOAD_TOKEN_SECRET` have no production value anywhere — they exist only in each developer's local `.dev.vars`. Before deploying the public routes for real:
+**1. Create the resources**
 
 ```sh
-wrangler secret put RATE_LIMIT_KEY_SECRET
-wrangler secret put DOWNLOAD_TOKEN_SECRET
+wrangler d1 create duolab
+wrangler r2 bucket create duolab-results
 ```
 
-Use freshly generated values (the commands above), not a copy of a local `.dev.vars` value — those are dev-only by convention, not because of any technical difference.
+Put the returned database id into `wrangler.jsonc` — it currently ships the placeholder `00000000-0000-0000-0000-000000000000`.
+
+**2. Apply the migrations remotely**
+
+```sh
+wrangler d1 migrations apply duolab --remote
+```
+
+A separate step from the local one, and easy to forget: `--local` and `--remote` track what they have applied independently.
+
+**3. Set the secrets**
+
+```sh
+wrangler secret put RATE_LIMIT_KEY_SECRET     # openssl rand -base64 24
+wrangler secret put DOWNLOAD_TOKEN_SECRET     # openssl rand -base64 32, must decode to exactly 32 bytes
+```
+
+Generate fresh values. A local `.dev.vars` value is dev-only by convention, and copying it makes that convention false.
+
+**4. Configure Cloudflare Access**
+
+Set `vars.CLOUDFLARE_ACCESS_TEAM_DOMAIN` and `vars.CLOUDFLARE_ACCESS_AUDIENCE` in `wrangler.jsonc` to the real values — the audience currently ships as `"my-access-aud"`.
+
+Then create one self-hosted application with a destination for **each** of these paths, and a policy allowing the lab's staff addresses:
+
+```
+/admin*      /records*      /files*      /me      /search*      /patients*
+```
+
+Do **not** include `/api/public/*` or the landing — patients are not Access users (DEC-012).
+
+Access is not an extra layer here: it is what injects the `Cf-Access-Jwt-Assertion` header that `requireAccess` reads. A path left off this list receives no identity and answers 401, so the failure is loud rather than silent — but it is a failure. See DEC-020 for why the list is six entries rather than one, and what would shorten it.
+
+**5. Seed the staff users**
+
+An Access-verified address with no `users` row gets 403, not employee-by-default (DEC-006). For each staff member:
+
+```sh
+wrangler d1 execute duolab --remote --command \
+  "INSERT INTO users (email, role) VALUES ('ana@duolab.mx', 'MANAGER');"
+```
+
+**6. Deploy and check**
+
+```sh
+pnpm deploy      # from the repo root
+```
+
+Then confirm both halves answer on the deployed origin — the landing and `/admin` as HTML, `/health` as JSON. If `/health` returns the 404 page instead of JSON, `assets.not_found_handling` is wrong; it must be `"none"` (DEC-020).
+
+Finally, verify `.dev.vars` did not ship. It is gitignored and `wrangler deploy` does not read it, but the cost of checking is far below the cost of being wrong.

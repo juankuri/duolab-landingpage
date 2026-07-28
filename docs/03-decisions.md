@@ -191,3 +191,19 @@ Status: Accepted
 Every threshold in the initial configuration was set by running the suite once, reading the actual number, and rounding down — never picked first and adjusted to fit. `backend/src/data/**`'s branch threshold is the clearest case: `users.repo.ts` has no direct test (0% today) and pulls the directory average down to where the honest starting threshold was 55%, not the 70–80% every sibling layer clears; it has since risen to 75% as `search.ts`'s queries added real coverage elsewhere in the same directory, and is documented as a known gap in `docs/06-quality.md` rather than hidden behind a lower number.
 
 The full policy — what a new unit test needs, the manual QA scripts, and the regression guardrails no change may weaken — lives in `docs/06-quality.md`, referenced from `AGENTS.md` so every session loads it.
+
+## DEC-020: One Worker serves both the frontend and the API, on a single origin
+
+Status: Accepted — supersedes the "Pages for frontend delivery" line in `docs/02-architecture.md`
+
+The Worker is configured with a static-assets directory pointing at the built Astro output (`backend/wrangler.jsonc`, `assets.directory = "../frontend/dist"`). One deployment serves `/`, `/resultados` and `/admin/*` as files and everything else — `/records`, `/files`, `/me`, `/search`, `/patients`, `/health`, `/api/public/*` — as Worker routes.
+
+Rationale, and it is not a preference: the CORS policy in `src/index.ts` returns an allowed origin **only** in local dev and sends no CORS headers otherwise. That was written assuming same-origin production, and shipping a separate frontend host would have silently broken every browser call from `/admin` and `/resultados` the moment it deployed. The choice was to reopen that policy — allowing a production origin, and then sharing the Cloudflare Access `CF_Authorization` cookie across two hostnames so the JWT still reaches the API — or to make the same-origin assumption true. Making it true is less machinery and removes a whole category of failure rather than configuring around it.
+
+`not_found_handling` is `"none"`, and that value is load-bearing: it is what lets a request matching no asset fall through to the Worker. Any other setting answers `/records` with the 404 page and the API stops existing. This was verified against wrangler 4.112 by running the Worker with real built assets and checking both directions, including that the trailing-slash redirect the asset router performs preserves the query string — every internal link is `?f=`, `?q=` or `?id=`, so losing it would have broken navigation in production only.
+
+**Cost, stated plainly:** because the internal routes are not under a shared prefix (DEC-012 deliberately left them at the top level), the Cloudflare Access application needs a destination for each — `/admin*`, `/records*`, `/files*`, `/me`, `/search*`, `/patients*` — and must exclude `/api/public/*` and the landing. Access is not decoration here: it is what injects the `Cf-Access-Jwt-Assertion` header that `requireAccess` reads, so a route left off the list receives no identity and answers 401. The failure mode is therefore "that route is broken", loudly, not "that route is exposed" — the Worker still refuses anything without the header.
+
+**Constraint this creates:** nothing in `frontend/dist` may ever occupy `/records`, `/files`, `/me`, `/search`, `/patients`, `/health` or `/api/*`. Assets win over the Worker, so a public page added at one of those paths would silently shadow the endpoint behind it.
+
+If maintaining six Access destinations proves annoying in practice, moving the internal routes under `/api/internal/*` reduces it to one and is a mechanical change — DEC-012 explicitly left that door open for "a real deployment constraint", and this is the shape such a constraint would take.

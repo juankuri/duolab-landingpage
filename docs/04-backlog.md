@@ -34,6 +34,16 @@
 - Add real photos when available.
 - Add real, sourced Google reviews only when approved.
 
+## Deployment
+
+- Single-origin topology decided and configured: one Worker serves the built frontend and the API. ✅ (DEC-020)
+- Reproducible local start: `pnpm dev:setup` applies migrations, `pnpm dev:seed` fills the database through the real API. ✅
+- Ordered deploy runbook in `backend/README.md`. ✅ — written, not yet executed.
+- Create the real D1 database and R2 bucket, replace the placeholder `database_id`, apply migrations with `--remote`.
+- Set `RATE_LIMIT_KEY_SECRET` and `DOWNLOAD_TOKEN_SECRET` with `wrangler secret put`, using fresh values.
+- Configure the Cloudflare Access application (six destinations, see DEC-020) and the real `CLOUDFLARE_ACCESS_AUDIENCE`.
+- Seed the real staff addresses into `users` on the remote database — an Access-verified address with no row gets 403 (DEC-006).
+
 ## Later
 
 - Multiple published results per folio, and the patient-portal changes that go with it. Deliberately deferred — the highest-risk, most invasive slice of the original nine-slice plan (touches the shipped, already-tested public patient flow and drops a DB-level invariant); revisit as its own scoped piece of work.

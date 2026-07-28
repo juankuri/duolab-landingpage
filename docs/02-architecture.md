@@ -68,13 +68,14 @@ The top-level repository is intentionally organized by technical layer. Inside e
 
 ## Deployment
 
-Cloudflare-first:
+Cloudflare-first, on a single origin:
 
-- Pages for frontend delivery.
-- Workers for backend/API execution.
+- One Worker serves both the built frontend (as static assets) and the API. See DEC-020.
 - D1 for relational persistence.
 - R2 for result PDF storage.
 - Cloudflare Access for authentication boundaries.
+
+Cloudflare Pages was the earlier intention and is no longer used: a separate frontend host would put the browser on a different origin from the API, which the CORS policy deliberately does not allow (DEC-020).
 
 ## Persistence
 
