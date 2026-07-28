@@ -69,6 +69,14 @@ Cloudflare-first:
 
 Backend framework choices belong in `docs/03-decisions.md` until implementation makes them definitive.
 
+## Calidad y pruebas
+
+The full policy — test taxonomy, per-slice Definition of Done, coverage thresholds, manual QA scripts, and the guardrail tests no agent may weaken — lives in `docs/06-quality.md`. Read it before touching `backend/` or `frontend/`. The non-negotiables:
+
+- New logic ships with tests in the same commit — the happy path, the edges, and the expected failure by its error code.
+- Before calling anything done, run the full Definition of Done from `docs/06-quality.md`: `check`, `test`, `test:coverage`, `build`, plus the relevant manual QA script.
+- Coverage thresholds only move up. Never lower one to make a command pass.
+
 ## Learning First
 
 This repository is both a real product and a learning project.

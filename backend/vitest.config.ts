@@ -32,5 +32,27 @@ export default defineConfig({
   ],
   test: {
     setupFiles: ["./test/setup.ts"],
+    coverage: {
+      // v8 does not instrument code running inside workerd; istanbul does,
+      // via source transform, so it is the only provider that works with
+      // cloudflareTest. See docs/06-quality.md for the measured baseline.
+      provider: "istanbul",
+      reporter: ["text", "html"],
+      include: ["src/**"],
+      thresholds: {
+        // Deliberately not a single global number: domain/ and services/
+        // hold the rules worth pinning tightly, data/ is thinner because
+        // some branches only trigger under real D1/R2 failure injection.
+        "src/domain/**": { statements: 90, branches: 85 },
+        "src/services/**": { statements: 90, branches: 80 },
+        // Branches held at the measured floor, not the target: users.repo.ts
+        // has no direct test today (only exercised indirectly through
+        // auth.ts) and sits at 0%. Documented as a known gap in
+        // docs/06-quality.md rather than papered over with a lower number
+        // that would hide it; raise this the day that gap is closed.
+        "src/data/**": { statements: 80, branches: 55 },
+        "src/http/**": { statements: 80, branches: 70 },
+      },
+    },
   },
 });

@@ -16,5 +16,25 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["test/**/*.test.js"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      // Only the pure modules these tests actually exercise. api.js and
+      // upload.js are thin fetch()/XHR wrappers — same role as backend's
+      // data/ layer — and are exercised through manual smoke testing, not
+      // unit coverage; measuring them here would just report 0% on I/O this
+      // suite was never meant to drive. Including the .astro pages would be
+      // the same mistake at a larger scale.
+      include: [
+        "src/scripts/admin/status.js",
+        "src/scripts/admin/folio.js",
+        "src/scripts/admin/render.js",
+        "src/scripts/admin/validation.js",
+      ],
+      thresholds: {
+        statements: 85,
+        branches: 75,
+      },
+    },
   },
 });
