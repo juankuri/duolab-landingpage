@@ -26,7 +26,16 @@ import "../../styles/admin.css";
 <html lang="es-MX">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      viewport-fit=cover, not just width=device-width: /admin/manager's fixed
+      bottom action bar reads env(safe-area-inset-bottom) to stay clear of
+      the iPhone home indicator, and that only returns a real value with
+      this set — otherwise it is always 0 (see docs/03-decisions.md DEC-021).
+      user-scalable is deliberately left alone: taking pinch-zoom away from a
+      PDF reader is the wrong call even though the manager view has its own
+      zoom controls.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title} · DúoLab</title>

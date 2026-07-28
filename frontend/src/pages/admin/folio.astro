@@ -106,6 +106,7 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
   <script>
     import { API_BASE, apiForm, apiJson, withRef } from "../../scripts/admin/api.js";
     import { actionErrorMessage, actionsFor } from "../../scripts/admin/status.js";
+    import { fillWho, loadActor } from "../../scripts/admin/session.js";
     import { uploadResult } from "../../scripts/admin/upload.js";
     import { validatePdf } from "../../scripts/admin/validation.js";
     import {
@@ -603,15 +604,8 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
     const init = async () => {
       // Role decides what is worth offering, never what is allowed. A failed
       // lookup falls back to EMPLOYEE: the server is the gate either way.
-      try {
-        const { ok, payload } = await apiJson("/me");
-        if (ok && payload.role) actorRole = payload.role;
-      } catch {}
-
-      const name = document.getElementById("who-name");
-      const avatar = document.getElementById("who-initials");
-      if (name) name.textContent = actorRole === "MANAGER" ? "Gerencia" : "Recepción";
-      if (avatar) avatar.textContent = actorRole === "MANAGER" ? "GE" : "RE";
+      actorRole = (await loadActor()).role;
+      fillWho(actorRole);
 
       const folio = new URL(location.href).searchParams.get("f");
 

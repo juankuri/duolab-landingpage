@@ -1,0 +1,42 @@
+---
+/**
+ * /admin/manager — mobile-first surface, exclusive to MANAGER.
+ *
+ * Stub for now: the redirect in /admin/index.astro needs a real page to
+ * land on before the queue/detail/preview work (docs/03-decisions.md
+ * DEC-021) lands in a following commit — an EMPLOYEE hitting this page is
+ * bounced straight back to /admin.
+ */
+import AdminLayout from "../../components/admin/AdminLayout.astro";
+---
+
+<AdminLayout title="Gerencia">
+  <p class="tiny" id="gate-loading">Cargando…</p>
+  <div id="gate-content" hidden>
+    <p class="tiny">La cola de publicación llega en el siguiente paso.</p>
+  </div>
+
+  <script>
+    import { fillWho, loadActor, roleRedirect } from "../../scripts/admin/session.js";
+
+    const $ = (id) => document.getElementById(id);
+
+    const init = async () => {
+      // desktop=1 only ever affects landing on /admin; there is no escape
+      // hatch off this page itself (see session.js's roleRedirect).
+      const { role } = await loadActor();
+      const target = roleRedirect(role, location.pathname);
+
+      if (target) {
+        location.replace(target);
+        return;
+      }
+
+      fillWho(role);
+      $("gate-loading").hidden = true;
+      $("gate-content").hidden = false;
+    };
+
+    init();
+  </script>
+</AdminLayout>

@@ -30,6 +30,7 @@ export default defineConfig({
         "src/scripts/admin/folio.js",
         "src/scripts/admin/render.js",
         "src/scripts/admin/validation.js",
+        "src/scripts/admin/session.js",
       ],
       thresholds: {
         statements: 85,

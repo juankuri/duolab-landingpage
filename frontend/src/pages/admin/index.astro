@@ -20,6 +20,14 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
 ---
 
 <AdminLayout title="Inicio">
+  <!-- MANAGER is bounced to /admin/manager (its own, mobile-first surface —
+       see docs/03-decisions.md DEC-021) before any of this paints. The role
+       is only known after an async GET /me, so this content stays hidden
+       until then rather than flashing the dense admin at a manager on a
+       phone. Cosmetic only: requireRole("MANAGER") on the server is the
+       actual gate, not this. -->
+  <p class="tiny" id="gate-loading">Cargando…</p>
+  <div id="gate-content" hidden>
   <section class="hero">
     <h1 class="hero__h">Buscar un folio o un paciente</h1>
     <form class="row" id="hero-search" role="search">
@@ -50,10 +58,12 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
   <p class="tiny">Resultados confirmados, esperando publicación.</p>
   <ul class="results" id="queue-list"></ul>
   <p class="status" id="queue-status" role="status" aria-live="polite"></p>
+  </div>
 
   <script>
     import { apiJson, withRef } from "../../scripts/admin/api.js";
     import { tallyNode } from "../../scripts/admin/render.js";
+    import { fillWho, loadActor, roleRedirect } from "../../scripts/admin/session.js";
 
     const $ = (id) => document.getElementById(id);
 
@@ -101,19 +111,41 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       $(listId).replaceChildren(...payload.records.map(folioRow));
     };
 
-    $("hero-search").addEventListener("submit", (event) => {
-      event.preventDefault();
-      const query = $("hero-q").value.trim();
-      if (!query) return;
-      location.href = `/admin/buscar?q=${encodeURIComponent(query)}`;
-    });
+    const init = async () => {
+      const desktop = new URL(location.href).searchParams.get("desktop") === "1";
 
-    loadList("/records?limit=8", "recent-list", "recent-status", "Sin folios todavía.");
-    loadList(
-      "/records?limit=8&status=CONFIRMED",
-      "queue-list",
-      "queue-status",
-      "Nada esperando publicación.",
-    );
+      if (desktop) sessionStorage.setItem("duolab-admin-desktop", "1");
+
+      const { role } = await loadActor();
+      const target = roleRedirect(role, location.pathname, {
+        desktop: desktop || sessionStorage.getItem("duolab-admin-desktop") === "1",
+      });
+
+      if (target) {
+        location.replace(target);
+        return;
+      }
+
+      fillWho(role);
+      $("gate-loading").hidden = true;
+      $("gate-content").hidden = false;
+
+      $("hero-search").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const query = $("hero-q").value.trim();
+        if (!query) return;
+        location.href = `/admin/buscar?q=${encodeURIComponent(query)}`;
+      });
+
+      loadList("/records?limit=8", "recent-list", "recent-status", "Sin folios todavía.");
+      loadList(
+        "/records?limit=8&status=CONFIRMED",
+        "queue-list",
+        "queue-status",
+        "Nada esperando publicación.",
+      );
+    };
+
+    init();
   </script>
 </AdminLayout>
