@@ -4,6 +4,7 @@ import {
   ACTIONS,
   STATUS,
   STATUS_ORDER,
+  actionErrorMessage,
   actionsFor,
   allows,
   labelOf,
@@ -89,5 +90,41 @@ describe("the actions a status offers", () => {
 
   it("defines actions for every status and no others", () => {
     expect(Object.keys(ACTIONS).sort()).toEqual(Object.keys(STATUS).sort());
+  });
+});
+
+describe("actionErrorMessage", () => {
+  it("names the currently published file and points at replace", () => {
+    const message = actionErrorMessage(
+      { code: "ALREADY_PUBLISHED", currentFilename: "informe-anterior.pdf" },
+      "No se pudo completar la acción.",
+    );
+
+    expect(message).toContain("informe-anterior.pdf");
+    expect(message).toContain("Reemplazar archivo");
+  });
+
+  it("still explains the conflict when the current filename is missing", () => {
+    const message = actionErrorMessage({ code: "ALREADY_PUBLISHED" }, "fallback");
+
+    expect(message).toContain("ya tiene un resultado publicado");
+    expect(message).not.toContain("undefined");
+  });
+
+  it("falls back to withRef's message for any other code", () => {
+    expect(
+      actionErrorMessage({ code: "INVALID_TRANSITION", error: "No se pudo." }, "fallback"),
+    ).toBe("No se pudo.");
+  });
+
+  it("falls back to the given message when there is no payload at all", () => {
+    expect(actionErrorMessage(null, "fallback")).toBe("fallback");
+    expect(actionErrorMessage(undefined, "fallback")).toBe("fallback");
+  });
+
+  it("appends the request id when the server logged one", () => {
+    expect(
+      actionErrorMessage({ error: "Algo falló.", requestId: "abc-123" }, "fallback"),
+    ).toBe("Algo falló. (Ref: abc-123)");
   });
 });
