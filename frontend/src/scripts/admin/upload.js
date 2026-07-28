@@ -9,8 +9,13 @@ import { API_BASE, withRef } from "./api.js";
  *
  * `onProgress` receives a whole percentage, or is not called at all when the
  * length is not computable — the caller decides what to show in that case.
+ *
+ * Resolves to `{ ok, status, payload }` — same shape as api.js's apiJson(),
+ * and for the same reason: a 409 folio conflict carries a structured
+ * `existingRecord` the caller needs to read, which throwing away into a
+ * plain Error message would lose.
  */
-function xhrUpload(url, formData, onProgress, failureMessage) {
+function xhrRequest(url, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
@@ -26,8 +31,7 @@ function xhrUpload(url, formData, onProgress, failureMessage) {
         payload = JSON.parse(xhr.responseText);
       } catch {}
 
-      if (xhr.status >= 200 && xhr.status < 300) resolve(payload);
-      else reject(new Error(withRef(payload, failureMessage)));
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, payload });
     });
 
     xhr.addEventListener("error", () =>
@@ -38,15 +42,42 @@ function xhrUpload(url, formData, onProgress, failureMessage) {
   });
 }
 
-/** Adds a NEW result to a folio. Never replaces an existing one. */
-export function uploadResult(recordId, file, onProgress) {
+/**
+ * Adds a NEW result to a folio. Never replaces an existing one.
+ *
+ * Throws on any non-2xx response, unlike createRecord() below — every
+ * caller of this one branches on success/failure only, never on the
+ * specific status code, so throwing keeps their call sites a plain
+ * try/catch instead of an extra `if (!ok)`.
+ */
+export async function uploadResult(recordId, file, onProgress) {
   const body = new FormData();
   body.append("file", file);
 
-  return xhrUpload(
+  const { ok, payload } = await xhrRequest(
     `${API_BASE}/records/${recordId}/files`,
     body,
     onProgress,
-    "No se pudo subir el archivo.",
   );
+
+  if (!ok) throw new Error(withRef(payload, "No se pudo subir el archivo."));
+  return payload;
+}
+
+/**
+ * Creates a patient + folio + first result in one request (atomic create,
+ * Flow A/C). `fields` is either `{ fullName, birthDate, phoneNumber, folio }`
+ * (Flow A) or `{ patientId, folio }` (Flow C — the patient is already
+ * chosen). Returns `{ ok, status, payload }` rather than throwing, because
+ * the caller has to distinguish a 409 folio conflict (show the fork dialog)
+ * from a 400 field error (show it inline) from success.
+ */
+export function createRecord(fields, file, onProgress) {
+  const body = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== null) body.append(key, value);
+  }
+  body.append("file", file);
+
+  return xhrRequest(`${API_BASE}/records`, body, onProgress);
 }

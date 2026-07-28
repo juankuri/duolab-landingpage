@@ -1,6 +1,7 @@
 // All SQL touching patients and records. Handlers call these; they never
 // build a statement themselves.
 
+import * as filesRepo from "./files.repo";
 import { normalizeForSearch } from "../domain/search";
 
 export type RecordDetailRow = {
@@ -62,37 +63,72 @@ const TALLY_COLUMNS = `
   SUM(CASE WHEN files.status = 'REVOKED' THEN 1 ELSE 0 END) AS revoked_count
 `;
 
-export type NewRecord = {
-  recordId: string;
+type NewPatient = {
   patientId: string;
-  folio: string;
   fullName: string;
   birthDate: string;
   phoneNumber: string;
 };
 
+function preparePatientInsert(db: D1Database, patient: NewPatient) {
+  return db
+    .prepare(
+      "INSERT INTO patients (patient_id, full_name, birth_date, phone_number, search_name) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(
+      patient.patientId,
+      patient.fullName,
+      patient.birthDate,
+      patient.phoneNumber,
+      normalizeForSearch(patient.fullName),
+    );
+}
+
+function prepareRecordInsert(
+  db: D1Database,
+  record: { recordId: string; folio: string; patientId: string },
+) {
+  return db
+    .prepare("INSERT INTO records (record_id, folio, patient_id) VALUES (?, ?, ?)")
+    .bind(record.recordId, record.folio, record.patientId);
+}
+
+export function findPatient(db: D1Database, patientId: string) {
+  return db
+    .prepare(
+      "SELECT patient_id, full_name, birth_date, phone_number FROM patients WHERE patient_id = ?",
+    )
+    .bind(patientId)
+    .first<{ patient_id: string; full_name: string; birth_date: string; phone_number: string }>();
+}
+
 /**
- * Both inserts go in one batch, which D1 runs as a transaction. A folio
- * collision therefore rolls the patient back with it instead of leaving an
- * orphaned patient row behind.
+ * Patient (optional) + record + first result, one `db.batch()`. A folio can
+ * no longer exist without a result (DEC pending, Slice 9 doc pass) — this is
+ * the only way a record row gets created now, which is what makes that true
+ * rather than just documented.
+ *
+ * `patient` is omitted when the caller already validated an existing
+ * `patientId` (Flow C) — nothing to insert, the record just points at it.
+ * Folio collisions surface the same way as before: `isFolioConflict()` below
+ * still matches on `records.folio`, regardless of which position in the
+ * batch the record insert holds.
  */
-export function insertPatientAndRecord(db: D1Database, record: NewRecord) {
-  return db.batch([
-    db
-      .prepare(
-        "INSERT INTO patients (patient_id, full_name, birth_date, phone_number, search_name) VALUES (?, ?, ?, ?, ?)",
-      )
-      .bind(
-        record.patientId,
-        record.fullName,
-        record.birthDate,
-        record.phoneNumber,
-        normalizeForSearch(record.fullName),
-      ),
-    db
-      .prepare("INSERT INTO records (record_id, folio, patient_id) VALUES (?, ?, ?)")
-      .bind(record.recordId, record.folio, record.patientId),
-  ]);
+export function createRecordWithFile(
+  db: D1Database,
+  input: {
+    patient?: NewPatient;
+    record: { recordId: string; folio: string; patientId: string };
+    file: filesRepo.NewFile;
+  },
+) {
+  const statements: D1PreparedStatement[] = [];
+
+  if (input.patient) statements.push(preparePatientInsert(db, input.patient));
+  statements.push(prepareRecordInsert(db, input.record));
+  statements.push(filesRepo.prepareInsert(db, input.file));
+
+  return db.batch(statements);
 }
 
 /**

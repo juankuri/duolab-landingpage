@@ -40,8 +40,13 @@ export type NewFile = {
  * never recomputed. Deleting an earlier draft must not shift the numbers of
  * the results after it, or "FOLIO · #3" would stop naming the same physical
  * result between one page load and the next (see migration 0007).
+ *
+ * Unexecuted, so the atomic-create path (record-service.ts) can put it in
+ * the same `db.batch()` as the record (and, for a new patient, the patient)
+ * insert. `insert()` below is this run standalone, for the plain
+ * add-a-result path where there is nothing else to batch it with.
  */
-export function insert(db: D1Database, file: NewFile) {
+export function prepareInsert(db: D1Database, file: NewFile) {
   return db
     .prepare(
       `INSERT INTO files
@@ -58,8 +63,11 @@ export function insert(db: D1Database, file: NewFile) {
       file.sizeBytes,
       file.uploadedBy,
       file.recordId,
-    )
-    .run();
+    );
+}
+
+export function insert(db: D1Database, file: NewFile) {
+  return prepareInsert(db, file).run();
 }
 
 export function listForRecord(db: D1Database, recordId: string) {

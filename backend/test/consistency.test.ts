@@ -12,7 +12,14 @@ import { createRecord, createRecordWithFile, json, pdfFile, request } from "./he
 
 describe("upload consistency", () => {
   it("deletes the stored object when the metadata insert fails", async () => {
+    // createRecord() itself creates the folio's first result, atomically —
+    // its object and row are the baseline this test's failed SECOND upload
+    // must not add to.
     const { body: record } = await createRecord();
+    const before = await env.RESULTS_BUCKET.list();
+    const rowsBefore = await env.DB.prepare("SELECT COUNT(*) AS total FROM files").first<{
+      total: number;
+    }>();
 
     const insert = vi
       .spyOn(filesRepo, "insert")
@@ -29,14 +36,14 @@ describe("upload consistency", () => {
 
     insert.mockRestore();
 
-    // Neither store kept anything.
+    // Neither store kept anything new from the failed attempt.
     const stored = await env.RESULTS_BUCKET.list();
-    expect(stored.objects).toHaveLength(0);
+    expect(stored.objects).toHaveLength(before.objects.length);
 
-    const rows = await env.DB.prepare("SELECT COUNT(*) AS total FROM files").first<{
+    const rowsAfter = await env.DB.prepare("SELECT COUNT(*) AS total FROM files").first<{
       total: number;
     }>();
-    expect(rows?.total).toBe(0);
+    expect(rowsAfter?.total).toBe(rowsBefore?.total);
   });
 
   it("logs an orphan when the compensating delete also fails", async () => {

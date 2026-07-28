@@ -23,7 +23,7 @@ describe("GET /search", () => {
     expect(body.folios).toHaveLength(1);
     expect(body.folios[0]).toMatchObject({
       folio: "SRCH-010919-01",
-      results: { total: 0, byStatus: {} },
+      results: { total: 1, byStatus: { UPLOADED: 1 } },
     });
   });
 

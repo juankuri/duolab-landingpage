@@ -1,0 +1,222 @@
+---
+/**
+ * /admin/nuevo — create a patient + folio + first result in one submission
+ * (Flow A), or just a folio + PDF for an existing patient via `?patient=ID`
+ * (Flow C — added in the next slice, alongside /admin/paciente; this page
+ * already accepts the query param so that slice does not have to touch this
+ * form's structure, only add the patient-chip branch).
+ *
+ * There is no draft: the form clears on every load. A folio is either
+ * created now or it isn't — nothing here is worth persisting half-filled.
+ */
+import AdminLayout from "../../components/admin/AdminLayout.astro";
+---
+
+<AdminLayout title="Nuevo paciente" search={true}>
+  <nav class="crumb" aria-label="Ubicación">
+    <a href="/admin">Inicio</a>
+    <span aria-hidden="true">›</span>
+    <b>Nuevo paciente y resultado</b>
+  </nav>
+
+  <form id="create-form" novalidate>
+    <div class="field">
+      <label for="fullName">Nombre completo</label>
+      <input id="fullName" name="fullName" type="text" autocomplete="off" />
+      <p class="err" id="err-fullName" data-err></p>
+    </div>
+
+    <div class="field">
+      <label for="birthDate">Fecha de nacimiento</label>
+      <input id="birthDate" name="birthDate" type="date" />
+      <p class="err" id="err-birthDate" data-err></p>
+    </div>
+
+    <div class="field">
+      <label for="phoneNumber">Teléfono</label>
+      <input id="phoneNumber" name="phoneNumber" type="tel" autocomplete="off" />
+      <p class="err" id="err-phoneNumber" data-err></p>
+    </div>
+
+    <div class="field">
+      <label for="folio">Folio</label>
+      <input id="folio" name="folio" type="text" autocomplete="off" />
+      <p class="tiny">Sugerido a partir del nombre — puedes cambiarlo.</p>
+      <p class="err" id="err-folio" data-err></p>
+    </div>
+
+    <div class="field">
+      <label class="dropzone" for="pdf-file" id="drop-label">
+        <span id="drop-label-text">Arrastra el PDF o haz clic para elegirlo</span>
+      </label>
+      <input id="pdf-file" name="file" type="file" accept="application/pdf" hidden />
+      <p class="err" id="err-file" data-err></p>
+    </div>
+
+    <progress class="progress" id="progress" hidden max="100" value="0"></progress>
+
+    <div class="actions">
+      <button class="btn" id="submit" type="submit">Crear y revisar resultado</button>
+    </div>
+
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </form>
+
+  <dialog class="sheet" id="dup-dialog" aria-labelledby="dup-h">
+    <h2 class="sheet__h" id="dup-h">Ese folio ya existe</h2>
+    <p class="sheet__body" id="dup-body"></p>
+    <div class="actions">
+      <button class="btn btn--ghost" id="dup-other" type="button">Cambiar folio</button>
+      <button class="btn" id="dup-open" type="button">Abrir el folio existente</button>
+    </div>
+  </dialog>
+
+  <script>
+    import { suggestFolio } from "../../scripts/admin/folio.js";
+    import { createRecord } from "../../scripts/admin/upload.js";
+    import { validateCreation, validatePdf } from "../../scripts/admin/validation.js";
+
+    const $ = (id) => document.getElementById(id);
+
+    const fields = ["fullName", "birthDate", "phoneNumber", "folio"];
+    let pendingFile = null;
+    let folioTouchedByHand = false;
+
+    const setStatus = (message, tone) => {
+      const el = $("status");
+      el.textContent = message || "";
+      if (tone) el.dataset.tone = tone;
+      else delete el.dataset.tone;
+    };
+
+    const clearFieldErrors = () => {
+      for (const name of [...fields, "file"]) {
+        const el = $(`err-${name}`);
+        if (el) el.textContent = "";
+      }
+    };
+
+    const applyFieldErrors = (errors) => {
+      clearFieldErrors();
+      for (const [name, message] of Object.entries(errors || {})) {
+        const el = $(`err-${name}`);
+        if (el) el.textContent = message;
+      }
+    };
+
+    // The folio suggestion follows the name until the employee edits the
+    // folio field by hand — after that, typing more of the name must not
+    // clobber a folio they already chose on purpose.
+    $("fullName").addEventListener("input", () => {
+      if (folioTouchedByHand) return;
+      $("folio").value = suggestFolio($("fullName").value);
+    });
+
+    $("folio").addEventListener("input", () => {
+      folioTouchedByHand = true;
+    });
+
+    $("pdf-file").addEventListener("change", () => {
+      const file = $("pdf-file").files[0];
+      const check = validatePdf(file);
+
+      if (!check.ok) {
+        pendingFile = null;
+        $("drop-label-text").textContent = "Arrastra el PDF o haz clic para elegirlo";
+        $("err-file").textContent = file ? check.error : "";
+        return;
+      }
+
+      pendingFile = file;
+      $("drop-label-text").textContent = file.name;
+      $("err-file").textContent = "";
+    });
+
+    let lastConflict = null;
+
+    $("dup-other").addEventListener("click", () => {
+      $("dup-dialog").close();
+      $("folio").focus();
+      $("folio").select();
+    });
+
+    $("dup-open").addEventListener("click", () => {
+      if (lastConflict) {
+        location.href = `/admin/folio?f=${encodeURIComponent(lastConflict.folio)}`;
+      }
+    });
+
+    $("create-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearFieldErrors();
+
+      const input = {
+        fullName: $("fullName").value,
+        birthDate: $("birthDate").value,
+        phoneNumber: $("phoneNumber").value,
+        folio: $("folio").value,
+        pdf: pendingFile,
+      };
+
+      const { values, errors, ok } = validateCreation(input);
+
+      if (!ok) {
+        applyFieldErrors(errors);
+        setStatus("Revisa los datos marcados.", "error");
+        return;
+      }
+
+      $("submit").disabled = true;
+      $("progress").hidden = false;
+      $("progress").value = 0;
+      setStatus("Creando…");
+
+      const response = await createRecord(
+        {
+          fullName: values.fullName,
+          birthDate: values.birthDate,
+          phoneNumber: values.phoneNumber,
+          folio: values.folio,
+        },
+        values.pdf,
+        (percent) => ($("progress").value = percent),
+      );
+
+      $("submit").disabled = false;
+
+      if (response.status === 409) {
+        lastConflict = response.payload.existingRecord;
+        $("dup-body").textContent = lastConflict?.folio
+          ? `El folio ${lastConflict.folio} ya tiene un registro${
+              lastConflict.patientName ? ` a nombre de ${lastConflict.patientName}` : ""
+            }.`
+          : "Ese folio ya existe.";
+        $("dup-dialog").showModal();
+        $("progress").hidden = true;
+        setStatus("");
+        return;
+      }
+
+      if (response.status === 400 && response.payload.fields) {
+        applyFieldErrors(response.payload.fields);
+        setStatus("Revisa los datos marcados.", "error");
+        $("progress").hidden = true;
+        return;
+      }
+
+      if (!response.ok) {
+        setStatus(
+          response.payload?.error
+            ? `${response.payload.error}${response.payload.requestId ? ` (Ref: ${response.payload.requestId})` : ""}`
+            : "No se pudo crear el registro.",
+          "error",
+        );
+        $("progress").hidden = true;
+        return;
+      }
+
+      const { folio, fileId } = response.payload;
+      location.href = `/admin/revisar?f=${encodeURIComponent(folio)}&r=${fileId}`;
+    });
+  </script>
+</AdminLayout>

@@ -19,52 +19,110 @@ import { requestId } from "../errors";
 
 export const records = new Hono<AppEnv>();
 
+/**
+ * Creates a patient + folio + first result in one request. A folio without
+ * a result no longer exists — this is the only path that creates a record
+ * row, and it always carries a PDF with it (Flow A). Either supply
+ * `patientId` for an existing patient (Flow C — no new patient row, only
+ * folio + PDF are required) or the three patient fields for a new one
+ * (Flow A); `folio` and `file` are required either way.
+ */
 records.post("/", async (c) => {
-  const body: Record<string, unknown> = await c.req.json().catch(() => ({}));
+  // Best-effort rejection before the body is read, same as the add-a-result
+  // endpoint below — the header is advisory, the parsed file is authoritative.
+  const declaredLength = Number(c.req.header("Content-Length") ?? "");
 
-  // Every field is validated before any is used, so one response can name
-  // every problem at once instead of making the employee submit again to
-  // discover the next one.
-  const name = validateFullName(body.fullName);
-  const birth = validateBirthDate(body.birthDate);
-  const phone = validatePhoneNumber(body.phoneNumber);
-  const reference = validateFolio(body.folio);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES) {
+    throw new AppError("PAYLOAD_TOO_LARGE", "El archivo supera los 15 MB.");
+  }
 
-  if (!name.ok || !birth.ok || !phone.ok || !reference.ok) {
-    const fields: Record<string, string> = {};
+  const formData = await c.req.formData().catch(() => null);
+
+  if (!formData) {
+    throw new AppError("INVALID_INPUT", "Revisa los datos del formulario.");
+  }
+
+  const rawPatientId = formData.get("patientId");
+  const usingExistingPatient = typeof rawPatientId === "string" && rawPatientId.length > 0;
+
+  const reference = validateFolio(formData.get("folio"));
+  const fields: Record<string, string> = {};
+
+  let folio: string | undefined;
+  if (reference.ok) folio = reference.value;
+  else fields.folio = reference.error;
+
+  let patientId: string | undefined;
+  let fullName: string | undefined;
+  let birthDate: string | undefined;
+  let phoneNumber: string | undefined;
+
+  if (usingExistingPatient) {
+    if (!isUuid(rawPatientId)) {
+      fields.patientId = "El identificador del paciente no es válido.";
+    } else {
+      patientId = rawPatientId;
+    }
+  } else {
+    // Every field is validated before any is used, so one response can name
+    // every problem at once instead of making the employee submit again to
+    // discover the next one.
+    const name = validateFullName(formData.get("fullName"));
+    const birth = validateBirthDate(formData.get("birthDate"));
+    const phone = validatePhoneNumber(formData.get("phoneNumber"));
 
     if (!name.ok) fields.fullName = name.error;
     if (!birth.ok) fields.birthDate = birth.error;
     if (!phone.ok) fields.phoneNumber = phone.error;
-    if (!reference.ok) fields.folio = reference.error;
 
-    throw new AppError("INVALID_INPUT", "Revisa los datos del formulario.", {
-      fields,
-    });
+    if (name.ok) fullName = name.value;
+    if (birth.ok) birthDate = birth.value;
+    if (phone.ok) phoneNumber = phone.value;
   }
 
-  const fullName = name.value;
-  const birthDate = birth.value;
-  const phoneNumber = phone.value;
-  const folio = reference.value;
+  const file = formData.get("file");
 
-  const patientId = crypto.randomUUID();
-  const recordId = crypto.randomUUID();
+  if (!(file instanceof File)) {
+    fields.file = "Adjunta el archivo PDF.";
+  } else if (file.size > MAX_UPLOAD_BYTES) {
+    throw new AppError("PAYLOAD_TOO_LARGE", "El archivo supera los 15 MB.");
+  } else if (file.size === 0 || !(await isPdf(file))) {
+    fields.file = "Solo se admiten archivos PDF.";
+  }
+
+  if (Object.keys(fields).length > 0) {
+    throw new AppError("INVALID_INPUT", "Revisa los datos del formulario.", { fields });
+  }
+
+  // Every field above either populated `fields` or its own variable; the
+  // throw just above means every one of these is now set.
+  const validFolio = folio as string;
 
   try {
-    await recordsRepo.insertPatientAndRecord(c.env.DB, {
-      recordId,
+    const created = await recordService.createWithFirstResult(c.env, {
       patientId,
-      folio,
       fullName,
       birthDate,
       phoneNumber,
+      folio: validFolio,
+      file: file as File,
+      uploadedBy: c.get("actor").email,
+      requestId: requestId(c),
     });
 
-    return c.json({ recordId, patientId, folio }, 201);
+    return c.json(
+      {
+        recordId: created.recordId,
+        patientId: created.patientId,
+        folio: validFolio,
+        fileId: created.fileId,
+        status: "UPLOADED",
+      },
+      201,
+    );
   } catch (error) {
     if (recordsRepo.isFolioConflict(error)) {
-      const existing = await recordsRepo.findByFolio(c.env.DB, folio);
+      const existing = await recordsRepo.findByFolio(c.env.DB, validFolio);
 
       return c.json(
         {
@@ -74,18 +132,19 @@ records.post("/", async (c) => {
           existingRecord: existing
             ? {
                 recordId: existing.record_id,
-                folio,
+                folio: validFolio,
                 patientName: existing.full_name,
               }
-            : { folio },
+            : { folio: validFolio },
         },
         409,
       );
     }
 
-    // Anything else here is a server fault, not the caller's mistake. It used
-    // to answer 400, which told the UI to blame the employee's input for a
-    // database problem.
+    // Anything else here — including a bad patientId, which the service
+    // reports as NOT_FOUND — is not the folio's fault. It used to answer
+    // 400 for every failure here, which told the UI to blame input for a
+    // database or lookup problem.
     throw error;
   }
 });

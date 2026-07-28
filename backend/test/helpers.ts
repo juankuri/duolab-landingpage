@@ -32,48 +32,62 @@ export async function json<T = any>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-/** Creates a record through the API and returns its ids. */
+/**
+ * Creates a patient + folio + first result through the API (POST /records
+ * is multipart and atomic — a folio cannot exist without a result) and
+ * returns its ids. `file` defaults to a real PDF; pass `null` to send the
+ * request without one, for tests of the validation path itself.
+ */
 export async function createRecord(
   overrides: Partial<{
     fullName: string;
     birthDate: string;
     phoneNumber: string;
     folio: string;
+    patientId: string;
+    file: File | null;
   }> = {},
 ) {
-  const response = await request("/records", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      fullName: "Maria Lopez Ruiz",
-      birthDate: "1990-01-09",
-      phoneNumber: "9381234567",
-      folio: `MALO-010919-${Math.floor(Math.random() * 100000)}`,
-      ...overrides,
-    }),
-  });
+  const { file, ...fields } = overrides;
+  const form = new FormData();
+
+  if (fields.patientId) {
+    form.set("patientId", fields.patientId);
+  } else {
+    form.set("fullName", fields.fullName ?? "Maria Lopez Ruiz");
+    form.set("birthDate", fields.birthDate ?? "1990-01-09");
+    form.set("phoneNumber", fields.phoneNumber ?? "9381234567");
+  }
+
+  form.set("folio", fields.folio ?? `MALO-010919-${Math.floor(Math.random() * 100000)}`);
+
+  if (file !== null) {
+    form.set("file", file ?? pdfFile());
+  }
+
+  const response = await request("/records", { method: "POST", body: form });
 
   return { response, body: await json(response) };
 }
 
-/** Creates a record and attaches a PDF to it. */
+/**
+ * Alias kept for tests that read better naming the file explicitly — every
+ * createRecord() call already includes one. `name` renames the PDF that
+ * comes back as the folio's first result.
+ */
 export async function createRecordWithFile(name = "resultado.pdf") {
-  const { body: record } = await createRecord();
+  const { response, body: record } = await createRecord({ file: pdfFile(name) });
 
-  const form = new FormData();
-  form.set("file", pdfFile(name));
-
-  const response = await request(`/records/${record.recordId}/files`, {
-    method: "POST",
-    body: form,
-  });
-
-  return { record, file: await json(response), response };
+  return {
+    record,
+    file: { fileId: record.fileId, recordId: record.recordId, status: record.status },
+    response,
+  };
 }
 
 const asManager = { envOverrides: { DEV_ROLE: "manager" } };
 
-/** Creates a record, uploads a file, confirms and publishes it. */
+/** Creates a record with its first result, then confirms and publishes it. */
 export async function publishedRecord(
   overrides: Partial<{
     fullName: string;
@@ -84,15 +98,10 @@ export async function publishedRecord(
 ) {
   const { body: record } = await createRecord(overrides);
 
-  const form = new FormData();
-  form.set("file", pdfFile());
-  const uploaded = await json(
-    await request(`/records/${record.recordId}/files`, { method: "POST", body: form }),
-  );
-  await request(`/files/${uploaded.fileId}/confirm`, { method: "POST" });
-  await request(`/files/${uploaded.fileId}/publish`, { method: "POST", ...asManager });
+  await request(`/files/${record.fileId}/confirm`, { method: "POST" });
+  await request(`/files/${record.fileId}/publish`, { method: "POST", ...asManager });
 
-  return { record, fileId: uploaded.fileId as string };
+  return { record, fileId: record.fileId as string };
 }
 
 export function fileRow(fileId: string) {

@@ -104,6 +104,8 @@ describe("POST /records/:recordId/files", () => {
 
   it("rejects an upload over the size cap with 413", async () => {
     const { body: record } = await createRecord();
+    const before = await env.RESULTS_BUCKET.list();
+
     const oversized = new Uint8Array(15 * 1024 * 1024 + 1024);
     oversized.set(PDF_BYTES, 0);
 
@@ -114,27 +116,26 @@ describe("POST /records/:recordId/files", () => {
 
     expect(response.status).toBe(413);
 
-    // Nothing reached storage.
-    const stored = await env.RESULTS_BUCKET.list();
-    expect(stored.objects).toHaveLength(0);
+    // Nothing new reached storage — only the folio's own first result
+    // (created atomically alongside it) is there.
+    const after = await env.RESULTS_BUCKET.list();
+    expect(after.objects).toHaveLength(before.objects.length);
   });
 
-  it("assigns sequence 1 to the first result on a record", async () => {
+  it("assigns sequence 1 to a folio's first result, from atomic create", async () => {
     const { body: record } = await createRecord();
-    const body = await json(await upload(record.recordId, pdfFile()));
 
-    const row = await fileRow(body.fileId);
+    const row = await fileRow(record.fileId);
     expect(row!.sequence).toBe(1);
   });
 
   it("assigns a monotonically increasing sequence per record", async () => {
     const { body: record } = await createRecord();
 
-    const first = await json(await upload(record.recordId, pdfFile("a.pdf")));
     const second = await json(await upload(record.recordId, pdfFile("b.pdf")));
     const third = await json(await upload(record.recordId, pdfFile("c.pdf")));
 
-    expect((await fileRow(first.fileId))!.sequence).toBe(1);
+    expect((await fileRow(record.fileId))!.sequence).toBe(1);
     expect((await fileRow(second.fileId))!.sequence).toBe(2);
     expect((await fileRow(third.fileId))!.sequence).toBe(3);
   });
@@ -143,10 +144,10 @@ describe("POST /records/:recordId/files", () => {
     const { body: recordA } = await createRecord({ folio: "SEQA-010919-01" });
     const { body: recordB } = await createRecord({ folio: "SEQB-010919-01" });
 
+    // A second upload on A must not perturb B's own first result.
     await upload(recordA.recordId, pdfFile());
-    const firstB = await json(await upload(recordB.recordId, pdfFile()));
 
-    expect((await fileRow(firstB.fileId))!.sequence).toBe(1);
+    expect((await fileRow(recordB.fileId))!.sequence).toBe(1);
   });
 });
 
@@ -290,9 +291,9 @@ describe("DELETE /records/:recordId/files/:fileId", () => {
   });
 
   it("does not renumber later results when an earlier draft is deleted", async () => {
+    // record.fileId is #1, from atomic create.
     const { body: record } = await createRecord();
 
-    const first = await json(await upload(record.recordId, pdfFile("a.pdf")));
     const second = await json(await upload(record.recordId, pdfFile("b.pdf")));
     const third = await json(await upload(record.recordId, pdfFile("c.pdf")));
 
@@ -302,7 +303,7 @@ describe("DELETE /records/:recordId/files/:fileId", () => {
 
     // #1 and #3 keep their original numbers — sequence is assigned once and
     // never recomputed, so "FOLIO · #3" still names the same physical result.
-    expect((await fileRow(first.fileId))!.sequence).toBe(1);
+    expect((await fileRow(record.fileId))!.sequence).toBe(1);
     expect((await fileRow(third.fileId))!.sequence).toBe(3);
 
     const fourth = await json(await upload(record.recordId, pdfFile("d.pdf")));

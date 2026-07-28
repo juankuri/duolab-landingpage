@@ -1,4 +1,5 @@
 import * as filesRepo from "../data/files.repo";
+import * as recordsRepo from "../data/records.repo";
 import * as storage from "../data/storage";
 import { AppError, logEvent } from "../domain/errors";
 import { canDelete, isFileStatus } from "../domain/file-lifecycle";
@@ -61,6 +62,85 @@ export async function uploadResult(
   }
 
   return { fileId, r2Key };
+}
+
+/**
+ * Creates a patient (unless an existing `patientId` is supplied), a record,
+ * and its first result, atomically-ish: the D1 batch is a real transaction,
+ * so patient + record + file either all land or none do. R2 is not part of
+ * that transaction — same bounded guarantee as uploadResult() above, object
+ * first so a row is never visible before its bytes are, compensating delete
+ * on any D1 failure. A folio can no longer exist without a result; this is
+ * the only path that creates a record row.
+ */
+export async function createWithFirstResult(
+  env: Bindings,
+  input: {
+    patientId?: string;
+    fullName?: string;
+    birthDate?: string;
+    phoneNumber?: string;
+    folio: string;
+    file: File;
+    uploadedBy: string;
+    requestId: string;
+  },
+) {
+  let patient: { patientId: string; fullName: string; birthDate: string; phoneNumber: string } | undefined;
+
+  if (input.patientId) {
+    const existing = await recordsRepo.findPatient(env.DB, input.patientId);
+
+    if (!existing) {
+      throw new AppError("NOT_FOUND", "No encontramos al paciente.");
+    }
+  } else {
+    // Fields are validated by the caller before this runs (see
+    // routes/records.ts), same as every other required-field endpoint.
+    patient = {
+      patientId: crypto.randomUUID(),
+      fullName: input.fullName!,
+      birthDate: input.birthDate!,
+      phoneNumber: input.phoneNumber!,
+    };
+  }
+
+  const patientId = patient?.patientId ?? input.patientId!;
+  const recordId = crypto.randomUUID();
+  const fileId = crypto.randomUUID();
+  const r2Key = storage.resultKey(recordId, fileId);
+
+  await storage.putResult(env.RESULTS_BUCKET, r2Key, input.file, { recordId, fileId });
+
+  try {
+    await recordsRepo.createRecordWithFile(env.DB, {
+      patient,
+      record: { recordId, folio: input.folio, patientId },
+      file: {
+        fileId,
+        recordId,
+        r2Key,
+        originalFilename: input.file.name,
+        mimeType: input.file.type,
+        sizeBytes: input.file.size,
+        uploadedBy: input.uploadedBy,
+      },
+    });
+  } catch (error) {
+    await storage.deleteResult(env.RESULTS_BUCKET, r2Key).catch(() => {
+      logEvent("ORPHAN_R2_OBJECT", {
+        reason: "compensating delete failed after atomic-create batch failed",
+        r2Key,
+        recordId,
+        fileId,
+        requestId: input.requestId,
+      });
+    });
+
+    throw error;
+  }
+
+  return { recordId, patientId, fileId };
 }
 
 /**

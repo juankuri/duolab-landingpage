@@ -5,7 +5,9 @@ import {
   PDF_BYTES,
   createRecord,
   createRecordWithFile,
+  fileRow,
   json,
+  pdfFile,
   request,
 } from "./helpers";
 
@@ -36,12 +38,11 @@ describe("POST /records", () => {
     });
   });
 
-  it("rejects a body missing any required field", async () => {
-    const response = await request("/records", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName: "Solo Nombre" }),
-    });
+  it("rejects a form missing any required field", async () => {
+    const form = new FormData();
+    form.set("fullName", "Solo Nombre");
+
+    const response = await request("/records", { method: "POST", body: form });
 
     expect(response.status).toBe(400);
     const body = await json(response);
@@ -49,9 +50,20 @@ describe("POST /records", () => {
     // Every missing field is reported at once, not one per submission.
     expect(Object.keys(body.fields).sort()).toEqual([
       "birthDate",
+      "file",
       "folio",
       "phoneNumber",
     ]);
+  });
+
+  it("rejects a malformed body that is not multipart at all", async () => {
+    const response = await request("/records", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{ not multipart",
+    });
+
+    expect(response.status).toBe(400);
   });
 
   it("rejects fields that are only whitespace", async () => {
@@ -146,11 +158,120 @@ describe("POST /records", () => {
 
     expect(patients?.total).toBe(2);
   });
+
+  it("does not leave an orphaned R2 object behind when the folio collides", async () => {
+    await createRecord({ folio: "DUPE-010919-03" });
+    const before = await env.RESULTS_BUCKET.list();
+
+    // The second attempt's PDF is written before the D1 batch is even
+    // attempted (object-first ordering, see record-service.ts), so the
+    // folio conflict has to compensate with an R2 delete just like a D1
+    // failure would.
+    await createRecord({ folio: "DUPE-010919-03" });
+
+    const after = await env.RESULTS_BUCKET.list();
+    expect(after.objects).toHaveLength(before.objects.length);
+  });
+
+  it("Flow A: creates the patient, the folio and the first result together", async () => {
+    const { response, body } = await createRecord({ folio: "FLOA-010919-01" });
+
+    expect(response.status).toBe(201);
+    expect(body).toMatchObject({ folio: "FLOA-010919-01", status: "UPLOADED" });
+    expect(body.recordId).toBeTruthy();
+    expect(body.patientId).toBeTruthy();
+    expect(body.fileId).toBeTruthy();
+
+    const row = await fileRow(body.fileId);
+    expect(row).toMatchObject({ record_id: body.recordId, status: "UPLOADED" });
+  });
+
+  it("Flow A: reports every invalid field at once, including a missing file", async () => {
+    const form = new FormData();
+    form.set("fullName", "  ");
+    form.set("birthDate", "not-a-date");
+    form.set("phoneNumber", "x");
+    form.set("folio", "@@");
+
+    const response = await request("/records", { method: "POST", body: form });
+
+    expect(response.status).toBe(400);
+    const body = await json(response);
+    expect(Object.keys(body.fields).sort()).toEqual([
+      "birthDate",
+      "file",
+      "folio",
+      "fullName",
+      "phoneNumber",
+    ]);
+  });
+
+  it("Flow C: reuses an existing patient instead of creating a new row", async () => {
+    const { body: first } = await createRecord({
+      folio: "FLOC-010919-01",
+      fullName: "Paciente Existente",
+    });
+
+    const { response, body: second } = await createRecord({
+      folio: "FLOC-010919-02",
+      patientId: first.patientId,
+    });
+
+    expect(response.status).toBe(201);
+    expect(second.patientId).toBe(first.patientId);
+
+    const patients = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM patients WHERE full_name = ?",
+    )
+      .bind("Paciente Existente")
+      .first<{ total: number }>();
+    expect(patients?.total).toBe(1);
+  });
+
+  it("Flow C: 404s on an unknown patientId, without creating anything", async () => {
+    const form = new FormData();
+    form.set("patientId", crypto.randomUUID());
+    form.set("folio", "FLOC-010919-99");
+    form.set("file", pdfFile());
+
+    const response = await request("/records", { method: "POST", body: form });
+
+    expect(response.status).toBe(404);
+
+    const record = await env.DB.prepare("SELECT record_id FROM records WHERE folio = ?")
+      .bind("FLOC-010919-99")
+      .first();
+    expect(record).toBeNull();
+  });
+
+  it("does not leave an orphaned R2 object when the D1 batch fails for a reason other than a folio conflict", async () => {
+    const before = await env.RESULTS_BUCKET.list();
+
+    const form = new FormData();
+    form.set("patientId", crypto.randomUUID()); // valid-shaped, but unknown
+    form.set("folio", "ORPH-010919-01");
+    form.set("file", pdfFile());
+
+    const response = await request("/records", { method: "POST", body: form });
+    expect(response.status).toBe(404);
+
+    // The service checks the patient exists before ever touching R2, so
+    // nothing should have been written in the first place.
+    const after = await env.RESULTS_BUCKET.list();
+    expect(after.objects).toHaveLength(before.objects.length);
+  });
 });
 
 describe("GET /records", () => {
   it("reports an empty tally for a record with no upload", async () => {
-    await createRecord({ folio: "NONE-010919-01" });
+    // A folio can no longer be created without a first result, so the only
+    // way to get one down to zero files is deleting it afterward — this
+    // exercises the tally's empty case, not the (now impossible) creation
+    // path directly.
+    const { body: record } = await createRecord({ folio: "NONE-010919-01" });
+    await request(`/records/${record.recordId}/files/${record.fileId}`, {
+      method: "DELETE",
+    });
 
     const body = await json(await request("/records"));
 
@@ -175,18 +296,11 @@ describe("GET /records", () => {
   it("includes a folio in the ?status= filter when ANY of its results is in that state, not only the latest", async () => {
     // This is the regression the tally rewrite fixes: a folio whose latest
     // result is a fresh draft used to disappear from the manager queue even
-    // though it still had an older CONFIRMED result waiting on it.
+    // though it still had an older CONFIRMED result waiting on it. The
+    // folio's first result (from atomic create) plays that older, confirmed
+    // one; a second upload on top of it plays the newer draft.
     const { body: record } = await createRecord({ folio: "MIXD-010919-01" });
-
-    const form1 = new FormData();
-    form1.set("file", new File([PDF_BYTES], "a.pdf", { type: "application/pdf" }));
-    const first = await json(
-      await request(`/records/${record.recordId}/files`, {
-        method: "POST",
-        body: form1,
-      }),
-    );
-    await request(`/files/${first.fileId}/confirm`, { method: "POST" });
+    await request(`/files/${record.fileId}/confirm`, { method: "POST" });
 
     const form2 = new FormData();
     form2.set("file", new File([PDF_BYTES], "b.pdf", { type: "application/pdf" }));
