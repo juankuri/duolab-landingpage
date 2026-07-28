@@ -1,10 +1,13 @@
 import * as filesRepo from "../data/files.repo";
-import { AppError } from "../domain/errors";
+import * as storage from "../data/storage";
+import { AppError, logEvent } from "../domain/errors";
 import {
   type FileStatus,
+  canReplace,
   canTransition,
   isFileStatus,
 } from "../domain/file-lifecycle";
+import type { Bindings } from "../env";
 
 /**
  * Every lifecycle move goes through here, so the guard is written once.
@@ -159,4 +162,83 @@ export async function revoke(
     apply: () => filesRepo.revoke(db, input.fileId, input.actorEmail, input.reason),
     rejection: "Solo se puede revocar un archivo publicado.",
   });
+}
+
+/**
+ * Swaps a result's PDF for a corrected one, from UPLOADED, CONFIRMED, or
+ * PUBLISHED, sending it back to UPLOADED either way.
+ *
+ * Order is the whole point (DEC-014): D1 first, so a live download token
+ * for a PUBLISHED file stops resolving to `status = 'PUBLISHED'` — and
+ * therefore stops working — *before* the R2 object it points at is
+ * touched. Only once that write has landed does the new PDF overwrite the
+ * old one at the same key. The alternative order would leave a window
+ * where the old file is still marked PUBLISHED while new bytes are already
+ * live at its address, which a patient could download without anyone
+ * having decided to publish it.
+ *
+ * Bounded guarantee, same shape as uploadResult()'s: if the R2 overwrite
+ * fails after the D1 update already succeeded, the row correctly reads
+ * UPLOADED (nothing was published that shouldn't be) but the object at
+ * that key is still the OLD bytes for a result the UI now calls a draft —
+ * an inconsistency, not a security gap, and logged so it can be corrected
+ * by re-running the replace rather than silently trusted.
+ */
+export async function replaceFile(
+  env: Bindings,
+  input: {
+    recordId: string;
+    fileId: string;
+    file: File;
+    requestId: string;
+  },
+) {
+  const current = await filesRepo.findInRecord(env.DB, input.recordId, input.fileId);
+
+  if (!current) {
+    throw new AppError("NOT_FOUND", "No encontramos el archivo.");
+  }
+
+  if (!isFileStatus(current.status) || !canReplace(current.status)) {
+    throw new AppError(
+      "INVALID_TRANSITION",
+      "Un archivo revocado no se puede reemplazar; sube uno nuevo.",
+      { currentStatus: current.status },
+    );
+  }
+
+  const result = await filesRepo.replace(env.DB, {
+    fileId: input.fileId,
+    fromStatus: current.status,
+    originalFilename: input.file.name,
+    mimeType: input.file.type,
+    sizeBytes: input.file.size,
+  });
+
+  if (result.meta.changes === 0) {
+    // Lost a race against another request that moved this file first.
+    throw new AppError(
+      "INVALID_TRANSITION",
+      "El archivo cambió de estado justo antes de reemplazarlo.",
+    );
+  }
+
+  try {
+    await storage.putResult(env.RESULTS_BUCKET, current.r2_key, input.file, {
+      recordId: input.recordId,
+      fileId: input.fileId,
+    });
+  } catch (error) {
+    logEvent("REPLACE_OBJECT_WRITE_FAILED", {
+      reason: "R2 overwrite failed after the D1 row was already updated to UPLOADED",
+      r2Key: current.r2_key,
+      recordId: input.recordId,
+      fileId: input.fileId,
+      requestId: input.requestId,
+    });
+
+    throw error;
+  }
+
+  return { fileId: input.fileId, recordId: input.recordId };
 }

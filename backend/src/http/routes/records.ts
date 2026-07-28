@@ -14,6 +14,7 @@ import {
   validatePhoneNumber,
 } from "../../domain/validation";
 import type { AppContext, AppEnv } from "../../env";
+import * as fileService from "../../services/file-service";
 import * as recordService from "../../services/record-service";
 import { requestId } from "../errors";
 
@@ -314,4 +315,49 @@ records.delete("/:recordId/files/:fileId", async (c) => {
   });
 
   return c.json({ deleted: true, fileId });
+});
+
+/**
+ * Swaps a result's PDF for a corrected one. Reachable from UPLOADED,
+ * CONFIRMED, or PUBLISHED (see canReplace() in file-lifecycle.ts) and
+ * always lands back on UPLOADED — see file-service.ts's replaceFile() for
+ * why the D1-before-R2 ordering here is load-bearing, not incidental.
+ */
+records.post("/:recordId/files/:fileId/replace", async (c) => {
+  const recordId = c.req.param("recordId");
+  const fileId = c.req.param("fileId");
+
+  if (!isUuid(recordId) || !isUuid(fileId)) {
+    throw new AppError("INVALID_INPUT", "El identificador no es válido.");
+  }
+
+  const declaredLength = Number(c.req.header("Content-Length") ?? "");
+
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES) {
+    throw new AppError("PAYLOAD_TOO_LARGE", "El archivo supera los 15 MB.");
+  }
+
+  const formData = await c.req.formData();
+  const file = formData.get("file");
+
+  if (!(file instanceof File)) {
+    throw new AppError("INVALID_INPUT", "Adjunta el archivo PDF.");
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new AppError("PAYLOAD_TOO_LARGE", "El archivo supera los 15 MB.");
+  }
+
+  if (!(await isPdf(file))) {
+    throw new AppError("UNSUPPORTED_MEDIA_TYPE", "Solo se admiten archivos PDF.");
+  }
+
+  await fileService.replaceFile(c.env, {
+    recordId,
+    fileId,
+    file,
+    requestId: requestId(c),
+  });
+
+  return c.json({ fileId, status: "UPLOADED", replacedAt: new Date().toISOString() });
 });

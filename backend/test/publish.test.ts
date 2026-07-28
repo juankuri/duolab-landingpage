@@ -51,7 +51,7 @@ async function forceStatus(fileId: string, status: FileStatus) {
 }
 
 describe("authorization", () => {
-  it("refuses publish and revoke to an employee", async () => {
+  it("refuses publish to an employee", async () => {
     const { record, file } = await createRecordWithFile();
     await request(`/files/${file.fileId}/confirm`, { method: "POST" });
 
@@ -59,12 +59,22 @@ describe("authorization", () => {
     expect(published.status).toBe(403);
     expect((await json(published)).code).toBe("FORBIDDEN");
 
-    await forceStatus(file.fileId, "PUBLISHED");
-    expect((await revoke(file.fileId, {}, asEmployee)).status).toBe(403);
-
     // Nothing changed as a side effect of being refused.
-    expect((await fileRow(file.fileId))!.status).toBe("PUBLISHED");
+    expect((await fileRow(file.fileId))!.status).toBe("CONFIRMED");
     expect(record.recordId).toBeTruthy();
+  });
+
+  // Widened from manager-only (DEC-013): an employee spotting a mistake in a
+  // published result should not need a manager to pull it. Publish stays
+  // the gated action — making something visible is the asymmetric risk.
+  it("permits revoke to an employee, unlike publish", async () => {
+    const { file } = await createRecordWithFile();
+    await request(`/files/${file.fileId}/confirm`, { method: "POST" });
+    await forceStatus(file.fileId, "PUBLISHED");
+
+    const revoked = await revoke(file.fileId, {}, asEmployee);
+    expect(revoked.status).toBe(200);
+    expect((await fileRow(file.fileId))!.status).toBe("REVOKED");
   });
 
   it("refuses publish without any identity", async () => {

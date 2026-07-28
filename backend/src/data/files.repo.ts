@@ -269,3 +269,54 @@ export function confirm(db: D1Database, fileId: string, confirmedBy: string) {
     .bind(confirmedBy, fileId)
     .run();
 }
+
+/**
+ * Swaps in a corrected PDF's metadata and sends the result back to
+ * UPLOADED, clearing every downstream field — confirmed_by/at as well as
+ * published_by/at, not just one of the two, because a replaced file has
+ * been vouched for and possibly released by nobody yet; leaving either
+ * behind would record an approval of bytes that no longer exist.
+ *
+ * `fromStatus` guards the WHERE clause: replace is reachable from three
+ * different states (see canReplace() in domain/file-lifecycle.ts), so the
+ * caller — which already read the current status to choose whether replace
+ * is allowed at all — passes it through rather than this function
+ * re-deriving what counts as "replaceable".
+ *
+ * Deliberately does not touch r2_key: the object is overwritten in place at
+ * the same key (record-service.ts), not moved, so the row never needs to
+ * point somewhere new.
+ */
+export function replace(
+  db: D1Database,
+  input: {
+    fileId: string;
+    fromStatus: string;
+    originalFilename: string;
+    mimeType: string;
+    sizeBytes: number;
+  },
+) {
+  return db
+    .prepare(
+      `UPDATE files
+         SET status = 'UPLOADED',
+             original_filename = ?,
+             mime_type = ?,
+             size_bytes = ?,
+             confirmed_by = NULL,
+             confirmed_at = NULL,
+             published_by = NULL,
+             published_at = NULL
+       WHERE file_id = ?
+         AND status = ?`,
+    )
+    .bind(
+      input.originalFilename,
+      input.mimeType,
+      input.sizeBytes,
+      input.fileId,
+      input.fromStatus,
+    )
+    .run();
+}

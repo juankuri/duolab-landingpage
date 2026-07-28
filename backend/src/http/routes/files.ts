@@ -127,7 +127,12 @@ files.post("/:fileId/publish", requireRole("MANAGER"), async (c) => {
   });
 });
 
-files.post("/:fileId/revoke", requireRole("MANAGER"), async (c) => {
+// Any authenticated employee or manager may revoke — widened from
+// manager-only (DEC-013 named MANAGER a strict superset of EMPLOYEE without
+// this). An employee spotting a mistake in a published result should not
+// have to find a manager to pull it; publish stays the one gated action,
+// since making something visible carries the asymmetric risk, not hiding it.
+files.post("/:fileId/revoke", async (c) => {
   const fileId = fileIdParam(c.req.param("fileId"));
   const body: Record<string, unknown> = await c.req.json().catch(() => ({}));
   const actor = c.get("actor");
