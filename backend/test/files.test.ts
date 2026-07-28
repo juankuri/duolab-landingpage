@@ -118,6 +118,36 @@ describe("POST /records/:recordId/files", () => {
     const stored = await env.RESULTS_BUCKET.list();
     expect(stored.objects).toHaveLength(0);
   });
+
+  it("assigns sequence 1 to the first result on a record", async () => {
+    const { body: record } = await createRecord();
+    const body = await json(await upload(record.recordId, pdfFile()));
+
+    const row = await fileRow(body.fileId);
+    expect(row!.sequence).toBe(1);
+  });
+
+  it("assigns a monotonically increasing sequence per record", async () => {
+    const { body: record } = await createRecord();
+
+    const first = await json(await upload(record.recordId, pdfFile("a.pdf")));
+    const second = await json(await upload(record.recordId, pdfFile("b.pdf")));
+    const third = await json(await upload(record.recordId, pdfFile("c.pdf")));
+
+    expect((await fileRow(first.fileId))!.sequence).toBe(1);
+    expect((await fileRow(second.fileId))!.sequence).toBe(2);
+    expect((await fileRow(third.fileId))!.sequence).toBe(3);
+  });
+
+  it("keeps each record's sequence independent of other records", async () => {
+    const { body: recordA } = await createRecord({ folio: "SEQA-010919-01" });
+    const { body: recordB } = await createRecord({ folio: "SEQB-010919-01" });
+
+    await upload(recordA.recordId, pdfFile());
+    const firstB = await json(await upload(recordB.recordId, pdfFile()));
+
+    expect((await fileRow(firstB.fileId))!.sequence).toBe(1);
+  });
 });
 
 describe("GET /files/:fileId", () => {
@@ -257,6 +287,26 @@ describe("DELETE /records/:recordId/files/:fileId", () => {
     });
     // Still there, in both stores.
     expect(await fileRow(file.fileId)).not.toBeNull();
+  });
+
+  it("does not renumber later results when an earlier draft is deleted", async () => {
+    const { body: record } = await createRecord();
+
+    const first = await json(await upload(record.recordId, pdfFile("a.pdf")));
+    const second = await json(await upload(record.recordId, pdfFile("b.pdf")));
+    const third = await json(await upload(record.recordId, pdfFile("c.pdf")));
+
+    await request(`/records/${record.recordId}/files/${second.fileId}`, {
+      method: "DELETE",
+    });
+
+    // #1 and #3 keep their original numbers — sequence is assigned once and
+    // never recomputed, so "FOLIO · #3" still names the same physical result.
+    expect((await fileRow(first.fileId))!.sequence).toBe(1);
+    expect((await fileRow(third.fileId))!.sequence).toBe(3);
+
+    const fourth = await json(await upload(record.recordId, pdfFile("d.pdf")));
+    expect((await fileRow(fourth.fileId))!.sequence).toBe(4);
   });
 });
 

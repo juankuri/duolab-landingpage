@@ -22,6 +22,7 @@ export type RecordFileRow = {
   revoked_by: string | null;
   revoked_at: string | null;
   revoked_reason: string | null;
+  sequence: number | null;
 };
 
 export type NewFile = {
@@ -34,12 +35,19 @@ export type NewFile = {
   uploadedBy: string;
 };
 
+/**
+ * `sequence` is assigned once, here, from the current max for the record —
+ * never recomputed. Deleting an earlier draft must not shift the numbers of
+ * the results after it, or "FOLIO · #3" would stop naming the same physical
+ * result between one page load and the next (see migration 0007).
+ */
 export function insert(db: D1Database, file: NewFile) {
   return db
     .prepare(
       `INSERT INTO files
-         (file_id, record_id, r2_key, original_filename, mime_type, size_bytes, uploaded_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         (file_id, record_id, r2_key, original_filename, mime_type, size_bytes, uploaded_by, sequence)
+       VALUES (?, ?, ?, ?, ?, ?, ?,
+         (SELECT COALESCE(MAX(sequence), 0) + 1 FROM files WHERE record_id = ?))`,
     )
     .bind(
       file.fileId,
@@ -49,6 +57,7 @@ export function insert(db: D1Database, file: NewFile) {
       file.mimeType,
       file.sizeBytes,
       file.uploadedBy,
+      file.recordId,
     )
     .run();
 }
@@ -70,7 +79,8 @@ export function listForRecord(db: D1Database, recordId: string) {
          published_at,
          revoked_by,
          revoked_at,
-         revoked_reason
+         revoked_reason,
+         sequence
        FROM files
        WHERE record_id = ?
        -- file_id breaks the tie when two uploads share a second, so the

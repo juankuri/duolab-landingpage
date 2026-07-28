@@ -203,6 +203,7 @@ describe("GET /records/:recordId", () => {
       originalFilename: "informe.pdf",
       status: "UPLOADED",
       previewUrl: `/files/${file.fileId}`,
+      sequence: 1,
     });
   });
 

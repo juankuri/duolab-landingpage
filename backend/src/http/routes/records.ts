@@ -158,6 +158,7 @@ async function recordDetailResponse(
         revokedBy: file.revoked_by,
         revokedAt: file.revoked_at,
         revokedReason: file.revoked_reason,
+        sequence: file.sequence,
         // Employee-only. The patient download will be a separate route with
         // its own authorization and a PUBLISHED-only filter; do not widen
         // this one to serve it.

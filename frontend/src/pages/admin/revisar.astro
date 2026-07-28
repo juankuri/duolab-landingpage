@@ -1,0 +1,195 @@
+---
+/**
+ * /admin/revisar?f=FOLIO&r=RESULT_ID — review and confirm one result.
+ *
+ * Reached only from "+ Añadir resultado" on /admin/folio, right after an
+ * upload. One screen, one action: look at the PDF, click "Confirmar
+ * resultado" once. There is no second dialog asking to confirm the
+ * confirmation — that pattern (described in early handoff notes as a
+ * `#confirm-ask` modal) turned out on inspection to already be a single
+ * click in the legacy /admin page too; this page keeps it that way rather
+ * than reading back in a step nothing here ever had.
+ *
+ * f/r are query params, not path segments, for the same static-build reason
+ * as /admin/folio: no SSR adapter, so no getStaticPaths over ids that don't
+ * exist yet.
+ */
+import AdminLayout from "../../components/admin/AdminLayout.astro";
+---
+
+<AdminLayout title="Revisar resultado" search={false}>
+  <nav class="crumb" aria-label="Ubicación">
+    <a href="/admin">Inicio</a>
+    <span aria-hidden="true">›</span>
+    <a href="/admin/folio" id="crumb-folio">Folio</a>
+    <span aria-hidden="true">›</span>
+    <b>Revisar</b>
+  </nav>
+
+  <section class="card" id="patient" hidden aria-labelledby="patient-name">
+    <span class="pavatar" id="patient-initials" aria-hidden="true"></span>
+    <div class="card__body">
+      <h1 class="card__title" id="patient-name"></h1>
+      <p class="card__meta" id="patient-meta"></p>
+    </div>
+    <dl class="card__folio">
+      <dt>Folio</dt>
+      <dd id="folio-value"></dd>
+    </dl>
+  </section>
+
+  <div class="row row--between" id="result-head" hidden>
+    <p class="frow__name" id="result-name"></p>
+  </div>
+  <p class="frow__meta" id="result-meta" hidden></p>
+
+  <iframe class="preview" id="preview" title="Vista previa del PDF" hidden></iframe>
+
+  <div class="actions" id="confirm-actions" hidden>
+    <button class="btn" id="confirm-btn" type="button">Confirmar resultado</button>
+  </div>
+
+  <div class="empty" id="confirmed" hidden>
+    <p class="empty__title">Resultado confirmado</p>
+    <p class="empty__sub">Volviendo al folio…</p>
+  </div>
+
+  <div class="empty" id="empty" hidden>
+    <p class="empty__title" id="empty-title">No encontramos el resultado</p>
+    <p class="empty__sub" id="empty-sub">
+      Ábrelo de nuevo desde el folio.
+    </p>
+  </div>
+
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+
+  <script>
+    import { API_BASE, apiJson, withRef } from "../../scripts/admin/api.js";
+    import {
+      formatMoment,
+      formatSize,
+      initials,
+      resultName,
+    } from "../../scripts/admin/render.js";
+
+    const $ = (id) => document.getElementById(id);
+    const setStatus = (message, tone) => {
+      const el = $("status");
+      el.textContent = message || "";
+      if (tone) el.dataset.tone = tone;
+      else delete el.dataset.tone;
+    };
+
+    const showEmpty = (title, sub) => {
+      $("patient").hidden = true;
+      $("result-head").hidden = true;
+      $("result-meta").hidden = true;
+      $("preview").hidden = true;
+      $("confirm-actions").hidden = true;
+      $("empty-title").textContent = title;
+      $("empty-sub").textContent = sub;
+      $("empty").hidden = false;
+    };
+
+    const init = async () => {
+      const params = new URL(location.href).searchParams;
+      const folio = (params.get("f") || "").trim().toUpperCase();
+      const resultId = params.get("r") || "";
+
+      if (!folio || !resultId) {
+        showEmpty("Falta el folio o el resultado", "Ábrelo de nuevo desde el folio.");
+        return;
+      }
+
+      $("crumb-folio").href = `/admin/folio?f=${encodeURIComponent(folio)}`;
+
+      setStatus("Cargando…");
+      const { ok, status, payload } = await apiJson(
+        `/records/by-folio/${encodeURIComponent(folio)}`,
+      );
+
+      if (status === 404 || (ok && !payload.record)) {
+        showEmpty(`No encontramos el folio ${folio}`, "Ábrelo de nuevo desde el inicio.");
+        setStatus("");
+        return;
+      }
+
+      if (!ok) {
+        setStatus(withRef(payload, "No se pudo abrir el folio."), "error");
+        return;
+      }
+
+      const record = payload.record;
+      const sorted = [...record.files].sort((a, b) =>
+        a.uploadedAt < b.uploadedAt ? -1 : 1,
+      );
+      const index = sorted.findIndex((f) => f.fileId === resultId);
+      const result = sorted[index];
+
+      if (!result) {
+        showEmpty("No encontramos ese resultado", "Ábrelo de nuevo desde el folio.");
+        setStatus("");
+        return;
+      }
+
+      $("patient").hidden = false;
+      $("patient-initials").textContent = initials(record.patient.fullName);
+      $("patient-name").textContent = record.patient.fullName;
+      $("patient-meta").textContent = `${record.patient.birthDate} · ${record.patient.phoneNumber}`;
+      $("folio-value").textContent = record.folio;
+      document.title = `Revisar · ${record.folio} · DúoLab`;
+
+      $("result-head").hidden = false;
+      $("result-name").textContent = resultName(record.folio, result, index);
+      $("result-meta").hidden = false;
+      $("result-meta").textContent = [
+        result.originalFilename,
+        formatMoment(result.uploadedAt),
+        formatSize(result.sizeBytes),
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
+      const preview = $("preview");
+      preview.src = `${API_BASE}/files/${result.fileId}`;
+      preview.hidden = false;
+
+      if (result.status !== "UPLOADED") {
+        setStatus(
+          result.status === "CONFIRMED"
+            ? "Este resultado ya está confirmado."
+            : "Este resultado ya no está pendiente de confirmar.",
+        );
+        return;
+      }
+
+      $("confirm-actions").hidden = false;
+      setStatus("");
+
+      $("confirm-btn").addEventListener("click", async () => {
+        $("confirm-btn").disabled = true;
+        setStatus("Confirmando…");
+
+        const response = await apiJson(`/files/${result.fileId}/confirm`, {
+          method: "POST",
+        });
+
+        if (!response.ok) {
+          setStatus(withRef(response.payload, "No se pudo confirmar."), "error");
+          $("confirm-btn").disabled = false;
+          return;
+        }
+
+        $("confirm-actions").hidden = true;
+        $("confirmed").hidden = false;
+        setStatus("");
+
+        setTimeout(() => {
+          location.href = `/admin/folio?f=${encodeURIComponent(record.folio)}`;
+        }, 900);
+      });
+    };
+
+    init();
+  </script>
+</AdminLayout>
