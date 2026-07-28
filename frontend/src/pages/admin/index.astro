@@ -19,7 +19,7 @@
 import AdminLayout from "../../components/admin/AdminLayout.astro";
 ---
 
-<AdminLayout title="Inicio" search={true}>
+<AdminLayout title="Inicio">
   <section class="hero">
     <h1 class="hero__h">Buscar un folio o un paciente</h1>
     <form class="row" id="hero-search" role="search">
@@ -28,6 +28,7 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
         id="hero-q"
         name="q"
         type="search"
+        data-admin-search
         autocomplete="off"
         placeholder="Folio · nombre · teléfono…"
         style="flex: 1; min-width: 240px;"

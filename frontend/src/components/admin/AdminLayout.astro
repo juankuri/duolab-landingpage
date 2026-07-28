@@ -14,13 +14,9 @@
 interface Props {
   /** Browser tab title, without the brand suffix. */
   title: string;
-  /** Shows the unified search box in the top bar. Off on screens that are themselves a search. */
-  search?: boolean;
-  /** Prefills the search box, so a result screen still shows what was asked. */
-  query?: string;
 }
 
-const { title, search = true, query = "" } = Astro.props;
+const { title } = Astro.props;
 
 import "../../styles/clients/duolab.css";
 import "../../styles/admin.css";
@@ -42,32 +38,14 @@ import "../../styles/admin.css";
         <span class="topbar__name">dúolab</span>
       </a>
 
-      {
-        /*
-         * One box, three criteria: folio, patient name, phone — GET /search
-         * matches on all three. Present on every /admin/* screen except the
-         * two where it would be redundant: /admin/buscar IS the search, and
-         * /admin/revisar is a focused, single-result context.
-         */
-        search && (
-          <form class="topbar__search" action="/admin/buscar" method="get" role="search">
-            <label class="vh" for="f">
-              Buscar folio, nombre o teléfono
-            </label>
-            <span class="search__icon" aria-hidden="true">
-              ⌕
-            </span>
-            <input
-              id="f"
-              name="q"
-              type="search"
-              value={query}
-              autocomplete="off"
-              placeholder="Folio · nombre · teléfono…"
-            />
-          </form>
-        )
-      }
+      <!--
+        No search box here on purpose. Searching happens in exactly two
+        places — the home screen's own centred box and /admin/buscar — and a
+        third copy in the bar was a prototype leftover that duplicated the
+        home screen's box on the one page where both were visible at once.
+        The "/" shortcut below keeps the keyboard route to search from every
+        screen, without the chrome.
+      -->
 
       <!-- Filled from GET /me. Server-side role enforcement is the real gate;
            this only decides what is worth offering. -->
@@ -80,9 +58,16 @@ import "../../styles/admin.css";
 
     <script>
       /**
-       * "/" focuses the search box from anywhere on the page, unless the
-       * employee is already typing in a field — a bare "/" landing in a
-       * folio or a patient's name would be actively wrong, not just unhelpful.
+       * "/" reaches search from any admin screen.
+       *
+       * On the two screens that own a search box — the home screen and
+       * /admin/buscar, both marked with data-admin-search — it focuses that
+       * box. Everywhere else there is no box to focus (the top bar
+       * deliberately has none), so it navigates to /admin/buscar instead.
+       * Either way the keystroke means the same thing to the employee.
+       *
+       * Suppressed while typing: a bare "/" landing in a folio or a
+       * patient's name would be actively wrong, not just unhelpful.
        */
       document.addEventListener("keydown", (event) => {
         if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -96,12 +81,17 @@ import "../../styles/admin.css";
 
         if (typing) return;
 
-        const search = document.getElementById("f") as HTMLInputElement | null;
-        if (!search) return;
-
         event.preventDefault();
-        search.focus();
-        search.select();
+
+        const search = document.querySelector<HTMLInputElement>("[data-admin-search]");
+
+        if (search) {
+          search.focus();
+          search.select();
+          return;
+        }
+
+        location.href = "/admin/buscar";
       });
     </script>
   </body>

@@ -21,7 +21,7 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
 import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
 ---
 
-<AdminLayout title="Folio" search={true}>
+<AdminLayout title="Folio">
   <nav class="crumb" aria-label="Ubicación">
     <a href="/admin">Inicio</a>
     <span aria-hidden="true">›</span>
@@ -613,11 +613,9 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
       const folio = new URL(location.href).searchParams.get("f");
 
       if (!folio) {
-        showEmpty("Busca un folio", "Escribe el folio en la barra de arriba para abrirlo.");
+        showEmpty("Busca un folio", "Abre un folio desde el inicio o desde una búsqueda.");
         return;
       }
-
-      document.getElementById("f").value = folio;
       setStatus("Abriendo el folio…");
       await load(folio.trim().toUpperCase());
     };

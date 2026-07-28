@@ -14,13 +14,14 @@
 import AdminLayout from "../../components/admin/AdminLayout.astro";
 ---
 
-<AdminLayout title="Buscar" search={false}>
+<AdminLayout title="Buscar">
   <form class="row" id="search-form" role="search" style="margin-bottom: 16px;">
     <label class="vh" for="q">Buscar folio, nombre o teléfono</label>
     <input
       id="q"
       name="q"
       type="search"
+      data-admin-search
       autocomplete="off"
       placeholder="Folio · nombre · teléfono…"
       style="flex: 1; min-width: 240px;"

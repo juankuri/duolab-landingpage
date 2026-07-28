@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
+    "dev:setup": "wrangler d1 migrations apply duolab --local",
+    "dev:seed": "node scripts/seed.mjs",
     "deploy": "wrangler deploy",
     "check": "tsc --noEmit",
     "test": "vitest run",

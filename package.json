@@ -1,0 +1,17 @@
+{
+  "name": "duolab-workspace",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev:setup": "pnpm --filter @duolab/backend dev:setup",
+    "dev:seed": "pnpm --filter @duolab/backend dev:seed",
+    "check": "pnpm --filter @duolab/backend check",
+    "test": "pnpm --filter @duolab/backend test && pnpm --filter duolab test",
+    "test:coverage": "pnpm --filter @duolab/backend test:coverage && pnpm --filter duolab test:coverage",
+    "build": "PUBLIC_API_BASE= pnpm --filter duolab build",
+    "deploy": "pnpm run build && pnpm --filter @duolab/backend deploy"
+  }
+}

@@ -6,9 +6,17 @@
  * from PUBLIC_API_BASE, which Astro inlines at build time — note this only works in
  * a bundled <script>, never in <script is:inline>, where import.meta.env is left
  * untouched and would reach the browser as literal source.
+ *
+ * An EMPTY value is meaningful and must survive: in production the Worker serves
+ * both the built frontend and the API, so every path is same-origin and the
+ * correct base is "" (relative URLs). `??` rather than `||` for exactly that —
+ * `||` treats "" as unset and would fall back to localhost, producing a
+ * production bundle that calls http://localhost:8787 and fails everywhere. Only
+ * a genuinely undefined value falls back, which is the two-server dev setup
+ * (Astro on :4321, wrangler on :8787) running without an .env file.
  */
 export const API_BASE =
-  import.meta.env.PUBLIC_API_BASE || "http://localhost:8787";
+  import.meta.env.PUBLIC_API_BASE ?? "http://localhost:8787";
 
 /**
  * Failures carry the request id that the server logged. Showing it means a report
