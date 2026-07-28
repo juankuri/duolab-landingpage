@@ -24,6 +24,7 @@
 - Employee can confirm, withdraw a confirmation, and replace a file's PDF from any of UPLOADED/CONFIRMED/PUBLISHED. ✅ (DEC-018)
 - Manager can publish a record. ✅
 - Employee or manager can revoke a published record — no longer manager-only. ✅ (DEC-018)
+- Manager has a mobile-first surface of their own (`/admin/manager`) — a three-tab queue (por publicar/publicados/revocados), a PDF viewer that never leaves the page, and a batch "ver siguiente" rhythm. ✅ (DEC-021, DEC-022)
 - Internal users see each result's own status and a folio's derived tally, not a single folio-level status. ✅
 - The manager queue (`?status=CONFIRMED`) includes a folio whose latest result is a fresh draft but which still has an older confirmed result waiting — previously excluded by mistake. ✅ — regression test in `backend/test/records.test.ts`.
 - Keyboard: `/` focuses search from anywhere; the result menu supports arrow-key navigation; Esc returns focus to what opened it. ✅
@@ -54,3 +55,7 @@
 - Sweep old `public_lookup_attempts` rows. Not a correctness issue (each row is scoped to its own window and inert once past), just accumulation — add a cleanup path if the table's size becomes a real cost, not before.
 - Close the coverage gap on `backend/src/data/users.repo.ts` (0% today, see DEC-019) and raise `src/data/**`'s branch threshold accordingly.
 - CI (GitHub Actions or equivalent) running `check` + `test` + `test:coverage` + `build` on every push — deliberately not set up alongside the coverage/QA policy in this pass; the policy is enforced by convention (`docs/06-quality.md`) until it's enforced by a pipeline.
+- `Range`/`Accept-Ranges` support on `GET /files/:fileId` — not needed today since the manager viewer fetches the whole file as one `ArrayBuffer` (DEC-022), but would let pdf.js load progressively if result PDFs ever grow well past a few pages.
+- Cursor pagination on `GET /records` — `limit` is a hard ceiling (max 100, chunked at 50 for `?include=files`'s D1 binding limit), not a real page; fine while a folio list or a manager tab stays in the low tens, worth revisiting if either grows past that.
+- `admin.css`'s orphan `.actions`/`.btn--ghost` classes (used in `revisar.astro`/`folio.astro`'s markup, no matching rule) — cosmetic gap noticed while auditing the stylesheet for the manager work, not introduced by it.
+- pdf.js standard fonts/CMaps, deliberately left disabled (DEC-022) — add if a real lab result PDF ever renders with missing glyphs.
