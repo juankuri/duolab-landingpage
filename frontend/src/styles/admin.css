@@ -1,0 +1,590 @@
+/*
+ * Internal admin surfaces.
+ *
+ * Global rather than scoped on purpose: most of what these screens show is built
+ * at runtime with document.createElement from the API response, and Astro's
+ * scoped styles never reach nodes the compiler did not see. The alternative —
+ * :global() escapes around every runtime class — is what the old single admin
+ * page did, and it made the styles harder to read than a plain global sheet for
+ * one clearly bounded surface.
+ *
+ * Values come from styles/tokens.css. Where these diverge from
+ * branding/guidelines.md it is deliberate and noted: those rules describe the
+ * public landing, where a pill CTA repeated identically is the point. A dense
+ * internal tool that an employee uses all day wants compact controls and visible
+ * field boundaries, so buttons here are radius-md rectangles and panels carry a
+ * hairline border.
+ */
+
+/* ---------- shell ---------- */
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  background: var(--color-surface-muted);
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/*
+ * The browser's UA stylesheet sets [hidden] { display: none }, but an
+ * attribute selector and a class selector are equally specific — so any rule
+ * below that gives an element its own `display` (`.card`, `.results-head`,
+ * `.row`, all flex or grid) wins on source order and the "hidden" panel still
+ * renders empty. Every screen in this module toggles panels with the hidden
+ * attribute, so this has to win instead.
+ */
+[hidden] {
+  display: none !important;
+}
+
+.topbar {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  padding: 10px var(--space-md);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.topbar__brand {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: var(--font-weight-heading);
+  color: inherit;
+  text-decoration: none;
+}
+
+.topbar__name {
+  font-size: var(--font-size-body);
+}
+
+.topbar__search {
+  position: relative;
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  align-items: center;
+  max-width: 520px;
+  padding: 8px 12px;
+  background: var(--color-surface-muted);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.topbar__search:focus-within {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+}
+
+.topbar__search input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+.search__icon {
+  color: var(--color-primary);
+}
+
+.search__scope {
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-sm);
+}
+
+.topbar__who {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 0 auto;
+  font-size: var(--font-size-label);
+  color: var(--text-secondary);
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+  font-weight: var(--font-weight-heading);
+  color: var(--color-primary-dark);
+  background: var(--color-surface-soft);
+  border-radius: 50%;
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-width: 900px;
+  padding: var(--space-md);
+  margin: 0 auto;
+}
+
+/* ---------- text ---------- */
+
+.crumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  font-size: var(--font-size-label);
+  color: var(--text-secondary);
+}
+
+.crumb a {
+  color: inherit;
+}
+
+.crumb b {
+  color: var(--text-primary);
+}
+
+.sect {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  font-size: 11px;
+  font-weight: var(--font-weight-heading);
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tiny {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.status {
+  margin: 0;
+  font-size: var(--font-size-label);
+  color: var(--text-secondary);
+}
+
+.status[data-tone="error"] {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-danger);
+}
+
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- panels ---------- */
+
+.card {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.card__title {
+  margin: 0;
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-title);
+}
+
+.card__meta {
+  margin: 2px 0 0;
+  font-size: var(--font-size-label);
+  color: var(--text-secondary);
+}
+
+.card__folio {
+  text-align: right;
+}
+
+.card__folio dt {
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.card__folio dd {
+  margin: 2px 0 0;
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-heading);
+}
+
+.pavatar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-size: 15px;
+  font-weight: var(--font-weight-heading);
+  color: var(--color-primary-dark);
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-md);
+}
+
+/* ---------- result rows ---------- */
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.frow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-neutral-border);
+  border-radius: var(--radius-md);
+}
+
+/* The left edge repeats the status the badge already states. Redundant on
+   purpose: it is what makes a folio's mix of states legible at a glance
+   without reading four badges. */
+.frow[data-state="UPLOADED"] { border-left-color: var(--color-neutral); }
+.frow[data-state="CONFIRMED"] { border-left-color: var(--color-warning); }
+.frow[data-state="PUBLISHED"] { border-left-color: var(--color-success); }
+.frow[data-state="REVOKED"] { border-left-color: var(--color-danger); }
+
+.frow__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.frow__name {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frow__meta {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.pdfic {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 40px;
+  font-size: 9px;
+  font-weight: var(--font-weight-heading);
+  color: var(--color-danger);
+  background: var(--color-danger-surface);
+  border: 1px solid var(--color-danger-border);
+  border-radius: 6px;
+}
+
+/* ---------- status badge and tally ---------- */
+
+.badge,
+.tchip {
+  display: inline-flex;
+  flex: none;
+  gap: 5px;
+  align-items: center;
+  font-size: 11px;
+  font-weight: var(--font-weight-title);
+  border: 1px solid transparent;
+}
+
+.badge {
+  padding: 4px 9px;
+  border-radius: 7px;
+}
+
+.tchip {
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+}
+
+.badge__glyph,
+.tchip__glyph {
+  font-size: 10px;
+}
+
+.badge--draft,
+.tchip--draft {
+  color: var(--color-neutral);
+  background: var(--color-neutral-surface);
+  border-color: var(--color-neutral-border);
+}
+
+.badge--confirmed,
+.tchip--confirmed {
+  color: var(--color-warning);
+  background: var(--color-warning-surface);
+  border-color: var(--color-warning-border);
+}
+
+.badge--published,
+.tchip--published {
+  color: var(--color-success);
+  background: var(--color-success-surface);
+  border-color: var(--color-success-border);
+}
+
+.badge--revoked,
+.tchip--revoked {
+  color: var(--color-danger);
+  background: var(--color-danger-surface);
+  border-color: var(--color-danger-border);
+}
+
+.tally {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.tchip--total {
+  color: var(--text-on-primary);
+  background: var(--color-primary-dark);
+}
+
+/* ---------- controls ---------- */
+
+.btn {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  font: inherit;
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-title);
+  color: var(--text-on-primary);
+  white-space: nowrap;
+  cursor: pointer;
+  background: var(--color-primary);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-md);
+}
+
+.btn:hover {
+  background: var(--color-primary-dark);
+}
+
+.btn--secondary {
+  color: var(--text-primary);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.btn--secondary:hover {
+  background: var(--color-surface-muted);
+}
+
+.btn--danger {
+  color: var(--text-on-primary);
+  background: var(--color-danger);
+}
+
+.btn--danger:hover {
+  background: var(--color-danger-hover);
+}
+
+.btn--sm {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.btn[disabled] {
+  color: var(--text-secondary);
+  cursor: default;
+  background: var(--color-neutral-surface);
+  border-color: var(--color-neutral-border);
+}
+
+.iconbtn {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.iconbtn:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ---------- per-result menu ---------- */
+
+.menu {
+  position: relative;
+  flex: none;
+}
+
+.menu__list {
+  position: absolute;
+  right: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 210px;
+  padding: 6px;
+  margin: 4px 0 0;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 30px rgb(20 33 41 / 16%);
+}
+
+.menu__list[hidden] {
+  display: none;
+}
+
+.menu__item {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: var(--font-size-label);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.menu__item:hover {
+  background: var(--color-surface-soft);
+}
+
+.menu__item--danger {
+  color: var(--color-danger);
+}
+
+.menu__sep {
+  height: 1px;
+  margin: 3px 0;
+  background: var(--color-border);
+}
+
+/* ---------- states ---------- */
+
+.empty {
+  padding: var(--space-lg) var(--space-md);
+  text-align: center;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.empty__title {
+  margin: 0;
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-title);
+}
+
+.empty__sub {
+  margin: 6px 0 0;
+  font-size: var(--font-size-label);
+  color: var(--text-secondary);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.row--between {
+  justify-content: space-between;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
+  .topbar__search {
+    order: 3;
+    max-width: none;
+  }
+
+  .card {
+    flex-wrap: wrap;
+  }
+
+  .card__folio {
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

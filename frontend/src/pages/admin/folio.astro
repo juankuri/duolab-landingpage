@@ -1,0 +1,389 @@
+---
+/**
+ * /admin/folio?f=A-1024 — folio detail.
+ *
+ * The central screen of the employee module, and the one that makes the domain
+ * model visible: a folio holds one or more RESULTS, and the status belongs to
+ * each result, not to the folio. Three results can sit in three different states
+ * at once. The folio itself shows only a derived summary.
+ *
+ * The old single-record view read record.files[0] and showed one status, which
+ * was correct only for a folio that happened to have exactly one result. The API
+ * has always returned every result with its own status; this screen is what
+ * finally reads them.
+ *
+ * The folio travels in a query parameter rather than the path because the build
+ * is static: /admin/folio/[folio] would need getStaticPaths over folios that do
+ * not exist yet, which means an SSR adapter — a much larger change than a
+ * prettier URL is worth right now.
+ */
+import AdminLayout from "../../components/admin/AdminLayout.astro";
+---
+
+<AdminLayout title="Folio" search={true}>
+  <nav class="crumb" aria-label="Ubicación">
+    <a href="/admin">Inicio</a>
+    <span aria-hidden="true">›</span>
+    <b id="crumb-folio">Folio</b>
+  </nav>
+
+  <!-- Patient stays pinned above the results: every decision on this screen is
+       about a person, and having to scroll to check who is the mistake that
+       matters most here. -->
+  <section class="card" id="patient" hidden aria-labelledby="patient-name">
+    <span class="pavatar" id="patient-initials" aria-hidden="true"></span>
+    <div class="card__body">
+      <h1 class="card__title" id="patient-name"></h1>
+      <p class="card__meta" id="patient-meta"></p>
+    </div>
+    <dl class="card__folio">
+      <dt>Folio</dt>
+      <dd id="folio-value"></dd>
+    </dl>
+  </section>
+
+  <div class="row row--between" id="results-head" hidden>
+    <h2 class="sect">
+      Resultados del folio
+      <span class="tally" id="tally"></span>
+    </h2>
+  </div>
+
+  <ul class="results" id="results"></ul>
+
+  <p class="tiny" id="model-note" hidden>
+    Cada resultado tiene su propio estado y avanza por separado. El folio sólo
+    resume.
+  </p>
+
+  <div class="empty" id="empty" hidden>
+    <p class="empty__title" id="empty-title">Busca un folio</p>
+    <p class="empty__sub" id="empty-sub">
+      Escribe el folio en la barra de arriba para abrirlo.
+    </p>
+  </div>
+
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+
+  <script>
+    import { API_BASE, apiJson, withRef } from "../../scripts/admin/api.js";
+    import { actionsFor } from "../../scripts/admin/status.js";
+    import {
+      formatMoment,
+      formatSize,
+      initials,
+      resultName,
+      statusBadge,
+      tallyNode,
+      tallyOf,
+    } from "../../scripts/admin/render.js";
+
+    const $ = (id) => document.getElementById(id);
+
+    /** The folio currently open, and the payload it was rendered from. */
+    let current = null;
+    let actorRole = "EMPLOYEE";
+
+    const setStatus = (message, tone) => {
+      const el = $("status");
+      el.textContent = message || "";
+      if (tone) el.dataset.tone = tone;
+      else delete el.dataset.tone;
+    };
+
+    const showEmpty = (title, sub) => {
+      $("patient").hidden = true;
+      $("results-head").hidden = true;
+      $("model-note").hidden = true;
+      $("results").replaceChildren();
+      $("empty-title").textContent = title;
+      $("empty-sub").textContent = sub;
+      $("empty").hidden = false;
+    };
+
+    /* ---------- per-result actions ---------- */
+
+    /**
+     * Every mutating action funnels through here so the row cannot be clicked
+     * twice, the failure message is built the same way each time, and the screen
+     * always re-reads the folio afterwards rather than patching its own idea of
+     * the state — which is how a list of four results drifts out of sync.
+     */
+    const act = async (button, request, pending, done) => {
+      button.disabled = true;
+      setStatus(pending);
+
+      try {
+        const { ok, payload } = await request();
+        if (!ok) throw new Error(withRef(payload, "No se pudo completar la acción."));
+
+        setStatus(done);
+        await load(current.folio);
+      } catch (error) {
+        setStatus(error.message, "error");
+        button.disabled = false;
+      }
+    };
+
+    const post = (path) => () => apiJson(path, { method: "POST" });
+
+    /**
+     * Which actions a result offers comes from the status vocabulary; whether the
+     * actor may take them is a separate check, deliberately kept visible here
+     * rather than folded into that table. Hiding publish from an employee is a UI
+     * courtesy — the server refuses it regardless (requireRole("MANAGER")).
+     */
+    const permitted = (action) =>
+      action === "publish" || action === "revoke" ? actorRole === "MANAGER" : true;
+
+    const ACTION_LABELS = {
+      preview: "Ver PDF",
+      download: "Descargar",
+      confirm: "Confirmar resultado",
+      withdraw: "Retirar confirmación",
+      publish: "Publicar resultado",
+      revoke: "Revocar resultado…",
+      replace: "Reemplazar archivo…",
+    };
+
+    const runAction = (action, result, button) => {
+      const url = `${API_BASE}/files/${result.fileId}`;
+
+      switch (action) {
+        case "preview":
+        case "download":
+          window.open(url, "_blank", "noopener");
+          return;
+        case "confirm":
+          return act(
+            button,
+            post(`/files/${result.fileId}/confirm`),
+            "Confirmando…",
+            "Resultado confirmado.",
+          );
+        case "withdraw":
+          return act(
+            button,
+            post(`/files/${result.fileId}/withdraw`),
+            "Retirando la confirmación…",
+            "Confirmación retirada.",
+          );
+        case "publish":
+          return act(
+            button,
+            post(`/files/${result.fileId}/publish`),
+            "Publicando…",
+            "Resultado publicado.",
+          );
+        case "revoke":
+          return act(
+            button,
+            post(`/files/${result.fileId}/revoke`),
+            "Revocando…",
+            "Resultado revocado.",
+          );
+        default:
+          return undefined;
+      }
+    };
+
+    /** One open menu at a time, and Esc closes it. */
+    const closeMenus = () => {
+      for (const list of document.querySelectorAll(".menu__list")) {
+        list.hidden = true;
+        list.previousElementSibling.setAttribute("aria-expanded", "false");
+      }
+    };
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".menu")) closeMenus();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeMenus();
+    });
+
+    /* ---------- rendering ---------- */
+
+    const resultMenu = (result, actions) => {
+      const menu = document.createElement("div");
+      menu.className = "menu";
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "iconbtn";
+      toggle.setAttribute("aria-haspopup", "menu");
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.setAttribute("aria-label", `Más acciones para ${result.name}`);
+      toggle.textContent = "⋯";
+
+      const list = document.createElement("ul");
+      list.className = "menu__list";
+      list.hidden = true;
+      list.setAttribute("role", "menu");
+
+      for (const action of actions) {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.setAttribute("role", "menuitem");
+        button.className =
+          action === "revoke" || action === "replace"
+            ? "menu__item menu__item--danger"
+            : "menu__item";
+        button.textContent = ACTION_LABELS[action];
+        button.addEventListener("click", () => {
+          closeMenus();
+          runAction(action, result, button);
+        });
+        item.append(button);
+        list.append(item);
+      }
+
+      toggle.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const open = list.hidden;
+        closeMenus();
+        list.hidden = !open;
+        toggle.setAttribute("aria-expanded", String(open));
+        if (open) list.querySelector("button")?.focus();
+      });
+
+      menu.append(toggle, list);
+      return menu;
+    };
+
+    const resultRow = (result) => {
+      const row = document.createElement("li");
+      row.className = "frow";
+      row.dataset.state = result.status;
+
+      const icon = document.createElement("span");
+      icon.className = "pdfic";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = "PDF";
+
+      const body = document.createElement("div");
+      body.className = "frow__body";
+
+      const name = document.createElement("p");
+      name.className = "frow__name";
+      name.textContent = result.name;
+
+      const meta = document.createElement("p");
+      meta.className = "frow__meta";
+      meta.textContent = [
+        result.originalFilename,
+        formatMoment(result.uploadedAt),
+        formatSize(result.sizeBytes),
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
+      body.append(name, meta);
+
+      const actions = actionsFor(result.status).filter(permitted);
+      row.append(icon, body, statusBadge(result.status));
+
+      /*
+       * A draft's next step is promoted out of the menu. It is the one action an
+       * employee takes over and over, and burying the common case behind ⋯ while
+       * the rare ones sit at the same depth is what makes a tool feel slow.
+       */
+      if (actions.includes("confirm")) {
+        const confirm = document.createElement("button");
+        confirm.type = "button";
+        confirm.className = "btn btn--secondary btn--sm";
+        confirm.textContent = "Revisar y confirmar";
+        confirm.addEventListener("click", () => runAction("confirm", result, confirm));
+        row.append(confirm);
+      }
+
+      const rest = actions.filter((action) => action !== "confirm");
+      if (rest.length) row.append(resultMenu(result, rest));
+
+      return row;
+    };
+
+    const render = (record) => {
+      current = record;
+
+      $("empty").hidden = true;
+      $("patient").hidden = false;
+      $("results-head").hidden = false;
+
+      $("crumb-folio").textContent = `Folio ${record.folio}`;
+      $("folio-value").textContent = record.folio;
+      $("patient-initials").textContent = initials(record.patient.fullName);
+      $("patient-name").textContent = record.patient.fullName;
+      $("patient-meta").textContent = `${record.patient.birthDate} · ${record.patient.phoneNumber}`;
+      document.title = `Folio ${record.folio} · DúoLab`;
+
+      // Oldest first: #1 is the first result of the folio and stays #1 as the
+      // folio grows. The API orders newest first for the old single-result view.
+      const results = [...record.files]
+        .sort((a, b) => (a.uploadedAt < b.uploadedAt ? -1 : 1))
+        .map((file, index) => ({ ...file, name: resultName(record.folio, file, index) }));
+
+      $("tally").replaceChildren(tallyNode(tallyOf(results)));
+      $("results").replaceChildren(...results.map(resultRow));
+      $("model-note").hidden = results.length === 0;
+
+      if (results.length === 0) {
+        setStatus("Este folio todavía no tiene resultados.");
+      }
+    };
+
+    /* ---------- loading ---------- */
+
+    const load = async (folio) => {
+      const { ok, status, payload } = await apiJson(
+        `/records/by-folio/${encodeURIComponent(folio)}`,
+      );
+
+      if (status === 404) {
+        showEmpty(
+          `No encontramos el folio ${folio}`,
+          "Revisa el folio o créalo desde el inicio.",
+        );
+        setStatus("");
+        return;
+      }
+
+      if (!ok) {
+        setStatus(withRef(payload, "No se pudo abrir el folio."), "error");
+        return;
+      }
+
+      render(payload.record);
+      setStatus("");
+    };
+
+    const init = async () => {
+      // Role decides what is worth offering, never what is allowed. A failed
+      // lookup falls back to EMPLOYEE: the server is the gate either way.
+      try {
+        const { ok, payload } = await apiJson("/me");
+        if (ok && payload.role) actorRole = payload.role;
+      } catch {}
+
+      const name = document.getElementById("who-name");
+      const avatar = document.getElementById("who-initials");
+      if (name) name.textContent = actorRole === "MANAGER" ? "Gerencia" : "Recepción";
+      if (avatar) avatar.textContent = actorRole === "MANAGER" ? "GE" : "RE";
+
+      const folio = new URL(location.href).searchParams.get("f");
+
+      if (!folio) {
+        showEmpty("Busca un folio", "Escribe el folio en la barra de arriba para abrirlo.");
+        return;
+      }
+
+      document.getElementById("f").value = folio;
+      setStatus("Abriendo el folio…");
+      await load(folio.trim().toUpperCase());
+    };
+
+    init();
+  </script>
+</AdminLayout>

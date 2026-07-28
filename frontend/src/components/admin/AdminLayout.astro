@@ -1,0 +1,81 @@
+---
+/**
+ * Shell for every internal admin screen.
+ *
+ * Deliberately NOT layouts/Layout.astro: that one is landing-specific (requires
+ * seo/business props and emits canonical, Open Graph and MedicalBusiness JSON-LD).
+ * An internal tool needs none of it and must not be indexed.
+ *
+ * Everything static lives here; everything data-driven is built at runtime from
+ * scripts/admin/render.js. Splitting on "is it known at build time" rather than
+ * on "is it a component" keeps one implementation of each shape — a patient card
+ * rendered by Astro on one screen and by JS on another would be two.
+ */
+interface Props {
+  /** Browser tab title, without the brand suffix. */
+  title: string;
+  /** Shows the unified search box in the top bar. Off on screens that are themselves a search. */
+  search?: boolean;
+  /** Prefills the search box, so a result screen still shows what was asked. */
+  query?: string;
+}
+
+const { title, search = true, query = "" } = Astro.props;
+
+import "../../styles/clients/duolab.css";
+import "../../styles/admin.css";
+---
+
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} · DúoLab</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="topbar__brand" href="/admin">
+        <img src="/logo/logo-mark.svg" alt="" width="26" height="26" />
+        <span class="topbar__name">dúolab</span>
+      </a>
+
+      {
+        /*
+         * Folio-only for now, which is all the API can match on. It becomes the
+         * unified folio/name/phone search once GET /search exists; the box keeps
+         * its place in the bar so the change is a swap of action and field name,
+         * not a new piece of chrome appearing.
+         */
+        search && (
+          <form class="topbar__search" action="/admin/folio" method="get" role="search">
+            <label class="vh" for="f">
+              Buscar folio
+            </label>
+            <span class="search__icon" aria-hidden="true">
+              ⌕
+            </span>
+            <input
+              id="f"
+              name="f"
+              type="search"
+              value={query}
+              autocomplete="off"
+              placeholder="Buscar folio…"
+            />
+          </form>
+        )
+      }
+
+      <!-- Filled from GET /me. Server-side role enforcement is the real gate;
+           this only decides what is worth offering. -->
+      <p class="topbar__who"><span id="who-name">…</span><span class="avatar" id="who-initials"></span></p>
+    </header>
+
+    <main class="screen">
+      <slot />
+    </main>
+  </body>
+</html>
