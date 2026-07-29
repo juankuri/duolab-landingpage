@@ -6,6 +6,7 @@ import {
   type FileStatus,
   canTransition,
 } from "../src/domain/file-lifecycle";
+import { listPublished } from "../src/data/files.repo";
 import {
   createRecord,
   createRecordWithFile,
@@ -133,35 +134,73 @@ describe("publish", () => {
   });
 });
 
-describe("one published file per record", () => {
-  it("refuses to publish while another file is published, and names it", async () => {
+// A folio is an order, and one order produces several studies. Publishing a
+// second result alongside an existing one is the normal case, not a
+// conflict — migration 0009 dropped the index that assumed otherwise, and
+// these tests replace the ones that pinned it.
+describe("many published files per record", () => {
+  it("publishes a second result without disturbing the first", async () => {
     const { body: record } = await createRecord();
-    const first = await confirmedFile(record.recordId, "primero.pdf");
+    const first = await confirmedFile(record.recordId, "biometria.pdf");
     await publish(first);
 
-    const second = await confirmedFile(record.recordId, "segundo.pdf");
+    const second = await confirmedFile(record.recordId, "quimica.pdf");
     const response = await publish(second);
 
-    expect(response.status).toBe(409);
-    expect(await json(response)).toMatchObject({
-      code: "ALREADY_PUBLISHED",
-      currentFileId: first,
-      currentFilename: "primero.pdf",
-    });
-
-    // The published one is untouched.
+    expect(response.status).toBe(200);
     expect((await fileRow(first))!.status).toBe("PUBLISHED");
-    expect((await fileRow(second))!.status).toBe("CONFIRMED");
+    expect((await fileRow(second))!.status).toBe("PUBLISHED");
   });
 
-  // The application could be wrong; the index cannot be bypassed.
-  it("is enforced by the database, not only by the service", async () => {
+  it("lets a record hold several published results at once", async () => {
+    const { body: record } = await createRecord();
+
+    for (const name of ["uno.pdf", "dos.pdf", "tres.pdf"]) {
+      const fileId = await confirmedFile(record.recordId, name);
+      expect((await publish(fileId)).status).toBe(200);
+    }
+
+    const published = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM files WHERE record_id = ? AND status = 'PUBLISHED'",
+    )
+      .bind(record.recordId)
+      .first<{ total: number }>();
+
+    expect(published?.total).toBe(3);
+  });
+
+  it("exposes every published result to the patient, newest first", async () => {
     const { body: record } = await createRecord();
     const first = await confirmedFile(record.recordId, "primero.pdf");
     const second = await confirmedFile(record.recordId, "segundo.pdf");
     await publish(first);
+    await publish(second);
 
-    await expect(forceStatus(second, "PUBLISHED")).rejects.toThrow();
+    const published = await listPublished(env.DB, record.recordId);
+
+    expect(published.results).toHaveLength(2);
+    expect(published.results.map((f) => f.original_filename)).toContain("primero.pdf");
+    expect(published.results.map((f) => f.original_filename)).toContain("segundo.pdf");
+  });
+
+  // Revoking one released study must leave the others alone — they are
+  // different documents, not versions of each other.
+  it("revoking one published result leaves the rest published", async () => {
+    const { body: record } = await createRecord();
+    const first = await confirmedFile(record.recordId, "primero.pdf");
+    const second = await confirmedFile(record.recordId, "segundo.pdf");
+    await publish(first);
+    await publish(second);
+
+    await request(`/files/${first}/revoke`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      ...asManager,
+    });
+
+    expect((await fileRow(first))!.status).toBe("REVOKED");
+    expect((await fileRow(second))!.status).toBe("PUBLISHED");
   });
 });
 

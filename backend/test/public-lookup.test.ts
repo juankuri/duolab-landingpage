@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createRecord, json, publishedRecord, request } from "./helpers";
+import { createRecord, json, pdfFile, publishedRecord, request } from "./helpers";
 
 const asManager = { envOverrides: { DEV_ROLE: "manager" } };
 
@@ -40,9 +40,73 @@ describe("POST /api/public/results/lookup", () => {
     expect(response.status).toBe(200);
     expect(typeof body.downloadToken).toBe("string");
     expect(typeof body.expiresAt).toBe("string");
-    // Never leaks an internal identifier.
-    expect(body).not.toHaveProperty("fileId");
+    // The record id stays internal — the token carries it, encrypted.
     expect(body).not.toHaveProperty("recordId");
+  });
+
+  // A folio is an order and may hold several released studies at once. The
+  // patient is entitled to all of them from one verification.
+  it("returns every published result on the folio, with a name and a date", async () => {
+    const { record } = await publishedResultRecord({ folio: "MULTI-010190-1" });
+
+    // A second study on the same folio, published alongside the first.
+    const form = new FormData();
+    form.set("file", pdfFile("quimica.pdf"));
+    const upload = await request(`/records/${record.recordId}/files`, {
+      method: "POST",
+      body: form,
+    });
+    const { fileId } = await json(upload);
+    await request(`/files/${fileId}/confirm`, { method: "POST" });
+    await request(`/files/${fileId}/publish`, { method: "POST", ...asManager });
+
+    const response = await lookup({
+      folio: "MULTI-010190-1",
+      phone: PHONE,
+      birthDate: BIRTH_DATE,
+    });
+    const body = await json(response);
+
+    expect(response.status).toBe(200);
+    expect(body.results).toHaveLength(2);
+    expect(body.results.map((r: { filename: string }) => r.filename)).toContain(
+      "quimica.pdf",
+    );
+
+    for (const result of body.results) {
+      expect(typeof result.fileId).toBe("string");
+      expect(typeof result.filename).toBe("string");
+      expect(typeof result.publishedAt).toBe("string");
+    }
+  });
+
+  // Multi-publish must not become an enumeration channel: the number of
+  // published results is only ever revealed to a caller who already matched
+  // folio, phone AND birth date.
+  it("reveals nothing about how many results exist when verification fails", async () => {
+    await publishedResultRecord({ folio: "COUNT-010190-1" });
+
+    const wrongPhone = await lookup({
+      folio: "COUNT-010190-1",
+      phone: "9389999999",
+      birthDate: BIRTH_DATE,
+    });
+    const noSuchFolio = await lookup({
+      folio: "NOPE-010190-9",
+      phone: PHONE,
+      birthDate: BIRTH_DATE,
+    });
+
+    expect(wrongPhone.status).toBe(404);
+    expect(noSuchFolio.status).toBe(404);
+
+    // requestId is per-request by design, so it is the one field allowed to
+    // differ; everything a caller could read a signal from must match.
+    const { requestId: _a, ...wrongPhoneBody } = await json(wrongPhone);
+    const { requestId: _b, ...noSuchFolioBody } = await json(noSuchFolio);
+
+    expect(wrongPhoneBody).toEqual(noSuchFolioBody);
+    expect(wrongPhoneBody).not.toHaveProperty("results");
   });
 
   it("sets no-store, no-referrer and nosniff on every response", async () => {

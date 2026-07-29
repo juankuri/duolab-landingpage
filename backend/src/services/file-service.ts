@@ -66,10 +66,17 @@ export async function transition(
 /**
  * Releases a confirmed file to the patient.
  *
- * A record may hold many files but only one published at a time, so this
- * refuses while another is published and names it, rather than quietly
- * revoking it. Replacing a released result is a decision, and a manager
- * should have to make it on purpose: pass supersedes to do both atomically.
+ * A record may hold any number of published files at once: a folio is an
+ * order, and one order produces several studies, each its own PDF that the
+ * patient is entitled to (migration 0009 dropped the single-published
+ * index that assumed otherwise). Publishing a second result alongside an
+ * existing one is therefore the normal case, not a conflict.
+ *
+ * `supersedes` is for the different situation the old design conflated
+ * with this one: correcting a study that was already released. It revokes
+ * the named file and publishes this one in a single batch, so the patient
+ * never sees both versions or neither. Optional and explicit — nothing
+ * forces a caller through it anymore.
  */
 export async function publish(
   db: D1Database,
@@ -95,28 +102,25 @@ export async function publish(
     );
   }
 
-  const published = await filesRepo.findPublished(db, current.record_id);
-
-  if (published && published.file_id !== input.supersedes) {
-    throw new AppError(
-      "ALREADY_PUBLISHED",
-      "Este registro ya tiene un archivo publicado.",
-      {
-        currentFileId: published.file_id,
-        currentFilename: published.original_filename,
-      },
-    );
-  }
-
   if (input.supersedes) {
-    if (!published) {
+    const superseded = await filesRepo.findStatus(db, input.supersedes);
+
+    // The file being replaced must still be published, and must belong to
+    // this same record — superseding across records would revoke another
+    // patient's result.
+    if (
+      !superseded ||
+      superseded.status !== "PUBLISHED" ||
+      superseded.record_id !== current.record_id
+    ) {
       throw new AppError(
         "INVALID_TRANSITION",
         "El archivo que intentas reemplazar ya no está publicado.",
       );
     }
 
-    // One batch, so the record never has two published files or none.
+    // One batch, so the replaced result is never briefly visible alongside
+    // its correction, and never briefly missing.
     const [revoked, promoted] = await filesRepo.supersede(db, {
       currentFileId: input.supersedes,
       nextFileId: input.fileId,

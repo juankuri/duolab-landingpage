@@ -143,7 +143,7 @@ describe("POST /records/:recordId/files/:fileId/replace", () => {
     await replace(record.recordId, fileId, pdfFile("corregido.pdf"));
 
     const download = await request(
-      `/api/public/results/${encodeURIComponent(downloadToken)}/download`,
+      `/api/public/results/${encodeURIComponent(downloadToken)}/download/${encodeURIComponent(fileId)}`,
     );
 
     expect(download.status).toBe(404);

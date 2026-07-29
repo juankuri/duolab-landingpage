@@ -165,14 +165,41 @@ export function findPublishedForDownload(db: D1Database, fileId: string) {
     .first<FilePreviewRow>();
 }
 
-/** The published file for a record, if there is one. */
-export function findPublished(db: D1Database, recordId: string) {
+/**
+ * Every published file on a record, newest first — a folio is an order and
+ * may hold several released studies at once (migration 0009).
+ */
+export function listPublished(db: D1Database, recordId: string) {
   return db
     .prepare(
-      "SELECT file_id, original_filename FROM files WHERE record_id = ? AND status = 'PUBLISHED'",
+      `SELECT file_id, original_filename, published_at
+         FROM files
+        WHERE record_id = ? AND status = 'PUBLISHED'
+     ORDER BY published_at DESC, file_id DESC`,
     )
     .bind(recordId)
-    .first<{ file_id: string; original_filename: string }>();
+    .all<{ file_id: string; original_filename: string; published_at: string }>();
+}
+
+/**
+ * A published file, looked up by BOTH its own id and the record it must
+ * belong to. The record scoping is the load-bearing half: download tokens
+ * authorize a record (DEC-023), so without it a token for one folio would
+ * serve any file id the caller could guess, including another patient's.
+ */
+export function findPublishedInRecord(
+  db: D1Database,
+  recordId: string,
+  fileId: string,
+) {
+  return db
+    .prepare(
+      `SELECT file_id, r2_key, original_filename, mime_type
+         FROM files
+        WHERE file_id = ? AND record_id = ? AND status = 'PUBLISHED'`,
+    )
+    .bind(fileId, recordId)
+    .first<FilePreviewRow>();
 }
 
 export function publish(db: D1Database, fileId: string, publishedBy: string) {

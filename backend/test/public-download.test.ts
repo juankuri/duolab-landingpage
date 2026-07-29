@@ -26,20 +26,27 @@ async function getToken(overrides: Partial<{ folio: string }> = {}) {
       birthDate: BIRTH_DATE,
     }),
   });
-  const { downloadToken } = await json(lookupResponse);
+  const { downloadToken, results } = await json(lookupResponse);
 
-  return { record, fileId, downloadToken: downloadToken as string };
+  return {
+    record,
+    fileId,
+    downloadToken: downloadToken as string,
+    results: results as { fileId: string; filename: string; publishedAt: string }[],
+  };
 }
 
-function download(token: string) {
-  return request(`/api/public/results/${encodeURIComponent(token)}/download`);
+function download(token: string, fileId: string) {
+  return request(
+    `/api/public/results/${encodeURIComponent(token)}/download/${encodeURIComponent(fileId)}`,
+  );
 }
 
-describe("GET /api/public/results/:downloadToken/download", () => {
+describe("GET /api/public/results/:downloadToken/download/:fileId", () => {
   it("streams the PDF for a valid token against a published file", async () => {
-    const { downloadToken } = await getToken();
+    const { downloadToken, fileId } = await getToken();
 
-    const response = await download(downloadToken);
+    const response = await download(downloadToken, fileId);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/pdf");
@@ -48,9 +55,9 @@ describe("GET /api/public/results/:downloadToken/download", () => {
   });
 
   it("sets no-store, no-referrer and nosniff", async () => {
-    const { downloadToken } = await getToken();
+    const { downloadToken, fileId } = await getToken();
 
-    const response = await download(downloadToken);
+    const response = await download(downloadToken, fileId);
 
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
@@ -67,27 +74,40 @@ describe("GET /api/public/results/:downloadToken/download", () => {
       ...asManager,
     });
 
-    const response = await download(downloadToken);
+    const response = await download(downloadToken, fileId);
+
+    expect(response.status).toBe(404);
+    expect((await json(response)).code).toBe("LOOKUP_FAILED");
+  });
+
+  // The guard the record-scoped token (DEC-023) makes necessary. A token is
+  // now a key to a folio, so nothing but this check stops it from serving
+  // another patient's file to whoever holds it.
+  it("refuses a file that belongs to a different record than the token", async () => {
+    const mine = await getToken({ folio: "DL-SCOPE-A" });
+    const theirs = await getToken({ folio: "DL-SCOPE-B" });
+
+    const response = await download(mine.downloadToken, theirs.fileId);
 
     expect(response.status).toBe(404);
     expect((await json(response)).code).toBe("LOOKUP_FAILED");
   });
 
   it("rejects an expired token", async () => {
-    const { fileId } = await getToken({ folio: "DL-EXP-1" });
+    const { fileId, record } = await getToken({ folio: "DL-EXP-1" });
 
     const expiredToken = await encryptToken(env.DOWNLOAD_TOKEN_SECRET, {
-      fileId,
+      recordId: record.recordId,
       exp: Date.now() - 1,
     });
 
-    const response = await download(expiredToken);
+    const response = await download(expiredToken, fileId);
 
     expect(response.status).toBe(404);
   });
 
   it("rejects a tampered token", async () => {
-    const { downloadToken } = await getToken({ folio: "DL-TAMPER-1" });
+    const { downloadToken, fileId } = await getToken({ folio: "DL-TAMPER-1" });
     const [iv, ciphertext] = downloadToken.split(".");
     // Flips a character in the middle, not the last one: the trailing
     // base64url character can carry padding bits outside the actual byte
@@ -96,25 +116,39 @@ describe("GET /api/public/results/:downloadToken/download", () => {
     const flipped = ciphertext[middle] === "A" ? "B" : "A";
     const tampered = `${iv}.${ciphertext.slice(0, middle)}${flipped}${ciphertext.slice(middle + 1)}`;
 
-    const response = await download(tampered);
+    const response = await download(tampered, fileId);
 
     expect(response.status).toBe(404);
   });
 
   it("rejects a malformed token string", async () => {
-    for (const bad of ["not-a-token", "a.b.c", "", "a."]) {
-      const response = await download(bad || "placeholder");
+    const { fileId } = await getToken({ folio: "DL-BADTOK-1" });
+
+    for (const bad of ["not-a-token", "a.b.c", "a."]) {
+      const response = await download(bad, fileId);
       expect(response.status).toBe(404);
     }
   });
 
-  it("rejects a token for a file that was never published", async () => {
+  it("rejects a malformed file id exactly like a wrong one — no 400", async () => {
+    const { downloadToken } = await getToken({ folio: "DL-BADFILE-1" });
+
+    const malformed = await download(downloadToken, "not-a-uuid");
+    const wellFormedButWrong = await download(downloadToken, crypto.randomUUID());
+
+    expect(malformed.status).toBe(404);
+    expect(wellFormedButWrong.status).toBe(404);
+    expect((await json(malformed)).code).toBe("LOOKUP_FAILED");
+    expect((await json(wellFormedButWrong)).code).toBe("LOOKUP_FAILED");
+  });
+
+  it("rejects a token for a record that has nothing published", async () => {
     const token = await encryptToken(env.DOWNLOAD_TOKEN_SECRET, {
-      fileId: crypto.randomUUID(),
+      recordId: crypto.randomUUID(),
       exp: Date.now() + 60_000,
     });
 
-    const response = await download(token);
+    const response = await download(token, crypto.randomUUID());
 
     expect(response.status).toBe(404);
   });

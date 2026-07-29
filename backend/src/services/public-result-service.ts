@@ -33,6 +33,19 @@ export type LookupInput = {
 export type LookupResult = {
   downloadToken: string;
   expiresAt: string;
+  /**
+   * Every published study on the folio. Filename and publication date are
+   * exposed so a patient holding several PDFs can tell them apart — with
+   * three results in hand, an unlabelled list of download links is not
+   * usable. Nothing here is returned before folio + phone + birth date all
+   * match, so this widens what a *verified* patient sees, not what an
+   * unverified caller can discover.
+   */
+  results: {
+    fileId: string;
+    filename: string;
+    publishedAt: string;
+  }[];
 };
 
 /**
@@ -88,17 +101,29 @@ export async function lookupPublicResult(
     throw fail();
   }
 
-  const published = await filesRepo.findPublished(c.env.DB, record.record_id);
+  const published = await filesRepo.listPublished(c.env.DB, record.record_id);
 
-  if (!published) {
+  // A folio with nothing released yet fails exactly like a wrong folio,
+  // a wrong phone or a wrong birth date. Multi-publish does not change
+  // this: the count of published files is only ever revealed to a caller
+  // who already matched all three verification factors.
+  if (published.results.length === 0) {
     throw fail();
   }
 
   const exp = Date.now() + TOKEN_TTL_MS;
   const downloadToken = await encryptToken(c.env.DOWNLOAD_TOKEN_SECRET, {
-    fileId: published.file_id,
+    recordId: record.record_id,
     exp,
   });
 
-  return { downloadToken, expiresAt: new Date(exp).toISOString() };
+  return {
+    downloadToken,
+    expiresAt: new Date(exp).toISOString(),
+    results: published.results.map((file) => ({
+      fileId: file.file_id,
+      filename: file.original_filename,
+      publishedAt: file.published_at,
+    })),
+  };
 }

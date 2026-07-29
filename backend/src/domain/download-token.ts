@@ -2,7 +2,7 @@
 //
 // A signed-but-unencrypted token (HMAC over a readable payload) is
 // tamper-resistant but not opaque: the client can base64-decode it and read
-// fileId straight out, even without being able to forge a new one. That
+// recordId straight out, even without being able to forge a new one. That
 // leaks an internal identifier into the browser, DevTools and history for no
 // reason — "opaque" has to mean the payload is unreadable, not just
 // unforgeable. AES-256-GCM buys both: the payload is authenticated (tampering
@@ -18,8 +18,15 @@
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
 
+/**
+ * Scoped to a record, not a single file: one folio can hold several
+ * published studies and the patient is entitled to all of them from one
+ * verification (DEC-023). The file to serve is named separately by the
+ * download route, which must check it belongs to this record — the token
+ * grants "this folio's published files", never "any file id you can guess".
+ */
 export type TokenPayload = {
-  fileId: string;
+  recordId: string;
   exp: number;
 };
 
@@ -138,7 +145,7 @@ export async function decryptToken(
   if (
     typeof parsed !== "object" ||
     parsed === null ||
-    typeof (parsed as TokenPayload).fileId !== "string" ||
+    typeof (parsed as TokenPayload).recordId !== "string" ||
     typeof (parsed as TokenPayload).exp !== "number"
   ) {
     return { ok: false };
