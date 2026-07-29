@@ -78,7 +78,6 @@ import "../../styles/manager.css";
     import {
       TABS,
       nextPending,
-      publishRecovery,
       queueItems,
       revokeConfirmBody,
       revokedExplanation,
@@ -408,19 +407,22 @@ import "../../styles/manager.css";
       if (!$("mgr-detail").hidden) closeDetail();
     });
 
-    /* ---------- publish sheet, with ALREADY_PUBLISHED -> supersede recovery ---------- */
+    /* ---------- publish sheet ----------
+     * No supersede recovery here anymore. A folio is an order and holds its
+     * studies independently, so publishing a second result alongside an
+     * existing one is the normal case and simply succeeds (migration 0009).
+     * Correcting an already-released study is a different action, started
+     * from the employee screens, not something to discover through an error.
+     */
 
     let publishTarget = null;
-    let publishSupersedes = null;
 
     function openPublishSheet(item) {
       publishTarget = item;
-      publishSupersedes = null;
       $("publish-sheet-body").textContent =
         `${item.patientName} · ${item.folio}. El paciente podrá verlo y descargarlo de inmediato con su folio.`;
       $("publish-sheet-status").textContent = "";
       delete $("publish-sheet-status").dataset.tone;
-      $("publish-sheet-confirm").textContent = "Sí, publicar";
       $("publish-sheet").showModal();
     }
 
@@ -432,25 +434,11 @@ import "../../styles/manager.css";
       $("publish-sheet-status").textContent = "Publicando…";
       delete $("publish-sheet-status").dataset.tone;
 
-      const query = publishSupersedes ? `?supersedes=${publishSupersedes}` : "";
-      const { ok, payload } = await apiJson(`/files/${publishTarget.fileId}/publish${query}`, {
+      const { ok, payload } = await apiJson(`/files/${publishTarget.fileId}/publish`, {
         method: "POST",
       });
 
       if (!ok) {
-        const recovery = publishRecovery(payload);
-
-        if (recovery) {
-          publishSupersedes = recovery.supersedes;
-          $("publish-sheet-body").textContent = recovery.currentFilename
-            ? `Este folio ya tiene un resultado publicado (${recovery.currentFilename}).`
-            : "Este folio ya tiene un resultado publicado.";
-          $("publish-sheet-confirm").textContent = "Reemplazar el publicado";
-          $("publish-sheet-status").textContent = "";
-          button.disabled = false;
-          return;
-        }
-
         if (payload?.code === "INVALID_TRANSITION") {
           $("publish-sheet-status").textContent = transitionConflictMessage(payload, labelOf);
         } else {

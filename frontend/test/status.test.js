@@ -94,24 +94,7 @@ describe("the actions a status offers", () => {
 });
 
 describe("actionErrorMessage", () => {
-  it("names the currently published file and points at replace", () => {
-    const message = actionErrorMessage(
-      { code: "ALREADY_PUBLISHED", currentFilename: "informe-anterior.pdf" },
-      "No se pudo completar la acción.",
-    );
-
-    expect(message).toContain("informe-anterior.pdf");
-    expect(message).toContain("Reemplazar archivo");
-  });
-
-  it("still explains the conflict when the current filename is missing", () => {
-    const message = actionErrorMessage({ code: "ALREADY_PUBLISHED" }, "fallback");
-
-    expect(message).toContain("ya tiene un resultado publicado");
-    expect(message).not.toContain("undefined");
-  });
-
-  it("falls back to withRef's message for any other code", () => {
+  it("uses the server's message for any error code", () => {
     expect(
       actionErrorMessage({ code: "INVALID_TRANSITION", error: "No se pudo." }, "fallback"),
     ).toBe("No se pudo.");

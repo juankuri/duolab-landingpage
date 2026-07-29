@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   TABS,
   nextPending,
-  publishRecovery,
   queueItems,
   revokeConfirmBody,
   revokedExplanation,
@@ -142,31 +141,6 @@ describe("nextPending", () => {
 
   it("picks the first item when nothing was just published", () => {
     expect(nextPending(items, null)).toEqual({ recordId: "r1", fileId: "f1", remaining: 3 });
-  });
-});
-
-describe("publishRecovery", () => {
-  it("extracts the currently-published file to retry a supersede", () => {
-    expect(
-      publishRecovery({
-        code: "ALREADY_PUBLISHED",
-        currentFileId: "f-old",
-        currentFilename: "anterior.pdf",
-      }),
-    ).toEqual({ supersedes: "f-old", currentFilename: "anterior.pdf" });
-  });
-
-  it("still returns a recovery when currentFilename is missing", () => {
-    expect(publishRecovery({ code: "ALREADY_PUBLISHED", currentFileId: "f-old" })).toEqual({
-      supersedes: "f-old",
-      currentFilename: null,
-    });
-  });
-
-  it("returns null for any other error code", () => {
-    expect(publishRecovery({ code: "INVALID_TRANSITION" })).toBeNull();
-    expect(publishRecovery(null)).toBeNull();
-    expect(publishRecovery(undefined)).toBeNull();
   });
 });
 

@@ -91,21 +91,17 @@ export function allows(value, action) {
 }
 
 /**
- * ALREADY_PUBLISHED is the one failure worth a message of its own: the
- * generic one ("no se pudo completar la acción") does not tell the actor
- * this isn't a transient error, or what to do about it. Only one result per
- * folio may be PUBLISHED at a time (DEC-010) — the fix is "Reemplazar" on
- * the currently published result (or a supersede retry), not retrying this
- * one as-is.
+ * Turns an error payload into something worth showing an actor.
+ *
+ * It used to special-case ALREADY_PUBLISHED, back when a record could hold
+ * only one PUBLISHED file and a second publish was refused. Migration 0009
+ * removed that rule — a folio is an order and its studies are published
+ * independently — so the server no longer raises that code and the branch
+ * that handled it is gone with it.
  *
  * Lifted out of folio.astro (where it started) so the manager screens can
  * share the same message instead of re-deriving it.
  */
 export function actionErrorMessage(payload, fallback) {
-  if (payload?.code === "ALREADY_PUBLISHED") {
-    const name = payload.currentFilename ? ` (${payload.currentFilename})` : "";
-    return `Este folio ya tiene un resultado publicado${name}. Usa "Reemplazar archivo…" sobre ese resultado para corregirlo, o revócalo primero.`;
-  }
-
   return withRef(payload, fallback);
 }

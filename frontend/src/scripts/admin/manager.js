@@ -68,20 +68,6 @@ export function nextPending(pendingItems, justPublishedRecordId) {
 }
 
 /**
- * A 409 ALREADY_PUBLISHED names the file currently published on the same
- * record (DEC-011). Recognized by code, not by message text — the server's
- * wording is not a contract, its error code is.
- */
-export function publishRecovery(payload) {
-  if (payload?.code !== "ALREADY_PUBLISHED") return null;
-
-  return {
-    supersedes: payload.currentFileId,
-    currentFilename: payload.currentFilename ?? null,
-  };
-}
-
-/**
  * A 409 INVALID_TRANSITION here means someone else already moved this file
  * (confirmed a withdraw, published it, revoked it) between the queue being
  * read and the tap landing. `details.currentStatus` names what it is now.
