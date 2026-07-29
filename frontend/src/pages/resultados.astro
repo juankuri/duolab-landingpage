@@ -47,6 +47,10 @@ const whatsappMessage =
         <img src="/logo/logo-mark.svg" alt="" width="28" height="28" />
         <span class="bar__name">dúolab</span>
       </a>
+      <!-- The logo alone was the only way back, which reads as decoration
+           rather than navigation. An explicit, labelled link costs nothing
+           and is the difference between "I'm stuck here" and "I can leave". -->
+      <a class="bar__back" href="/">← Volver al inicio</a>
     </header>
 
     <main class="wrap">
@@ -347,9 +351,24 @@ const whatsappMessage =
       .bar {
         display: flex;
         align-items: center;
+        justify-content: space-between;
+        gap: var(--space-sm);
         padding: var(--space-sm) var(--space-md);
         background: var(--color-surface);
         border-bottom: 1px solid var(--color-surface-soft);
+      }
+
+      .bar__back {
+        color: var(--color-primary);
+        font-size: var(--font-size-label);
+        text-decoration: none;
+        /* Comfortable to hit on a phone without turning the header into a
+           toolbar. */
+        padding: 8px 4px;
+      }
+
+      .bar__back:hover {
+        text-decoration: underline;
       }
 
       .bar__brand {

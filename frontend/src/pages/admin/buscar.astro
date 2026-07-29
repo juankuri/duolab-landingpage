@@ -15,6 +15,12 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
 ---
 
 <AdminLayout title="Buscar">
+  <nav class="crumb" aria-label="Ubicación">
+    <a href="/admin">Inicio</a>
+    <span aria-hidden="true">›</span>
+    <b>Buscar</b>
+  </nav>
+
   <form class="row" id="search-form" role="search" style="margin-bottom: 16px;">
     <label class="vh" for="q">Buscar folio, nombre o teléfono</label>
     <input
