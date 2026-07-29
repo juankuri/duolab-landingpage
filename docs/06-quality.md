@@ -86,7 +86,7 @@ Run against `wrangler dev` (backend) + `astro dev --background` (frontend), one 
 3. Confirm the three tabs load and their counts match what's in D1.
 4. Open a CONFIRMED result → confirm the PDF renders **inside** the page, fit-width by default; the page and zoom controls work; nothing is hidden under the home indicator.
 5. Publish it → confirm the sheet, then confirm "Ver siguiente por publicar (N)" jumps to the next item without returning to the queue.
-6. Force `ALREADY_PUBLISHED` (confirm a second result on the same folio from the employee flow, then publish it here) → confirm the sheet offers to replace the published one, and that it resolves in two taps.
+6. Confirm a second result on the same folio from the employee flow, then publish it here too → confirm it **succeeds** alongside the first (DEC-010 reversed), and that both then show as `Publicado`.
 7. Revoke a published result → confirm the copy says it is **definitive**, and that the revoked item offers no actions afterward.
 8. With `DEV_ROLE="employee"`, confirm `/admin/manager` bounces to `/admin`; confirm `/admin?desktop=1` as a manager does not redirect.
 
@@ -97,6 +97,9 @@ Run against `wrangler dev` (backend) + `astro dev --background` (frontend), one 
 4. **Non-enumeration, the regression this flow exists to catch:** run a wrong folio, a wrong phone, a wrong birth date, and a real folio with nothing published yet — confirm all four render the exact same message. If any of these ever differs, the bug is in the frontend copy or the backend response, never in this test.
 5. Trigger the rate limit (repeat lookups past the folio or IP budget) → confirm the distinct "demasiados intentos" message, not the generic one.
 6. Confirm the WhatsApp button is present and pre-filled correctly in both the form and the result states.
+7. **Multi-publish.** Publish a second study on the same folio, then look it up again → confirm both appear, each with its own name, date and download, and that each link fetches the right PDF.
+8. **Token scoping, the guard DEC-023 makes necessary.** Take a valid token from folio A and request a published file id belonging to folio B (`/api/public/results/<tokenA>/download/<fileB>`) → must be `404 LOOKUP_FAILED`. Same for a file on folio A that is only `CONFIRMED`, and for a malformed file id. If any of these ever returns a PDF or a `400`, stop and fix the route, not the test.
+9. Revoke one of several published results → confirm the patient's list loses exactly that one and keeps the rest.
 
 ## Reporting
 

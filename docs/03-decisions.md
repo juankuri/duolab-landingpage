@@ -98,19 +98,35 @@ Cloudflare Workers have no transaction spanning R2 and D1. Upload writes the obj
 
 What is guaranteed: a single failure self-compensates, and no query ever returns a row whose object is missing. What is not guaranteed: if the compensating step also fails (e.g. R2 unavailable right after a D1 failure), the object is orphaned. This is treated as acceptable because the orphan is unreachable (no code path reads by unlisted key), the storage key is deterministic (`records/{recordId}/{fileId}.pdf`), and every occurrence is logged as a structured `ORPHAN_R2_OBJECT` event with enough context to delete it by hand. See `backend/README.md` for the recovery command. No automated reconciliation sweep exists; add one if orphans start appearing at a rate hand-cleanup can't keep up with.
 
-## DEC-010: At most one `PUBLISHED` file per record, enforced by the database
+## DEC-010: A record may hold many `PUBLISHED` files at once
 
-Status: Accepted — unchanged; multi-publish (allowing more than one `PUBLISHED` result per folio at once) stayed out of scope for the employee-module work that added DEC-016–DEC-018. Replace (DEC-018) gives a second way to correct a published result without touching this constraint at all: it returns the file to `UPLOADED` in place rather than superseding it with another file.
+Status: **Reversed** by migration `0009_multi_published.sql`. Previously: "At most one `PUBLISHED` file per record, enforced by the database."
 
-A record may accumulate many files over its life — drafts, corrections, a confirmed one — but at most one may be `PUBLISHED` at a time. This is enforced by a partial unique index (`idx_files_single_published_per_record` in `database/migrations/0005_single_published.sql`), not by application logic, so it holds under concurrency and survives the service being wrong.
+The original decision enforced a partial unique index (`idx_files_single_published_per_record`, migration 0005) on this reasoning: *"Exactly one of them is 'the result the patient can see' ... Two published files on one record would leave the patient-facing question — which result is current — without an answer."*
 
-## DEC-011: Publishing over an existing published file requires explicit supersede
+**That premise was wrong about the domain, and the index encoded the mistake.** A folio is not a document, it is an **order**: one visit produces several studies, and each study is its own PDF with its own lifecycle. A real folio holding five files holds five different studies, not five versions of one. "Which result is current" is a question that only means something between versions of the same document; between distinct studies, every published one is current, simultaneously, and the patient is entitled to all of them.
 
-Status: Accepted
+The invariant was therefore not protecting a truth about the business — it was preventing the normal case. Publishing a second result on a folio that already has one now simply succeeds.
 
-`POST /files/:id/publish` refuses with `409 ALREADY_PUBLISHED` (naming the current file) when another file on the same record is already published. Replacing it requires the caller to name it explicitly via `?supersedes=<fileId>`, which performs an atomic revoke-then-publish in a single `DB.batch()`. There is no window where the record has zero or two published files.
+What this does **not** change, and each has tests pinning it:
 
-Rejected alternatives: auto-superseding silently (a manager could unpublish a result without realizing — the worst failure mode this product has); two separate manual steps, revoke-then-publish (leaves a real gap where the patient sees nothing, and is not atomic).
+- Revoke stays terminal (DEC-007). Revoking one released study leaves the others published.
+- The live `PUBLISHED` re-check at download time stays the real gate (DEC-014).
+- Non-enumeration (DEC-015) is untouched: "folio exists but nothing is published" still collapses into the same generic failure, and the *count* of published results is only ever revealed to a caller who already matched folio, phone and birth date.
+
+Cost: the uniqueness guarantee is gone, so nothing at the database level stops a bug from publishing the same logical study twice. That is a recoverable data-entry problem (revoke one), unlike the previous state, which made a legitimate operation impossible.
+
+## DEC-011: `?supersedes=` is an explicit correction, not a required detour
+
+Status: Accepted — **amended** by DEC-010's reversal.
+
+Originally, `POST /files/:id/publish` refused with `409 ALREADY_PUBLISHED` whenever another file on the record was published, and naming it via `?supersedes=<fileId>` was the only way through. That gate is gone with the invariant that motivated it: publishing alongside an existing result is the normal case and needs no ceremony.
+
+`?supersedes=` survives, because the situation the old design **conflated** with "a second study" is real and distinct: correcting a study that was already released. It still performs an atomic revoke-then-publish in a single `DB.batch()`, so the patient never sees both versions of one study or neither. It is now opt-in — a deliberate choice a caller makes, not something discovered by hitting an error.
+
+Added with the reversal: the superseded file must belong to the **same record** as the replacement. While the unique index existed this was implied; without it, nothing else would stop a supersede from revoking another patient's result.
+
+Rejected alternatives, unchanged: auto-superseding silently (a manager could unpublish a result without realizing — the worst failure mode this product has); two separate manual steps, revoke-then-publish (leaves a real gap where the patient sees nothing, and is not atomic).
 
 ## DEC-012: Cloudflare Access boundary for the patient flow — same Worker, additive `/api/public/*`
 
@@ -231,3 +247,18 @@ Viewing the result PDF without leaving the page is the manager screen's central 
 **Loaded only on demand.** `pdfjs-dist` is a genuinely large dependency (a few hundred KB of core, over a megabyte for the worker); importing it is a dynamic `import()` inside `manager.astro`'s script, fired the first time a result is opened, not a top-level import. Verified against the built output: `grep -ri pdf dist/index.html` (and every other page) finds nothing — only `/admin/manager`'s own script chunk references the pdf.js chunk, and only via the dynamic-import call, never a static one. Standard fonts and CMaps are deliberately not enabled; lab result PDFs are Latin-1 with embedded fonts, and turning those on would ship several more megabytes of assets for a case that has not been observed. Revisit if a real PDF ever renders with missing glyphs.
 
 **iOS canvas memory is capped, not trusted to the requested zoom.** Safari blanks a canvas silently past its own pixel ceiling — there is no error to catch — so `pdf-view.js`'s `canvasPixels()` clamps the effective render scale (`scale × devicePixelRatio`) to a fixed pixel budget before it ever reaches `page.render()`, rather than letting a 3× zoom on a wide page hit the ceiling on a real device during a real publish.
+
+## DEC-023: Download tokens are scoped to a record, and the download route checks ownership
+
+Status: Accepted
+
+The public download token (DEC-015: AES-256-GCM, opaque, five-minute TTL) used to encrypt `{ fileId, exp }` — one token authorized exactly one file, which was sufficient while a record could only have one published result (DEC-010, now reversed).
+
+With many published studies per folio, that shape stops fitting: one verification must unlock everything the patient is entitled to, and issuing N tokens from one lookup would mean N independent expiries for what is, to the patient, a single act of "check my results". The token now encrypts `{ recordId, exp }`, and the download route names the file separately: `GET /api/public/results/:downloadToken/download/:fileId`.
+
+**The consequence, and it is the whole reason this is a decision and not an implementation detail:** the token became a key to a folio rather than to a file, so the route must now prove the requested file actually belongs to that folio. `filesRepo.findPublishedInRecord()` checks both halves in one query — the file must be `PUBLISHED` **and** its `record_id` must match the token's. Without that second half, any holder of one valid token could enumerate file ids and pull another patient's result; the file-scoped token made that structurally impossible, and the record-scoped one makes it a check that has to be right. A test asserts a token for folio A cannot fetch a published file from folio B.
+
+Two smaller consequences, both deliberate:
+
+- A malformed `fileId` is rejected with the same `404 LOOKUP_FAILED` as a well-formed but wrong one, rather than the `400 INVALID_INPUT` the internal routes use. On a public route the *shape* of an id must not be a signal either.
+- The blast radius of a leaked token grew from one file to one folio's published files. Accepted: the token is already scoped to a patient who passed three-factor verification, it still expires in five minutes, and it still cannot outlive a revoke (DEC-014). What it never grants is anything belonging to a different patient.

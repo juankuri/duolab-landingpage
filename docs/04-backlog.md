@@ -15,6 +15,7 @@
 - Patient receives the same clear feedback whether the folio, phone, birth date or publication state was the reason for no match. ✅ — see DEC-015 and the non-enumeration tests in `backend/test/public-lookup.test.ts`.
 - Rate limiting on the lookup endpoint. ✅ (DEC-015)
 - Patient's download link stays usable, or fails clearly, across its whole 5-minute window — no dead link that dumps raw JSON if they wait past it. ✅
+- A folio may hold several published results at once, and the patient sees and downloads every one of them, each with its name and publication date. ✅ (DEC-010 reversed, DEC-011 amended, DEC-023)
 - Patient has a WhatsApp escape hatch if the lookup doesn't work. ✅ — see `docs/01-domain.md`'s patient user stories.
 - Patient sees a static reassurance that an unreleased result "isn't missing, just not ready yet" — without the page ever confirming a specific folio exists. ✅
 
@@ -50,9 +51,9 @@
 
 ## Later
 
-- Multiple published results per folio, and the patient-portal changes that go with it. Deliberately deferred — the highest-risk, most invasive slice of the original nine-slice plan (touches the shipped, already-tested public patient flow and drops a DB-level invariant); revisit as its own scoped piece of work.
 - Patient editing (name/birth date/phone correction after creation). No `PUT`/`PATCH` endpoint exists; none of the current flows need it.
-- "Descargar todos" (ZIP) on the patient result page. Deferred with multi-publish, since it only matters once a folio can have more than one published result at a time.
+- "Descargar todos" (ZIP) on the patient result page. Now unblocked — multi-publish shipped — but not built: the patient downloads each result individually, which covers the need. Worth adding when a folio routinely carries enough studies that one-by-one is tedious.
+- Surface `?supersedes=` as a deliberate action in the employee screens (DEC-011). The API supports correcting an already-released study atomically, but no UI reaches it since the ALREADY_PUBLISHED error that used to expose it is gone. Today the path is revoke-then-publish, which is two steps and leaves a brief gap.
 - Audit trail for uploads and publications (an append-only `file_events` table). The trigger, per DEC-007, is the first time someone has to answer "who vouched for what, and when" for a real complaint — not before.
 - Expiration or archival rules for old records.
 - Sweep old `public_lookup_attempts` rows. Not a correctness issue (each row is scoped to its own window and inert once past), just accumulation — add a cleanup path if the table's size becomes a real cost, not before.
