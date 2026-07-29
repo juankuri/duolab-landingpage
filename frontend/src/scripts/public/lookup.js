@@ -70,3 +70,38 @@ export function formatMsLeft(msLeft) {
   if (minutes === 1) return "1 minuto";
   return `${minutes} minutos`;
 }
+
+/**
+ * The download URL for one published study. The token names the folio and
+ * the path names the file — the server checks the file actually belongs to
+ * that folio, so a wrong pairing fails rather than serving someone else's
+ * result.
+ */
+export function downloadUrl(apiBase, downloadToken, fileId) {
+  return `${apiBase}/api/public/results/${encodeURIComponent(downloadToken)}/download/${encodeURIComponent(fileId)}`;
+}
+
+/**
+ * "26 jul 2026" from the server's zoneless timestamp. Mirrors
+ * scripts/admin/render.js's formatMoment in appending "Z" — D1 stores
+ * CURRENT_TIMESTAMP without an offset, and parsing it as local time would
+ * shift the date across midnight for patients.
+ */
+export function formatPublishedAt(raw) {
+  if (!raw) return "";
+
+  const parsed = new Date(`${String(raw).replace(" ", "T")}Z`);
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  return parsed.toLocaleDateString("es-MX", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/** Plural-aware heading for the result panel. */
+export function resultsHeading(count) {
+  if (count === 1) return "Encontramos 1 resultado";
+  return `Encontramos ${count} resultados`;
+}

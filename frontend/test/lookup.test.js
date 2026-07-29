@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   digitsOnly,
+  downloadUrl,
   firstEmptyField,
   formatMsLeft,
+  formatPublishedAt,
   lookupErrorMessage,
+  resultsHeading,
   tokenExpiry,
 } from "../src/scripts/public/lookup.js";
 
@@ -112,5 +115,46 @@ describe("formatMsLeft", () => {
   it("has a distinct phrase for under a minute rather than '0 minutos'", () => {
     expect(formatMsLeft(30_000)).toBe("menos de un minuto");
     expect(formatMsLeft(0)).toBe("menos de un minuto");
+  });
+});
+
+describe("downloadUrl", () => {
+  it("puts the token and the file id in the path, both encoded", () => {
+    expect(downloadUrl("", "tok+en", "file/1")).toBe(
+      "/api/public/results/tok%2Ben/download/file%2F1",
+    );
+  });
+
+  it("prefixes the API base when there is one (split dev)", () => {
+    expect(downloadUrl("http://localhost:8787", "t", "f")).toBe(
+      "http://localhost:8787/api/public/results/t/download/f",
+    );
+  });
+});
+
+describe("formatPublishedAt", () => {
+  it("reads the server's zoneless timestamp as UTC, not local", () => {
+    // Parsed as local time this would land on 25 jul for anyone west of
+    // UTC — the same trap render.js's formatMoment documents.
+    expect(formatPublishedAt("2026-07-26 02:30:00")).toContain("26");
+    expect(formatPublishedAt("2026-07-26 02:30:00")).toContain("2026");
+  });
+
+  it("returns an empty string for missing or unparseable input", () => {
+    expect(formatPublishedAt(null)).toBe("");
+    expect(formatPublishedAt(undefined)).toBe("");
+    expect(formatPublishedAt("")).toBe("");
+    expect(formatPublishedAt("not-a-date")).toBe("");
+  });
+});
+
+describe("resultsHeading", () => {
+  it("singularizes exactly one result", () => {
+    expect(resultsHeading(1)).toBe("Encontramos 1 resultado");
+  });
+
+  it("pluralizes anything else", () => {
+    expect(resultsHeading(2)).toBe("Encontramos 2 resultados");
+    expect(resultsHeading(5)).toBe("Encontramos 5 resultados");
   });
 });

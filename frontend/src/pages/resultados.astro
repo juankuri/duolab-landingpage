@@ -106,7 +106,10 @@ const whatsappMessage =
 
         <div class="result" id="result" hidden>
           <p class="result__msg" id="result-msg"></p>
-          <a class="btn" id="download-link" href="#">Descargar resultado (PDF)</a>
+          <!-- One entry per published study. A folio is an order, so it can
+               hold several results released on different dates, and the
+               patient is entitled to all of them. -->
+          <ul class="files" id="file-list"></ul>
           <p class="result__expiry" id="result-expiry"></p>
           <button class="btn btn--ghost" id="search-again" type="button">
             Buscar otro folio
@@ -143,9 +146,12 @@ const whatsappMessage =
       import { API_BASE } from "../scripts/admin/api.js";
       import {
         digitsOnly,
+        downloadUrl,
         firstEmptyField,
         formatMsLeft,
+        formatPublishedAt,
         lookupErrorMessage,
+        resultsHeading,
         tokenExpiry,
       } from "../scripts/public/lookup.js";
 
@@ -156,7 +162,7 @@ const whatsappMessage =
       const resultEl = $("result");
       const resultMsg = $("result-msg");
       const resultExpiry = $("result-expiry");
-      const downloadLink = $("download-link");
+      const fileList = $("file-list");
       const folioInput = $("folio");
       const phoneInput = $("phone");
       const birthDateInput = $("birthDate");
@@ -187,10 +193,12 @@ const whatsappMessage =
 
       const handleExpired = () => {
         clearExpiryTimer();
-        downloadLink.setAttribute("aria-disabled", "true");
-        downloadLink.removeAttribute("href");
+        fileList.replaceChildren();
         showForm();
-        setStatus("Tu enlace para descargar expiró. Busca tu resultado de nuevo.", "error");
+        setStatus(
+          "Tus enlaces para descargar expiraron. Busca tu resultado de nuevo.",
+          "error",
+        );
         folioInput.focus();
       };
 
@@ -202,22 +210,60 @@ const whatsappMessage =
           return;
         }
 
-        resultExpiry.textContent = `Este enlace es válido ${formatMsLeft(msLeft)} más.`;
+        resultExpiry.textContent = `Estos enlaces son válidos ${formatMsLeft(msLeft)} más.`;
       };
 
       /* ---------- lookup ---------- */
 
-      const showResult = (folio, downloadToken, expiresAt) => {
+      /** One row per published study: its name, its date, and its own download. */
+      const fileRow = (folio, downloadToken, result, index) => {
+        const li = document.createElement("li");
+        li.className = "file";
+
+        const name = document.createElement("p");
+        name.className = "file__name";
+        // The stored filename is the lab's, and may be unhelpful ("nuevo.pdf").
+        // Numbering gives the patient something stable to refer to on the
+        // phone with the lab, whatever the file happens to be called.
+        name.textContent = `${index + 1}. ${result.filename}`;
+
+        const meta = document.createElement("p");
+        meta.className = "file__meta";
+        const published = formatPublishedAt(result.publishedAt);
+        meta.textContent = published ? `Publicado el ${published}` : "";
+
+        const link = document.createElement("a");
+        link.className = "btn btn--sm";
+        link.href = downloadUrl(API_BASE, downloadToken, result.fileId);
+        link.textContent = "Descargar PDF";
+        // Names the study rather than repeating "Descargar PDF" N times,
+        // which is what a screen reader would otherwise announce.
+        link.setAttribute("aria-label", `Descargar ${result.filename}`);
+
+        li.append(name);
+        if (meta.textContent) li.append(meta);
+        li.append(link);
+        return li;
+      };
+
+      const showResult = (folio, payload) => {
+        const results = Array.isArray(payload.results) ? payload.results : [];
+
         form.hidden = true;
         resultEl.hidden = false;
-        resultMsg.textContent = `Encontramos tu resultado del folio ${folio}.`;
-        downloadLink.removeAttribute("aria-disabled");
-        downloadLink.href = `${API_BASE}/api/public/results/${encodeURIComponent(downloadToken)}/download`;
-        downloadLink.focus();
+        resultMsg.textContent = `${resultsHeading(results.length)} del folio ${folio}.`;
+
+        fileList.replaceChildren(
+          ...results.map((result, index) =>
+            fileRow(folio, payload.downloadToken, result, index),
+          ),
+        );
+
+        fileList.querySelector("a")?.focus();
 
         clearExpiryTimer();
-        tickExpiry(expiresAt);
-        expiryTimer = setInterval(() => tickExpiry(expiresAt), 15_000);
+        tickExpiry(payload.expiresAt);
+        expiryTimer = setInterval(() => tickExpiry(payload.expiresAt), 15_000);
       };
 
       // As-you-type digit filter — a phone typed with spaces or punctuation
@@ -264,7 +310,7 @@ const whatsappMessage =
 
           const payload = await res.json();
           setStatus("");
-          showResult(folio, payload.downloadToken, payload.expiresAt);
+          showResult(folio, payload);
         } catch {
           setStatus("Ocurrió un error. Intenta de nuevo más tarde.", "error");
         } finally {
@@ -275,6 +321,7 @@ const whatsappMessage =
 
       $("search-again").addEventListener("click", () => {
         clearExpiryTimer();
+        fileList.replaceChildren();
         form.reset();
         setStatus("");
         showForm();
@@ -442,6 +489,49 @@ const whatsappMessage =
       .result__msg {
         margin: 0 0 var(--space-sm);
         font-weight: var(--font-weight-medium);
+      }
+
+      .files {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-xs);
+      }
+
+      .file {
+        padding: 12px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        background: var(--color-surface);
+      }
+
+      .file__name {
+        margin: 0;
+        font-weight: var(--font-weight-medium);
+        /* Lab filenames can be long and unbroken; let them wrap rather than
+           push the download button off a narrow phone. */
+        overflow-wrap: anywhere;
+      }
+
+      .file__meta {
+        margin: 2px 0 0;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+
+      .file .btn {
+        margin-top: 10px;
+        /* Each row carries its own download, so these are secondary to the
+           page as a whole — outlined rather than N solid purple blocks. */
+        color: var(--color-primary);
+        background: transparent;
+        padding: 10px 14px;
+      }
+
+      .file .btn:hover {
+        background: var(--color-surface-soft);
       }
 
       .result__expiry {
