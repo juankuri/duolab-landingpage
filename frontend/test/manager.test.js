@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   TABS,
+  groupQueue,
   nextPending,
   queueItems,
   revokeConfirmBody,
@@ -141,6 +142,63 @@ describe("nextPending", () => {
 
   it("picks the first item when nothing was just published", () => {
     expect(nextPending(items, null)).toEqual({ recordId: "r1", fileId: "f1", remaining: 3 });
+  });
+});
+
+describe("groupQueue", () => {
+  // "now" fixed at 2026-07-22 15:00 local time.
+  const now = new Date(2026, 6, 22, 15, 0, 0);
+
+  it("returns an empty list for an empty or missing queue", () => {
+    expect(groupQueue([], now)).toEqual([]);
+    expect(groupQueue(undefined, now)).toEqual([]);
+  });
+
+  it("groups items into one heading per hour, most recent hour first", () => {
+    const items = [
+      { fileId: "f1", uploadedAt: "2026-07-22 13:05:00" },
+      { fileId: "f2", uploadedAt: "2026-07-22 13:40:00" },
+      { fileId: "f3", uploadedAt: "2026-07-22 10:00:00" },
+    ];
+
+    const groups = groupQueue(items, now);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].dayLabel).toBe("Hoy · 22 jul");
+    // uploadedAt is UTC; assertions read the hour labels back relative to
+    // whatever local offset the test runner has, so only relative order matters.
+    const labels = groups[0].hours.map((h) => h.hourLabel);
+    expect(labels).toHaveLength(2);
+    expect(labels[0] > labels[1]).toBe(true);
+    expect(groups[0].hours[0].items.map((i) => i.fileId)).toEqual(["f1", "f2"]);
+    expect(groups[0].hours[1].items.map((i) => i.fileId)).toEqual(["f3"]);
+  });
+
+  it("labels today and yesterday, and orders days most-recent-first", () => {
+    const items = [
+      { fileId: "today", uploadedAt: "2026-07-22 09:00:00" },
+      { fileId: "yesterday", uploadedAt: "2026-07-21 17:00:00" },
+    ];
+
+    const groups = groupQueue(items, now);
+    expect(groups.map((g) => g.dayLabel)).toEqual(["Hoy · 22 jul", "Ayer · 21 jul"]);
+  });
+
+  it("falls back to a weekday + date label for older days", () => {
+    const items = [{ fileId: "f1", uploadedAt: "2026-07-15 09:00:00" }];
+    const groups = groupQueue(items, now);
+    expect(groups[0].dayLabel).toMatch(/^\p{L}+\.? 15 jul$/u);
+  });
+
+  it("puts items with no parseable date in a trailing 'Sin fecha' group", () => {
+    const items = [
+      { fileId: "dated", uploadedAt: "2026-07-22 09:00:00" },
+      { fileId: "undated", uploadedAt: null },
+      { fileId: "garbage", uploadedAt: "not-a-date" },
+    ];
+
+    const groups = groupQueue(items, now);
+    expect(groups.at(-1).dayLabel).toBe("Sin fecha");
+    expect(groups.at(-1).hours[0].items.map((i) => i.fileId)).toEqual(["undated", "garbage"]);
   });
 });
 

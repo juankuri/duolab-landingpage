@@ -22,19 +22,48 @@ import "../../styles/manager.css";
     <!-- ---------- queue ---------- -->
     <section id="mgr-queue">
       <div class="mgr-tabs" role="tablist" aria-label="Estado de los resultados">
-        <button class="mgr-tab" role="tab" id="tab-pending" type="button" aria-selected="true">
+        <button
+          class="mgr-tab"
+          role="tab"
+          id="tab-pending"
+          type="button"
+          aria-selected="true"
+          aria-controls="queue-panel"
+        >
           Por publicar<span class="mgr-tab__count" id="count-pending"></span>
         </button>
-        <button class="mgr-tab" role="tab" id="tab-published" type="button" aria-selected="false">
-          Publicados<span class="mgr-tab__count" id="count-published"></span>
+        <button
+          class="mgr-tab"
+          role="tab"
+          id="tab-published"
+          type="button"
+          aria-selected="false"
+          tabindex="-1"
+          aria-controls="queue-panel"
+        >
+          Publicados
         </button>
-        <button class="mgr-tab" role="tab" id="tab-revoked" type="button" aria-selected="false">
-          Revocados<span class="mgr-tab__count" id="count-revoked"></span>
+        <button
+          class="mgr-tab"
+          role="tab"
+          id="tab-revoked"
+          type="button"
+          aria-selected="false"
+          tabindex="-1"
+          aria-controls="queue-panel"
+        >
+          Revocados
         </button>
       </div>
 
-      <ul class="results" id="queue-list" style="list-style: none; padding: 0; margin: var(--space-sm) 0 0;"></ul>
-      <p class="status" id="queue-status" role="status" aria-live="polite"></p>
+      <div id="queue-panel" role="tabpanel" aria-labelledby="tab-pending">
+        <div id="queue-groups"></div>
+        <div id="queue-empty" class="mgr-empty" hidden>
+          <span class="mgr-empty__icon" aria-hidden="true">⏳</span>
+          <p class="mgr-empty__text" id="queue-empty-text"></p>
+        </div>
+        <p class="status" id="queue-status" role="status" aria-live="polite"></p>
+      </div>
     </section>
 
     <!-- ---------- detail + preview ---------- -->
@@ -42,7 +71,7 @@ import "../../styles/manager.css";
       <div class="mgr-detail__head">
         <button class="mgr-back" id="detail-back" type="button" aria-label="Volver a la lista">←</button>
         <div style="flex: 1;">
-          <p class="card__title" id="detail-name" style="margin: 0; font-size: 18px;"></p>
+          <p class="card__title" id="detail-name" style="margin: 0; font-size: 20px;"></p>
           <p class="card__meta" id="detail-meta" style="margin: 0;"></p>
         </div>
         <span id="detail-badge"></span>
@@ -68,6 +97,16 @@ import "../../styles/manager.css";
 
       <div class="mgr-actionbar" id="mgr-actions"></div>
     </section>
+
+    <!-- ---------- publish success (M5) ---------- -->
+    <section id="mgr-success" hidden tabindex="-1" role="status">
+      <div class="mgr-success">
+        <span class="mgr-success__icon" aria-hidden="true">✓</span>
+        <p class="mgr-success__title">Resultado publicado</p>
+        <p class="mgr-success__meta" id="success-meta"></p>
+        <div class="mgr-success__actions" id="success-actions"></div>
+      </div>
+    </section>
   </div>
 
   <ConfirmSheet id="publish-sheet" title="¿Publicar este resultado?" confirmLabel="Sí, publicar" />
@@ -77,6 +116,7 @@ import "../../styles/manager.css";
     import { API_BASE, apiJson } from "../../scripts/admin/api.js";
     import {
       TABS,
+      groupQueue,
       nextPending,
       queueItems,
       revokeConfirmBody,
@@ -103,27 +143,84 @@ import "../../styles/manager.css";
 
     /* ---------- queue ---------- */
 
+    /**
+     * One tap target per result (Fitts) — the whole card is the button, the
+     * arrow only signals "clickable" (aria-hidden, the accessible label
+     * carries the same information). Filename is always shown: a folio can
+     * hold several results, so name + folio alone can repeat across cards.
+     */
     const cardNode = (item) => {
       const li = document.createElement("li");
-      li.style.listStyle = "none";
 
       const button = document.createElement("button");
       button.type = "button";
       button.className = "mgr-card";
-      button.append(
-        Object.assign(document.createElement("p"), {
+      button.setAttribute(
+        "aria-label",
+        `${item.patientName}, folio ${item.folio}, ${item.originalFilename ?? "archivo"}`,
+      );
+      const text = document.createElement("span");
+      text.className = "mgr-card__text";
+      text.append(
+        Object.assign(document.createElement("span"), {
           className: "mgr-card__name",
           textContent: item.patientName,
         }),
-        Object.assign(document.createElement("p"), {
-          className: "mgr-card__meta",
-          textContent: `${item.folio} · ${item.originalFilename ?? ""} · ${formatMoment(item.uploadedAt)}`,
+        Object.assign(document.createElement("span"), {
+          className: "mgr-card__folio",
+          textContent: item.folio,
+        }),
+        Object.assign(document.createElement("span"), {
+          className: "mgr-card__file",
+          textContent: item.originalFilename ?? "",
         }),
       );
+
+      const arrow = document.createElement("span");
+      arrow.className = "mgr-card__arrow";
+      arrow.textContent = "→";
+      arrow.setAttribute("aria-hidden", "true");
+
+      button.append(text, arrow);
       button.addEventListener("click", () => openDetail(item));
 
       li.append(button);
       return li;
+    };
+
+    function groupNode(group) {
+      const section = document.createElement("section");
+      section.className = "mgr-day";
+
+      const dayHeadingId = `day-${group.dayKey}`;
+      const dayHeading = document.createElement("h2");
+      dayHeading.className = "mgr-day__label";
+      dayHeading.id = dayHeadingId;
+      dayHeading.textContent = group.dayLabel;
+      section.setAttribute("aria-labelledby", dayHeadingId);
+      section.append(dayHeading);
+
+      for (const hour of group.hours) {
+        if (hour.hourLabel) {
+          const hourHeading = document.createElement("h3");
+          hourHeading.className = "mgr-hour";
+          hourHeading.textContent = hour.hourLabel;
+          section.append(hourHeading);
+        }
+
+        const list = document.createElement("ul");
+        list.className = "mgr-cards";
+        list.append(...hour.items.map(cardNode));
+        section.append(list);
+      }
+
+      return section;
+    }
+
+    const EMPTY_TEXT = {
+      pending: "Nada esperando publicación.",
+      published: "Nada publicado todavía.",
+      revoked: "Nada revocado.",
     };
 
     const tabQueueStatus = $("queue-status");
@@ -146,15 +243,17 @@ import "../../styles/manager.css";
     function renderQueue() {
       const items = cache[activeTab];
 
-      for (const tab of TABS) {
-        $(`count-${tab.id}`).textContent = cache[tab.id] ? ` (${cache[tab.id].length})` : "";
-        $(`tab-${tab.id}`).setAttribute("aria-selected", String(tab.id === activeTab));
-      }
+      // The pending-review count is the only one worth a chip (Zeigarnik):
+      // the other two tabs are already-done work, not open loops, so only
+      // "pending" has a `.mgr-tab__count` element in the markup at all.
+      $("count-pending").textContent = cache.pending ? String(cache.pending.length) : "";
+
+      $("queue-empty").hidden = true;
+      $("queue-groups").replaceChildren();
 
       if (!items) {
         tabQueueStatus.textContent = "No se pudo cargar la lista.";
         tabQueueStatus.dataset.tone = "error";
-        $("queue-list").replaceChildren();
         return;
       }
 
@@ -162,17 +261,13 @@ import "../../styles/manager.css";
       delete tabQueueStatus.dataset.tone;
 
       if (items.length === 0) {
-        const empty = {
-          pending: "Nada esperando publicación.",
-          published: "Nada publicado todavía.",
-          revoked: "Nada revocado.",
-        }[activeTab];
-        tabQueueStatus.textContent = empty;
-        $("queue-list").replaceChildren();
+        $("queue-empty-text").textContent = EMPTY_TEXT[activeTab];
+        $("queue-empty").hidden = false;
         return;
       }
 
-      $("queue-list").replaceChildren(...items.map(cardNode));
+      const groups = groupQueue(items);
+      $("queue-groups").replaceChildren(...groups.map(groupNode));
     }
 
     async function refreshTab(tabId) {
@@ -185,11 +280,46 @@ import "../../styles/manager.css";
       renderQueue();
     }
 
+    /**
+     * Roving-tabindex tablist (Jakob: the arrow-key pattern every screen
+     * reader user expects from `role="tablist"`). Only the active tab is in
+     * the Tab order; ←/→ move focus and Home/End jump to the ends, per the
+     * WAI-ARIA tabs pattern.
+     */
+    async function activateTab(tabId, { focus = false } = {}) {
+      activeTab = tabId;
+
+      for (const tab of TABS) {
+        const el = $(`tab-${tab.id}`);
+        const selected = tab.id === tabId;
+        el.setAttribute("aria-selected", String(selected));
+        el.tabIndex = selected ? 0 : -1;
+      }
+      $("queue-panel").setAttribute("aria-labelledby", `tab-${tabId}`);
+
+      if (focus) $(`tab-${tabId}`).focus();
+      if (!cache[tabId]) await loadTab(tabId);
+      renderQueue();
+    }
+
+    const tabIds = TABS.map((tab) => tab.id);
+
     for (const tab of TABS) {
-      $(`tab-${tab.id}`).addEventListener("click", async () => {
-        activeTab = tab.id;
-        if (!cache[tab.id]) await loadTab(tab.id);
-        renderQueue();
+      const el = $(`tab-${tab.id}`);
+      el.addEventListener("click", () => activateTab(tab.id));
+      el.addEventListener("keydown", (event) => {
+        const currentIndex = tabIds.indexOf(activeTab);
+        let nextIndex = null;
+
+        if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabIds.length;
+        else if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabIds.length) % tabIds.length;
+        else if (event.key === "Home") nextIndex = 0;
+        else if (event.key === "End") nextIndex = tabIds.length - 1;
+
+        if (nextIndex !== null) {
+          event.preventDefault();
+          activateTab(tabIds[nextIndex], { focus: true });
+        }
       });
     }
 
@@ -293,6 +423,16 @@ import "../../styles/manager.css";
       }
 
       if (item.status === "PUBLISHED") {
+        // M6: the consequence is named before the destructive control, not
+        // discovered only inside the confirm sheet — and REVOKED is terminal
+        // (DEC-007/DEC-014), so this must never promise it can be undone.
+        const warn = document.createElement("p");
+        warn.className = "mgr-warn";
+        warn.textContent =
+          "Revocar oculta el archivo al paciente de inmediato y es definitivo: " +
+          "no se puede volver a publicar. Para corregirlo, recepción debe subir un resultado nuevo.";
+        bar.append(warn);
+
         const button = document.createElement("button");
         button.className = "btn btn--danger";
         button.type = "button";
@@ -328,41 +468,49 @@ import "../../styles/manager.css";
       return file ? { ...item, ...file } : item;
     }
 
-    function renderBatchBar(remaining, onNext) {
-      const bar = $("mgr-actions");
-      bar.replaceChildren();
+    /**
+     * M5: publishing swaps the detail view for a dedicated success screen —
+     * not just a line under the PDF — so the outcome is unmistakable. When
+     * work remains, "Siguiente por publicar (N)" is the primary action and
+     * keeps the review rhythm going (Zeigarnik); with nothing left, "Volver
+     * a la lista" is promoted to primary since there is no next step.
+     */
+    function showPublishSuccess(item, next, onNext) {
+      $("mgr-detail").hidden = true;
+      $("mgr-queue").hidden = true;
 
-      const wrap = document.createElement("div");
-      wrap.className = "mgr-next";
+      $("success-meta").textContent = `${item.patientName} · ${item.folio}`;
 
-      const done = document.createElement("p");
-      done.className = "status";
-      done.dataset.tone = "success";
-      done.textContent = "Publicado ✓";
-      wrap.append(done);
+      const actions = $("success-actions");
+      actions.replaceChildren();
 
-      if (remaining > 0) {
-        const next = document.createElement("button");
-        next.className = "btn";
-        next.type = "button";
-        next.textContent = `Ver siguiente por publicar (${remaining})`;
-        next.addEventListener("click", onNext);
-        wrap.append(next);
+      const backButton = document.createElement("button");
+      backButton.type = "button";
+      backButton.textContent = "Volver a la lista";
+      backButton.addEventListener("click", () => {
+        $("mgr-success").hidden = true;
+        closeDetail();
+      });
+
+      if (next) {
+        const nextButton = document.createElement("button");
+        nextButton.type = "button";
+        nextButton.className = "btn";
+        nextButton.textContent = `Ver siguiente por publicar (${next.remaining})`;
+        nextButton.addEventListener("click", () => {
+          $("mgr-success").hidden = true;
+          onNext();
+        });
+        backButton.className = "btn btn--secondary";
+        actions.append(nextButton, backButton);
       } else {
-        const note = document.createElement("p");
-        note.className = "tiny";
-        note.textContent = "No queda nada por publicar.";
-        wrap.append(note);
+        backButton.className = "btn";
+        actions.append(backButton);
       }
 
-      const back = document.createElement("button");
-      back.className = "btn btn--secondary";
-      back.type = "button";
-      back.textContent = "Volver a la lista";
-      back.addEventListener("click", closeDetail);
-      wrap.append(back);
-
-      bar.append(wrap);
+      const success = $("mgr-success");
+      success.hidden = false;
+      success.focus();
     }
 
     async function openDetail(rawItem, { pushHistory = true } = {}) {
@@ -372,6 +520,7 @@ import "../../styles/manager.css";
       const item = rawItem.status === "REVOKED" ? await fetchDetailFields(rawItem) : rawItem;
 
       currentItem = item;
+      $("mgr-success").hidden = true;
       $("mgr-queue").hidden = true;
       $("mgr-detail").hidden = false;
       $("detail-name").textContent = item.patientName;
@@ -397,6 +546,7 @@ import "../../styles/manager.css";
     function closeDetail() {
       currentItem = null;
       pdfDoc = null;
+      $("mgr-success").hidden = true;
       $("mgr-detail").hidden = true;
       $("mgr-queue").hidden = false;
       renderQueue();
@@ -460,7 +610,7 @@ import "../../styles/manager.css";
 
       const pending = cache.pending ?? [];
       const next = nextPending(pending, publishedRecordId);
-      renderBatchBar(next ? next.remaining : 0, () => {
+      showPublishSuccess(publishTarget, next, () => {
         if (next) {
           const nextItem = pending.find((i) => i.fileId === next.fileId);
           if (nextItem) openDetail(nextItem, { pushHistory: false });

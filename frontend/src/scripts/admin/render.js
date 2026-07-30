@@ -101,16 +101,26 @@ export function formatSize(bytes) {
 }
 
 /**
- * "26 jul · 09:12". The uploaded_at the server stores is "YYYY-MM-DD HH:MM:SS"
- * in UTC with no zone marker, which Date parses as local time in some engines
- * and UTC in others — so the marker is added rather than left to chance.
+ * The `uploaded_at`/`revoked_at` the server stores is "YYYY-MM-DD HH:MM:SS" in
+ * UTC with no zone marker, which Date parses as local time in some engines and
+ * UTC in others — so the marker is added rather than left to chance. Returns
+ * `null` (not the raw string) when the value doesn't parse, so callers can
+ * tell "no date" from "a valid one".
  */
-export function formatMoment(raw) {
-  if (!raw) return "";
+export function parseMoment(raw) {
+  if (!raw) return null;
 
   const value = raw.includes("T") ? raw : `${raw.replace(" ", "T")}Z`;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return raw;
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** "26 jul · 09:12". */
+export function formatMoment(raw) {
+  if (!raw) return "";
+
+  const date = parseMoment(raw);
+  if (!date) return raw;
 
   return new Intl.DateTimeFormat("es-MX", {
     day: "numeric",
