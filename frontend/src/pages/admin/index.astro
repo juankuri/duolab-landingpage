@@ -10,11 +10,8 @@
  * it — recent folios with a derived tally, the manager queue, and a way in
  * to search or create.
  *
- * "+ Nuevo paciente y resultado" points at /admin/nuevo, which does not
- * exist yet — atomic create (patient + folio + first result in one
- * request) lands in the next slice. Until then the link 404s; that is the
- * known, temporary state of a branch mid-rewrite, not a regression to fix
- * here.
+ * "+ Nuevo paciente y resultado" points at /admin/nuevo (atomic create:
+ * patient + folio + first result in one request).
  */
 import AdminLayout from "../../components/admin/AdminLayout.astro";
 ---
@@ -71,33 +68,10 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
 
   <script>
     import { apiJson, withRef } from "../../scripts/admin/api.js";
-    import { tallyNode } from "../../scripts/admin/render.js";
+    import { folioRowNode, setStatusLine } from "../../scripts/admin/render.js";
     import { fillWho, loadActor, roleRedirect } from "../../scripts/admin/session.js";
 
     const $ = (id) => document.getElementById(id);
-
-    const folioRow = (record) => {
-      const li = document.createElement("li");
-      li.className = "frow";
-
-      const link = document.createElement("a");
-      link.href = `/admin/folio?f=${encodeURIComponent(record.folio)}`;
-      link.className = "frow__body";
-      link.style.textDecoration = "none";
-      link.style.color = "inherit";
-
-      const name = document.createElement("p");
-      name.className = "frow__name";
-      name.textContent = record.folio;
-
-      const meta = document.createElement("p");
-      meta.className = "frow__meta";
-      meta.textContent = record.patientName;
-
-      link.append(name, meta);
-      li.append(link, tallyNode(record.results));
-      return li;
-    };
 
     const loadList = async (path, listId, statusId, emptyId) => {
       const { ok, payload } = await apiJson(path);
@@ -106,13 +80,11 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
 
       if (!ok) {
         empty.hidden = true;
-        status.textContent = withRef(payload, "No se pudo cargar la lista.");
-        status.dataset.tone = "error";
+        setStatusLine(status, withRef(payload, "No se pudo cargar la lista."), "error");
         return;
       }
 
-      status.textContent = "";
-      delete status.dataset.tone;
+      setStatusLine(status, "");
 
       if (payload.records.length === 0) {
         $(listId).replaceChildren();
@@ -121,7 +93,7 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       }
 
       empty.hidden = true;
-      $(listId).replaceChildren(...payload.records.map(folioRow));
+      $(listId).replaceChildren(...payload.records.map((record) => folioRowNode(record)));
     };
 
     const init = async () => {

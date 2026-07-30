@@ -76,6 +76,8 @@ Addresses are normalized (trim + lowercase) in the application before every look
 
 Status: Accepted, amended by DEC-018 (replace)
 
+Note (2026-07): the lo-fi Phase 2 wireframe for `/admin/manager`'s revoke screen (M6) captions itself "Revocar oculta el archivo al paciente de inmediato. Podrás volver a publicarlo más tarde" — that line is wrong and was not carried into the implementation. `REVOKED` stays terminal per this decision; the shipped copy (`revokeConfirmBody` in `frontend/src/scripts/admin/manager.js`) says the opposite on purpose. Flagged here so the wireframe is never read as a spec change on this point.
+
 The file lifecycle is `UPLOADED → CONFIRMED → PUBLISHED → REVOKED`, with one cycle in the pre-publication half: `CONFIRMED → UPLOADED` ("withdraw"), confined there because nothing was ever visible to a patient before that point. Once `PUBLISHED`, revoking is terminal — a revoked file cannot be published again, correcting a mistake means uploading and confirming a new file. See DEC-018 for the one deliberate exception: replacing a published file's PDF, which is a different action from revoking it.
 
 Rationale: after publication, "was this ever released, and is it still" must always have one unambiguous answer for a revoked file. A re-publishable `REVOKED` state would need `published_at`/`revoked_at` to mean "the latest one" rather than "the one time," which is a worse question to answer correctly than it looks.
@@ -262,3 +264,21 @@ Two smaller consequences, both deliberate:
 
 - A malformed `fileId` is rejected with the same `404 LOOKUP_FAILED` as a well-formed but wrong one, rather than the `400 INVALID_INPUT` the internal routes use. On a public route the *shape* of an id must not be a signal either.
 - The blast radius of a leaked token grew from one file to one folio's published files. Accepted: the token is already scoped to a patient who passed three-factor verification, it still expires in five minutes, and it still cannot outlive a revoke (DEC-014). What it never grants is anything belonging to a different patient.
+
+## DEC-024: UX heuristics (Fitts, Jakob, Zeigarnik, Von Restorff, Miller, Hicks, WCAG 2.2 AA) are explicit design criteria, not incidental polish
+
+Status: Accepted
+
+Starting with the manager surface (`/admin/manager`), every screen in the product is designed and reviewed against a named set of heuristics, not "does it look fine":
+
+- **Fitts's law** — interactive targets are sized and shaped for how error-prone the tap is, not uniformly. The whole `.mgr-card` is the tap target (not just the arrow glyph), and the manager's zoom buttons are larger than its page-nav buttons because a mis-tap on zoom costs more attention to recover from.
+- **Jakob's law** — one status vocabulary (`status.js`), one list-row pattern, and one native `<dialog>` confirm pattern reused across every screen, so a pattern learned once in the product works everywhere else in it.
+- **Zeigarnik effect** — an open-loop count (e.g. "Por publicar (4)") is shown only where it represents unfinished work the actor owns; a tab for already-completed work (Publicados, Revocados) does not get a count, since there is no open loop to remind them of.
+- **Von Restorff effect** — exactly one element per screen gets the "different" treatment: the active tab, or the single primary action in a button group. Never two.
+- **Miller's law** — action bars and confirm sheets on mobile stay to one primary decision at a time; a destructive control is never placed next to a benign one within reach of the same tap.
+- **Hicks's law** — screens built for the manager (a first-time-computer-adjacent user per DEC-021) offer the fewest choices that get the job done, not every option that exists; the employee's desktop surface, built for a repeat power user, can afford more density.
+- **WCAG 2.2 AA** — glyph + label on every status (never colour alone, per DEC-007's neighbor requirement in `status.js`), full keyboard operability including roving-tabindex tablists, visible focus using `--color-primary` everywhere (not a token that silently falls back to `currentColor`), and live regions for async state changes.
+
+The wireframe that seeded this pass (`DuoLab Phase 2 Wireframes.dc.html`, a Claude Design artifact) is a **lo-fi structure-and-flow reference**, not a visual spec: its teal placeholder palette is explicitly discarded in favor of `branding/guidelines.md`'s *One Purple Rule* — brand color decisions belong to the brand doc, never to a wireframe tool's default theme.
+
+Scope of this decision: applied to `/admin/manager` first, then extended across the product in a shared-foundations refinement pass (2026-07) — see `docs/07-ux-refinement-plan.md` for the audit, the priority ranking, and what shipped versus what was deliberately deferred. What remains unverified there (screen-reader pass, automated contrast audit, real-device iPhone run) is listed in that document and in `docs/04-backlog.md`; this decision sets the criteria, it does not by itself assert conformance.

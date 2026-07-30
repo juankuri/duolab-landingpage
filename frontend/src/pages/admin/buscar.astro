@@ -61,76 +61,17 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
 
   <script>
     import { apiJson, withRef } from "../../scripts/admin/api.js";
-    import { initials, tallyNode } from "../../scripts/admin/render.js";
+    import { folioRowNode, patientRowNode, setStatusLine } from "../../scripts/admin/render.js";
 
     const $ = (id) => document.getElementById(id);
-
-    const setStatus = (message, tone) => {
-      const el = $("status");
-      el.textContent = message || "";
-      if (tone) el.dataset.tone = tone;
-      else delete el.dataset.tone;
-    };
 
     const showEmpty = (title, sub, offerCreate) => {
       $("folios-section").hidden = true;
       $("patients-section").hidden = true;
-      $("empty-title").textContent = title;
-      $("empty-sub").textContent = sub;
       $("empty-create").hidden = !offerCreate;
       $("empty").hidden = false;
-    };
-
-    const folioRow = (folio) => {
-      const li = document.createElement("li");
-      li.className = "frow";
-
-      const link = document.createElement("a");
-      link.href = `/admin/folio?f=${encodeURIComponent(folio.folio)}`;
-      link.className = "frow__body";
-      link.style.textDecoration = "none";
-      link.style.color = "inherit";
-
-      const name = document.createElement("p");
-      name.className = "frow__name";
-      name.textContent = folio.folio;
-
-      const meta = document.createElement("p");
-      meta.className = "frow__meta";
-      meta.textContent = folio.patientName;
-
-      link.append(name, meta);
-      li.append(link, tallyNode(folio.results));
-      return li;
-    };
-
-    const patientRow = (patient) => {
-      const li = document.createElement("li");
-      li.className = "frow";
-
-      const avatar = document.createElement("span");
-      avatar.className = "pavatar";
-      avatar.setAttribute("aria-hidden", "true");
-      avatar.textContent = initials(patient.fullName);
-
-      const link = document.createElement("a");
-      link.href = `/admin/paciente?id=${encodeURIComponent(patient.patientId)}`;
-      link.className = "frow__body";
-      link.style.textDecoration = "none";
-      link.style.color = "inherit";
-
-      const name = document.createElement("p");
-      name.className = "frow__name";
-      name.textContent = patient.fullName;
-
-      const meta = document.createElement("p");
-      meta.className = "frow__meta";
-      const folioWord = patient.folioCount === 1 ? "folio" : "folios";
-      meta.textContent = `${patient.phoneNumber} · ${patient.folioCount} ${folioWord}`;
-
-      link.append(name, meta);
-      li.append(avatar, link);
-      return li;
+      $("empty-title").textContent = title;
+      $("empty-sub").textContent = sub;
     };
 
     const render = (payload, query) => {
@@ -149,29 +90,29 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       $("empty").hidden = true;
 
       $("folios-section").hidden = !hasFolios;
-      $("folios-list").replaceChildren(...payload.folios.map(folioRow));
+      $("folios-list").replaceChildren(...payload.folios.map((folio) => folioRowNode(folio)));
 
       $("patients-section").hidden = !hasPatients;
-      $("patients-list").replaceChildren(...payload.patients.map(patientRow));
+      $("patients-list").replaceChildren(...payload.patients.map(patientRowNode));
     };
 
     const search = async (query) => {
       if (!query) {
         showEmpty("Busca un folio o un paciente", "Escribe un folio, un nombre o un teléfono arriba.", false);
-        setStatus("");
+        setStatusLine($("status"), "");
         return;
       }
 
-      setStatus("Buscando…");
+      setStatusLine($("status"), "Buscando…");
       const { ok, payload } = await apiJson(`/search?q=${encodeURIComponent(query)}`);
 
       if (!ok) {
-        setStatus(withRef(payload, "No se pudo buscar."), "error");
+        setStatusLine($("status"), withRef(payload, "No se pudo buscar."), "error");
         return;
       }
 
       render(payload, query);
-      setStatus("");
+      setStatusLine($("status"), "");
     };
 
     $("search-form").addEventListener("submit", (event) => {

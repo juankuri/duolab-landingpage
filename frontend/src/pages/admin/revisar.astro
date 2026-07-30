@@ -66,19 +66,15 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
   <script>
     import { API_BASE, apiJson, withRef } from "../../scripts/admin/api.js";
     import {
+      fillPatientCard,
       formatMoment,
       formatSize,
-      initials,
       resultName,
+      setStatusLine,
     } from "../../scripts/admin/render.js";
 
     const $ = (id) => document.getElementById(id);
-    const setStatus = (message, tone) => {
-      const el = $("status");
-      el.textContent = message || "";
-      if (tone) el.dataset.tone = tone;
-      else delete el.dataset.tone;
-    };
+    const setStatus = (message, tone) => setStatusLine($("status"), message, tone);
 
     const showEmpty = (title, sub) => {
       $("patient").hidden = true;
@@ -133,9 +129,10 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       }
 
       $("patient").hidden = false;
-      $("patient-initials").textContent = initials(record.patient.fullName);
-      $("patient-name").textContent = record.patient.fullName;
-      $("patient-meta").textContent = `${record.patient.birthDate} · ${record.patient.phoneNumber}`;
+      fillPatientCard(
+        { avatar: $("patient-initials"), name: $("patient-name"), meta: $("patient-meta") },
+        record.patient,
+      );
       $("folio-value").textContent = record.folio;
       document.title = `Revisar · ${record.folio} · DúoLab`;
 

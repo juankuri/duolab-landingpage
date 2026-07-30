@@ -42,16 +42,9 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
 
   <script>
     import { apiJson, withRef } from "../../scripts/admin/api.js";
-    import { initials, tallyNode } from "../../scripts/admin/render.js";
+    import { fillPatientCard, folioRowNode, setStatusLine } from "../../scripts/admin/render.js";
 
     const $ = (id) => document.getElementById(id);
-
-    const setStatus = (message, tone) => {
-      const el = $("status");
-      el.textContent = message || "";
-      if (tone) el.dataset.tone = tone;
-      else delete el.dataset.tone;
-    };
 
     const showEmpty = (title, sub) => {
       $("patient").hidden = true;
@@ -59,25 +52,6 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       $("empty-title").textContent = title;
       $("empty-sub").textContent = sub;
       $("empty").hidden = false;
-    };
-
-    const folioRow = (folio) => {
-      const li = document.createElement("li");
-      li.className = "frow";
-
-      const link = document.createElement("a");
-      link.href = `/admin/folio?f=${encodeURIComponent(folio.folio)}`;
-      link.className = "frow__body";
-      link.style.textDecoration = "none";
-      link.style.color = "inherit";
-
-      const name = document.createElement("p");
-      name.className = "frow__name";
-      name.textContent = folio.folio;
-
-      link.append(name);
-      li.append(link, tallyNode(folio.results));
-      return li;
     };
 
     const init = async () => {
@@ -88,26 +62,27 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
         return;
       }
 
-      setStatus("Cargando…");
+      setStatusLine($("status"), "Cargando…");
       const { ok, status, payload } = await apiJson(`/patients/${patientId}`);
 
       if (status === 404) {
         showEmpty("No encontramos al paciente", "Búscalo de nuevo desde el inicio.");
-        setStatus("");
+        setStatusLine($("status"), "");
         return;
       }
 
       if (!ok) {
-        setStatus(withRef(payload, "No se pudo abrir al paciente."), "error");
+        setStatusLine($("status"), withRef(payload, "No se pudo abrir al paciente."), "error");
         return;
       }
 
       const patient = payload.patient;
 
       $("patient").hidden = false;
-      $("patient-initials").textContent = initials(patient.fullName);
-      $("patient-name").textContent = patient.fullName;
-      $("patient-meta").textContent = `${patient.birthDate} · ${patient.phoneNumber}`;
+      fillPatientCard(
+        { avatar: $("patient-initials"), name: $("patient-name"), meta: $("patient-meta") },
+        patient,
+      );
       $("crumb-name").textContent = patient.fullName;
       document.title = `${patient.fullName} · DúoLab`;
 
@@ -116,10 +91,12 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
 
       if (patient.folios.length === 0) {
         $("folios-list").replaceChildren();
-        setStatus("Este paciente todavía no tiene folios.");
+        setStatusLine($("status"), "Este paciente todavía no tiene folios.");
       } else {
-        $("folios-list").replaceChildren(...patient.folios.map(folioRow));
-        setStatus("");
+        $("folios-list").replaceChildren(
+          ...patient.folios.map((folio) => folioRowNode(folio, { metaText: null })),
+        );
+        setStatusLine($("status"), "");
       }
     };
 

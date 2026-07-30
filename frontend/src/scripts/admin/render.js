@@ -130,6 +130,91 @@ export function formatMoment(raw) {
   }).format(date);
 }
 
+/**
+ * Sets (or clears) a `role="status"` line's text and tone.
+ *
+ * Every admin page hand-rolled this same three-line closure independently
+ * (index, buscar, nuevo, folio, revisar, paciente) — one shared setter so a
+ * future change to the tone convention only has to happen once.
+ */
+export function setStatusLine(node, message, tone) {
+  node.textContent = message || "";
+  if (tone) node.dataset.tone = tone;
+  else delete node.dataset.tone;
+}
+
+/**
+ * Fills a page's `.empty` block (title + optional sub) and shows it. Callers
+ * pass the nodes rather than ids so this stays independent of any one page's
+ * id scheme.
+ */
+export function renderEmpty({ container, title: titleNode, sub: subNode }, title, sub) {
+  if (titleNode) titleNode.textContent = title ?? "";
+  if (subNode) subNode.textContent = sub ?? "";
+  container.hidden = false;
+}
+
+/**
+ * One folio row: folio → patient name, plus its tally. Used by /admin,
+ * /admin/buscar and /admin/paciente, previously three near-identical inline
+ * builders differing only in which link they pointed at.
+ */
+export function folioRowNode(folio, { href, metaText } = {}) {
+  const li = document.createElement("li");
+  li.className = "frow";
+
+  const link = document.createElement("a");
+  link.href = href ?? `/admin/folio?f=${encodeURIComponent(folio.folio)}`;
+  link.className = "frow__body";
+  link.style.textDecoration = "none";
+  link.style.color = "inherit";
+
+  link.append(el("p", "frow__name", folio.folio));
+
+  const meta = metaText === undefined ? folio.patientName : metaText;
+  if (meta) link.append(el("p", "frow__meta", meta));
+
+  li.append(link, tallyNode(folio.results));
+  return li;
+}
+
+/** One patient row: avatar, name, phone + folio count. Used by /admin/buscar. */
+export function patientRowNode(patient) {
+  const li = document.createElement("li");
+  li.className = "frow";
+
+  const avatar = el("span", "pavatar", initials(patient.fullName));
+  avatar.setAttribute("aria-hidden", "true");
+
+  const link = document.createElement("a");
+  link.href = `/admin/paciente?id=${encodeURIComponent(patient.patientId)}`;
+  link.className = "frow__body";
+  link.style.textDecoration = "none";
+  link.style.color = "inherit";
+
+  const folioWord = patient.folioCount === 1 ? "folio" : "folios";
+  link.append(
+    el("p", "frow__name", patient.fullName),
+    el("p", "frow__meta", `${patient.phoneNumber} · ${patient.folioCount} ${folioWord}`),
+  );
+
+  li.append(avatar, link);
+  return li;
+}
+
+/**
+ * Fills the patient-summary card markup repeated (statically, per page) on
+ * /admin/folio, /admin/revisar and /admin/paciente: avatar initials, name,
+ * and a `birthDate · phoneNumber` meta line. Each page owns its own markup
+ * (the ids differ slightly) and passes the three nodes in; this just keeps
+ * the fill logic itself from being copy-pasted a third time.
+ */
+export function fillPatientCard({ avatar, name, meta }, patient) {
+  if (avatar) avatar.textContent = initials(patient.fullName);
+  name.textContent = patient.fullName;
+  if (meta) meta.textContent = `${patient.birthDate} · ${patient.phoneNumber}`;
+}
+
 /** Initials for the patient avatar. Two letters, first and last word. */
 export function initials(name) {
   const words = String(name || "")

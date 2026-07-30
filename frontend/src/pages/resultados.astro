@@ -42,6 +42,8 @@ const whatsappMessage =
     <title>Consulta tu resultado · DúoLab</title>
   </head>
   <body>
+    <a class="skip-link" href="#main">Saltar al contenido</a>
+
     <header class="bar">
       <a class="bar__brand" href="/">
         <img src="/logo/logo-mark.svg" alt="" width="28" height="28" />
@@ -53,7 +55,7 @@ const whatsappMessage =
       <a class="bar__back" href="/">← Volver al inicio</a>
     </header>
 
-    <main class="wrap">
+    <main class="wrap" id="main">
       <section class="card" aria-labelledby="lookup-h">
         <h1 id="lookup-h" class="card__h">Consulta tu resultado</h1>
         <p class="card__lead">
@@ -67,9 +69,11 @@ const whatsappMessage =
           assistive tech the field's required semantics regardless. Custom
           validation lives in the script, not in these attributes.
         -->
+        <p class="tiny">* campo obligatorio</p>
+
         <form id="lookup-form" novalidate>
           <div class="field">
-            <label for="folio">Folio</label>
+            <label for="folio">Folio *</label>
             <input
               id="folio"
               name="folio"
@@ -83,10 +87,11 @@ const whatsappMessage =
               autofocus
             />
             <p class="field__hint" id="folio-hint">Lo encuentras en tu ticket de entrega.</p>
+            <p class="err" id="err-folio" data-err></p>
           </div>
 
           <div class="field">
-            <label for="phone">Teléfono (10 dígitos)</label>
+            <label for="phone">Teléfono (10 dígitos) *</label>
             <input
               id="phone"
               name="phone"
@@ -96,11 +101,13 @@ const whatsappMessage =
               inputmode="tel"
               maxlength="10"
             />
+            <p class="err" id="err-phone" data-err></p>
           </div>
 
           <div class="field">
-            <label for="birthDate">Fecha de nacimiento</label>
+            <label for="birthDate">Fecha de nacimiento *</label>
             <input id="birthDate" name="birthDate" type="date" required min="1900-01-01" />
+            <p class="err" id="err-birthDate" data-err></p>
           </div>
 
           <button class="btn" id="submit" type="submit">Buscar resultado</button>
@@ -151,7 +158,6 @@ const whatsappMessage =
       import {
         digitsOnly,
         downloadUrl,
-        firstEmptyField,
         formatMsLeft,
         formatPublishedAt,
         lookupErrorMessage,
@@ -170,6 +176,31 @@ const whatsappMessage =
       const folioInput = $("folio");
       const phoneInput = $("phone");
       const birthDateInput = $("birthDate");
+
+      const FIELDS = ["folio", "phone", "birthDate"];
+
+      const clearFieldErrors = () => {
+        for (const name of FIELDS) {
+          $(`err-${name}`).textContent = "";
+          $(name).removeAttribute("aria-invalid");
+        }
+      };
+
+      // Every empty field is marked, not just the first — the patient can
+      // fix all of them in one pass instead of resubmitting once per field.
+      const applyEmptyFieldErrors = ({ folio, phone, birthDate }) => {
+        const values = { folio, phone, birthDate };
+        let firstInvalid = null;
+
+        for (const name of FIELDS) {
+          if (values[name].trim()) continue;
+          $(`err-${name}`).textContent = "Falta este dato.";
+          $(name).setAttribute("aria-invalid", "true");
+          firstInvalid ??= $(name);
+        }
+
+        return firstInvalid;
+      };
 
       // Computed at load, not at build time (this is a static page) — a
       // build-time date would go stale the day after deploy.
@@ -277,6 +308,15 @@ const whatsappMessage =
         phoneInput.value = digitsOnly(phoneInput.value).slice(0, 10);
       });
 
+      // Clears a field's own error the moment the patient starts fixing it,
+      // rather than making them resubmit to find out it's gone.
+      for (const input of [folioInput, phoneInput, birthDateInput]) {
+        input.addEventListener("input", () => {
+          $(`err-${input.id}`).textContent = "";
+          input.removeAttribute("aria-invalid");
+        });
+      }
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
@@ -286,13 +326,16 @@ const whatsappMessage =
         const phone = phoneInput.value.trim();
         const birthDate = birthDateInput.value;
 
-        const empty = firstEmptyField({ folio, phone, birthDate });
-        if (empty) {
+        clearFieldErrors();
+        const firstInvalid = applyEmptyFieldErrors({ folio, phone, birthDate });
+        if (firstInvalid) {
           // Purely a client-side check — no request was made, so saying so
           // plainly (rather than the generic "no encontramos…") leaks
-          // nothing about any folio.
-          setStatus("Completa los tres campos para buscar tu resultado.", "error");
-          $(empty).focus();
+          // nothing about any folio. The per-field errors carry the detail;
+          // this line is the one already-announced status the patient will
+          // notice first.
+          setStatus("Completa los datos marcados para buscar tu resultado.", "error");
+          firstInvalid.focus();
           return;
         }
 
@@ -346,6 +389,24 @@ const whatsappMessage =
       *::before,
       *::after {
         box-sizing: border-box;
+      }
+
+      .skip-link {
+        position: absolute;
+        top: -40px;
+        left: 8px;
+        z-index: var(--z-toast);
+        padding: 10px 16px;
+        background: var(--color-primary);
+        color: var(--text-on-primary);
+        border-radius: var(--radius-sm);
+        text-decoration: none;
+        font-weight: 600;
+        transition: top var(--duration-fast) var(--ease-out);
+      }
+
+      .skip-link:focus {
+        top: 8px;
       }
 
       .bar {
@@ -434,6 +495,19 @@ const whatsappMessage =
         margin: 4px 0 0;
         font-size: 0.8rem;
         color: var(--text-secondary);
+      }
+
+      /* Reserves its line even when empty, so an error appearing doesn't
+         shift the field below it. */
+      .err {
+        margin: 4px 0 0;
+        min-height: 1.1em;
+        font-size: 0.8rem;
+        color: var(--color-danger);
+      }
+
+      input[aria-invalid="true"] {
+        border-color: var(--color-danger);
       }
 
       input {

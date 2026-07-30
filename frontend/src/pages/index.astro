@@ -76,13 +76,15 @@ const childCare = {
 ---
 
 <Layout seo={seo} business={business}>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+
   <Header
     brand="dúolab"
     navLinks={navLinks}
     cta={ctaFor(hero.primaryCtaMessageContext, "Escríbenos")}
   />
 
-  <main>
+  <main id="main">
     <Hero
       eyebrow={hero.eyebrow}
       headline={hero.headline}

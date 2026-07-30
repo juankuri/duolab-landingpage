@@ -22,37 +22,46 @@ import PatientChip from "../../components/admin/PatientChip.astro";
 
   <PatientChip />
 
+  <p class="tiny" id="required-legend">* campo obligatorio</p>
+
   <form id="create-form" novalidate>
     <div class="field" id="field-fullName">
-      <label for="fullName">Nombre completo</label>
-      <input id="fullName" name="fullName" type="text" autocomplete="off" />
+      <label for="fullName">Nombre completo *</label>
+      <input id="fullName" name="fullName" type="text" autocomplete="off" required />
       <p class="err" id="err-fullName" data-err></p>
     </div>
 
     <div class="field" id="field-birthDate">
-      <label for="birthDate">Fecha de nacimiento</label>
-      <input id="birthDate" name="birthDate" type="date" />
+      <label for="birthDate">Fecha de nacimiento *</label>
+      <input id="birthDate" name="birthDate" type="date" required />
       <p class="err" id="err-birthDate" data-err></p>
     </div>
 
     <div class="field" id="field-phoneNumber">
-      <label for="phoneNumber">Teléfono</label>
-      <input id="phoneNumber" name="phoneNumber" type="tel" autocomplete="off" />
+      <label for="phoneNumber">Teléfono *</label>
+      <input
+        id="phoneNumber"
+        name="phoneNumber"
+        type="tel"
+        inputmode="tel"
+        autocomplete="off"
+        required
+      />
       <p class="err" id="err-phoneNumber" data-err></p>
     </div>
 
     <div class="field">
-      <label for="folio">Folio</label>
-      <input id="folio" name="folio" type="text" autocomplete="off" />
+      <label for="folio">Folio *</label>
+      <input id="folio" name="folio" type="text" autocomplete="off" required />
       <p class="tiny">Sugerido a partir del nombre — puedes cambiarlo.</p>
       <p class="err" id="err-folio" data-err></p>
     </div>
 
     <div class="field">
       <label class="dropzone" for="pdf-file" id="drop-label">
-        <span id="drop-label-text">Arrastra el PDF o haz clic para elegirlo</span>
+        <span id="drop-label-text">Arrastra el PDF o haz clic para elegirlo *</span>
       </label>
-      <input id="pdf-file" name="file" type="file" accept="application/pdf" hidden />
+      <input id="pdf-file" name="file" type="file" accept="application/pdf" required hidden />
       <p class="err" id="err-file" data-err></p>
     </div>
 
@@ -133,7 +142,7 @@ import PatientChip from "../../components/admin/PatientChip.astro";
 
       if (!check.ok) {
         pendingFile = null;
-        $("drop-label-text").textContent = "Arrastra el PDF o haz clic para elegirlo";
+        $("drop-label-text").textContent = "Arrastra el PDF o haz clic para elegirlo *";
         $("err-file").textContent = file ? check.error : "";
         return;
       }
@@ -156,6 +165,11 @@ import PatientChip from "../../components/admin/PatientChip.astro";
         location.href = `/admin/folio?f=${encodeURIComponent(lastConflict.folio)}`;
       }
     });
+
+    // Esc/backdrop dismissal skips both button handlers above, so focus
+    // would otherwise drop to <body>; the folio field is what needs fixing
+    // either way, so that's also the right place to land here.
+    $("dup-dialog").addEventListener("close", () => $("folio").focus());
 
     $("create-form").addEventListener("submit", async (event) => {
       event.preventDefault();

@@ -110,10 +110,11 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
     import { uploadResult } from "../../scripts/admin/upload.js";
     import { validatePdf } from "../../scripts/admin/validation.js";
     import {
+      fillPatientCard,
       formatMoment,
       formatSize,
-      initials,
       resultName,
+      setStatusLine,
       statusBadge,
       tallyNode,
       tallyOf,
@@ -125,12 +126,7 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
     let current = null;
     let actorRole = "EMPLOYEE";
 
-    const setStatus = (message, tone) => {
-      const el = $("status");
-      el.textContent = message || "";
-      if (tone) el.dataset.tone = tone;
-      else delete el.dataset.tone;
-    };
+    const setStatus = (message, tone) => setStatusLine($("status"), message, tone);
 
     const showEmpty = (title, sub) => {
       $("patient").hidden = true;
@@ -245,6 +241,11 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
       $("revoke-sheet").showModal();
     };
 
+    // Native <dialog> focus-traps while open but drops focus to <body> on
+    // close (Esc, backdrop click, or either button) — returning it to
+    // whatever opened the sheet keeps a keyboard/screen-reader user's place.
+    $("revoke-sheet").addEventListener("close", () => revokeTarget?.triggerButton?.focus());
+
     $("revoke-sheet-cancel").addEventListener("click", () => $("revoke-sheet").close());
 
     $("revoke-sheet-confirm").addEventListener("click", async () => {
@@ -283,6 +284,8 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
       $("replace-sheet-file").value = "";
       $("replace-sheet").showModal();
     };
+
+    $("replace-sheet").addEventListener("close", () => replaceTarget?.triggerButton?.focus());
 
     $("replace-sheet-cancel").addEventListener("click", () => $("replace-sheet").close());
 
@@ -486,9 +489,10 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
 
       $("crumb-folio").textContent = `Folio ${record.folio}`;
       $("folio-value").textContent = record.folio;
-      $("patient-initials").textContent = initials(record.patient.fullName);
-      $("patient-name").textContent = record.patient.fullName;
-      $("patient-meta").textContent = `${record.patient.birthDate} · ${record.patient.phoneNumber}`;
+      fillPatientCard(
+        { avatar: $("patient-initials"), name: $("patient-name"), meta: $("patient-meta") },
+        record.patient,
+      );
       document.title = `Folio ${record.folio} · DúoLab`;
 
       // Oldest first: #1 is the first result of the folio and stays #1 as the
@@ -532,6 +536,7 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
     });
 
     $("add-sheet-cancel").addEventListener("click", () => addSheet.close());
+    addSheet.addEventListener("close", () => $("add-result-open")?.focus());
 
     const pickFile = (file) => {
       const check = validatePdf(file);

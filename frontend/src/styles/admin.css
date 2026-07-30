@@ -198,6 +198,26 @@ body {
   white-space: nowrap;
 }
 
+/* Visually hidden until focused — lets a keyboard user jump past the
+   persistent topbar straight to <main>, per WCAG 2.4.1. */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 8px;
+  z-index: var(--z-toast);
+  padding: 10px 16px;
+  background: var(--color-primary);
+  color: var(--text-on-primary);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  font-weight: 600;
+  transition: top var(--duration-fast) var(--ease-out);
+}
+
+.skip-link:focus {
+  top: 8px;
+}
+
 /* ---------- panels ---------- */
 
 .card {
@@ -468,9 +488,14 @@ body {
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  /* 44px: the WCAG 2.5.8 / Fitts touch-target floor. This is the "⋯" more-
+     actions toggle — a small target guarding several important actions
+     (publish/withdraw/replace/revoke) was exactly the wrong place to be
+     stingy about hit area. */
+  width: 44px;
+  height: 44px;
   font: inherit;
+  font-size: 1.1rem;
   color: var(--text-secondary);
   cursor: pointer;
   background: var(--color-surface);
@@ -498,11 +523,14 @@ body {
 .menu__list {
   position: absolute;
   right: 0;
+  /* A fixed width can overflow a narrow viewport when the toggle sits near
+     the screen edge; capping at 90vw keeps it on-screen instead. */
+  width: 210px;
+  max-width: 90vw;
   z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 210px;
   padding: 6px;
   margin: 4px 0 0;
   list-style: none;
@@ -521,6 +549,7 @@ body {
   gap: 9px;
   align-items: center;
   width: 100%;
+  min-height: 44px;
   padding: 8px 10px;
   font: inherit;
   font-size: var(--font-size-label);
@@ -640,7 +669,7 @@ body {
 }
 
 .field input:focus-visible {
-  outline: 2px solid var(--color-brand, currentColor);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -696,7 +725,7 @@ body {
 
 .dropzone:hover,
 .dropzone:focus-within {
-  border-color: var(--color-brand, var(--color-border-strong));
+  border-color: var(--color-primary);
 }
 
 .dropzone[data-active="true"] {
@@ -735,6 +764,22 @@ body {
 
   .card__folio {
     text-align: left;
+  }
+
+  /* Employee screens are desktop-first by design, but a folio/patient row
+     still needs a floor: at narrow widths the tally chips wrap under the
+     name instead of squeezing it into an unreadable sliver. */
+  .frow {
+    flex-wrap: wrap;
+  }
+
+  .frow__name {
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .tally {
+    flex-basis: 100%;
   }
 }
 

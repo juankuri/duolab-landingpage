@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  fillPatientCard,
+  folioRowNode,
   formatSize,
   initials,
+  patientRowNode,
   resultName,
+  setStatusLine,
   statusBadge,
   tallyNode,
   tallyOf,
@@ -134,5 +138,103 @@ describe("initials", () => {
   it("never renders an empty avatar", () => {
     expect(initials("")).toBe("?");
     expect(initials(undefined)).toBe("?");
+  });
+});
+
+describe("setStatusLine", () => {
+  it("sets the text and tone", () => {
+    const node = document.createElement("p");
+    setStatusLine(node, "Cargando…", "info");
+    expect(node.textContent).toBe("Cargando…");
+    expect(node.dataset.tone).toBe("info");
+  });
+
+  it("clears the tone when none is given", () => {
+    const node = document.createElement("p");
+    node.dataset.tone = "error";
+    setStatusLine(node, "");
+    expect(node.textContent).toBe("");
+    expect(node.dataset.tone).toBeUndefined();
+  });
+
+  it("treats a falsy message as empty text", () => {
+    const node = document.createElement("p");
+    setStatusLine(node, null);
+    expect(node.textContent).toBe("");
+  });
+});
+
+describe("folioRowNode", () => {
+  const folio = { folio: "A-1024", patientName: "Juan Pablo Kuri", results: [] };
+
+  it("links to the folio by default, with the patient name as meta", () => {
+    const li = folioRowNode(folio);
+    const link = li.querySelector("a");
+    expect(link.getAttribute("href")).toBe("/admin/folio?f=A-1024");
+    expect(li.querySelector(".frow__name").textContent).toBe("A-1024");
+    expect(li.querySelector(".frow__meta").textContent).toBe("Juan Pablo Kuri");
+  });
+
+  it("accepts an override href and meta text", () => {
+    const li = folioRowNode(folio, { href: "/x", metaText: "custom" });
+    expect(li.querySelector("a").getAttribute("href")).toBe("/x");
+    expect(li.querySelector(".frow__meta").textContent).toBe("custom");
+  });
+
+  it("omits the meta line when explicitly suppressed with null", () => {
+    const li = folioRowNode(folio, { metaText: null });
+    expect(li.querySelector(".frow__meta")).toBeNull();
+  });
+});
+
+describe("patientRowNode", () => {
+  it("renders avatar, name, phone and folio count", () => {
+    const li = patientRowNode({
+      patientId: "p1",
+      fullName: "Ana Ruiz",
+      phoneNumber: "9381234567",
+      folioCount: 3,
+    });
+
+    expect(li.querySelector("a").getAttribute("href")).toBe("/admin/paciente?id=p1");
+    expect(li.querySelector(".pavatar").textContent).toBe("AR");
+    expect(li.querySelector(".frow__name").textContent).toBe("Ana Ruiz");
+    expect(li.querySelector(".frow__meta").textContent).toBe("9381234567 · 3 folios");
+  });
+
+  it("uses the singular word for exactly one folio", () => {
+    const li = patientRowNode({
+      patientId: "p1",
+      fullName: "Ana Ruiz",
+      phoneNumber: "9381234567",
+      folioCount: 1,
+    });
+    expect(li.querySelector(".frow__meta").textContent).toContain("1 folio");
+    expect(li.querySelector(".frow__meta").textContent).not.toContain("folios");
+  });
+});
+
+describe("fillPatientCard", () => {
+  it("fills avatar initials, name and the birthDate · phone meta line", () => {
+    const avatar = document.createElement("span");
+    const name = document.createElement("h1");
+    const meta = document.createElement("p");
+
+    fillPatientCard(
+      { avatar, name, meta },
+      { fullName: "Juan Pablo Kuri", birthDate: "1990-01-01", phoneNumber: "9381234567" },
+    );
+
+    expect(avatar.textContent).toBe("JK");
+    expect(name.textContent).toBe("Juan Pablo Kuri");
+    expect(meta.textContent).toBe("1990-01-01 · 9381234567");
+  });
+
+  it("tolerates a missing avatar/meta node", () => {
+    const name = document.createElement("h1");
+    expect(() =>
+      fillPatientCard({ name }, { fullName: "X", birthDate: "d", phoneNumber: "p" }),
+    ).not.toThrow();
+    expect(name.textContent).toBe("X");
   });
 });
