@@ -282,3 +282,19 @@ Starting with the manager surface (`/admin/manager`), every screen in the produc
 The wireframe that seeded this pass (`DuoLab Phase 2 Wireframes.dc.html`, a Claude Design artifact) is a **lo-fi structure-and-flow reference**, not a visual spec: its teal placeholder palette is explicitly discarded in favor of `branding/guidelines.md`'s *One Purple Rule* — brand color decisions belong to the brand doc, never to a wireframe tool's default theme.
 
 Scope of this decision: applied to `/admin/manager` first, then extended across the product in a shared-foundations refinement pass (2026-07) — see `docs/07-ux-refinement-plan.md` for the audit, the priority ranking, and what shipped versus what was deliberately deferred. What remains unverified there (screen-reader pass, automated contrast audit, real-device iPhone run) is listed in that document and in `docs/04-backlog.md`; this decision sets the criteria, it does not by itself assert conformance.
+
+## DEC-025: Three environments — local, staging, production — with staging as a topological mirror, not a smaller copy
+
+Status: Accepted
+
+The product runs in exactly three environments, mapped to branches: feature branches → local, `develop` → staging, `main` → production. The full matrix (resources, hostnames, secrets, what is shared and what is separate) lives in `docs/08-environments.md`; this decision records the reasoning that constrains it.
+
+Staging is defined as *production's topology with production's data removed*. Concretely, three things must not differ, because each one is a class of failure staging exists to catch and would silently stop catching:
+
+- **Single origin.** One Worker serving both the assets and the API, `PUBLIC_API_BASE` built empty, no CORS headers (DEC-020). Splitting the frontend onto its own staging hostname would pass in staging and fail on the first production deploy, which is the exact failure DEC-020 was written to remove.
+- **The Access path policy.** Staging protects the same paths as production — `/admin*`, `/records*`, `/files*`, `/me`, `/search*`, `/patients*` — and excludes `/api/public/*` and the landing. Blanket-protecting the whole staging hostname was considered and rejected: it is simpler to configure, and it makes the patient flow unreachable from a browser without an Access session. That would leave the most publicly exposed surface in the product as the one surface staging never exercises. The cost accepted in exchange is that staging's public routes are reachable by anyone who knows the hostname; they are the same routes that are public in production anyway, and they are rate-limited by the same code (DEC-015).
+- **Migrations.** Staging's schema changes only through `database/migrations`, in order. A hand-patched staging database is no longer a rehearsal of the production deploy.
+
+What must differ is resource identity: separate D1, separate R2, separate Worker, and independently generated `RATE_LIMIT_KEY_SECRET` and `DOWNLOAD_TOKEN_SECRET` — so that a download token minted in staging cannot validate in production, and no staging request can read patient data. That separation is the entire justification for the environment; sharing any of it would reduce staging to a second name for production.
+
+Deploys are manual until the runbook has been executed end to end at least once. Automation is scheduled after, not before: a pipeline written for a procedure nobody has performed encodes assumptions rather than experience.

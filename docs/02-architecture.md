@@ -77,6 +77,8 @@ Cloudflare-first, on a single origin:
 
 Cloudflare Pages was the earlier intention and is no longer used: a separate frontend host would put the browser on a different origin from the API, which the CORS policy deliberately does not allow (DEC-020).
 
+This topology is deployed to three environments — local, staging and production — that differ in resource identity and never in shape. See `docs/08-environments.md` and DEC-025.
+
 ## Persistence
 
 D1 stores structured product data such as records, folios, publication state, and audit-relevant metadata.
