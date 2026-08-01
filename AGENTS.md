@@ -59,15 +59,22 @@ Do not introduce frontend feature folders until there are multiple implemented p
 
 ## Architecture Direction
 
-Cloudflare-first:
+Cloudflare-first, single origin (DEC-020):
 
-- Pages
 - Workers
 - D1
 - R2
 - Access
 
-Backend framework choices belong in `docs/03-decisions.md` until implementation makes them definitive.
+One Worker serves both the built frontend and the Hono API in every environment. Backend framework and other implementation choices live in `docs/03-decisions.md`.
+
+## Environments
+
+Three environments — local, staging, production — mapped to branches, with staging built as a topological mirror of production rather than a smaller copy: same single origin, same Cloudflare Access path policy, same migrations, only the resources (D1, R2, secrets) differ per environment. Full model in `docs/08-environments.md`, reasoning in DEC-025.
+
+Local development supports two equivalent flows — `docker compose up` (documented default) and `pnpm install && pnpm dev` (native, fully supported). Do not treat Docker as mandatory or as a replacement for the native flow; keep both working when changing dev tooling.
+
+Deploys are manual (`pnpm run deploy:staging` / `pnpm run deploy:production`) until the runbook in `backend/README.md` has been run end to end at least once. Do not add deploy automation before that.
 
 ## Calidad y pruebas
 

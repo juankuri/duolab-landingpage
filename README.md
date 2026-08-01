@@ -45,15 +45,38 @@ The deployment direction is Cloudflare-first:
 
 See `docs/02-architecture.md` and `docs/03-decisions.md` for the current architectural notes and decisions.
 
-## Frontend
+Backend framework and deployment are Cloudflare Workers (Hono) — see `backend/README.md`. The frontend is Astro, in `frontend/`. In production, staging, and any local run of the built app, one Worker serves both (DEC-020); local day-to-day development runs Astro and the Worker as two servers.
 
-The frontend is an Astro app.
+## Development
+
+Two supported flows — pick either, they run the same commands:
 
 ```sh
-cd frontend
+# containerized (documented default)
+docker compose up
+
+# native
 pnpm install
-pnpm dev
-pnpm build
+pnpm run dev:setup    # apply pending D1 migrations, first time and after every pull
+pnpm run dev
+```
+
+Both put Astro on `:4321` and the API on `:8787`, with a local D1/R2 backed by Miniflare. See `backend/README.md` for seeding data and users, and `docs/08-environments.md` for how local relates to staging and production.
+
+```sh
+pnpm run check          # tsc --noEmit
+pnpm run test           # backend + frontend
+pnpm run test:coverage
+pnpm run build          # frontend/dist, ready for the Worker to serve
+```
+
+## Environments
+
+Local, staging, and production share one topology — a single Worker per environment, serving the built frontend and the API on one origin — and differ only in which resources back it. See `docs/08-environments.md` and DEC-025. Deploys are manual for now:
+
+```sh
+pnpm run deploy:staging
+pnpm run deploy:production
 ```
 
 ## Documentation

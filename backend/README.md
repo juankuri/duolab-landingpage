@@ -33,6 +33,8 @@ pnpm dev                          # wrangler dev, default port 8787
 pnpm dev:seed                     # in another terminal, with dev running
 ```
 
+This is the native flow, run from `backend/`. From the repo root, `docker compose up` runs the equivalent commands for both `frontend/` and `backend/` inside a container — same ports, same Miniflare-backed D1/R2, `.dev.vars` seeded from `.dev.vars.example` on first start. Local D1/R2 state lives in a named Docker volume rather than `backend/.wrangler/`, so the two flows never share or corrupt each other's data; run `docker compose down -v` to reset it. See the root `README.md` and `docs/08-environments.md`.
+
 `dev:setup` before `dev` is not optional after pulling a branch that added a migration: `wrangler dev` will happily start against a stale local schema and every request touching the new column 500s with `no such column`. It is idempotent, so running it when nothing is pending costs nothing.
 
 `dev:seed` fills the local database with data worth walking a QA script over — an accented patient name, one patient with two folios, and a folio carrying all four result states at once. It talks to the running Worker rather than to D1 directly, so R2 and D1 stay in step (see `scripts/seed.mjs`). Publishing needs `DEV_ROLE=manager`.
