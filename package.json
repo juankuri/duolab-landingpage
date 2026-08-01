@@ -2,11 +2,13 @@
   "name": "duolab-workspace",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.9.0",
   "engines": {
     "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "pnpm --parallel --filter duolab --filter @duolab/backend dev",
+    "dev:container": "pnpm --parallel --filter duolab --filter @duolab/backend dev:container",
     "dev:setup": "pnpm --filter @duolab/backend dev:setup",
     "dev:seed": "pnpm --filter @duolab/backend dev:seed",
     "check": "pnpm --filter @duolab/backend check",

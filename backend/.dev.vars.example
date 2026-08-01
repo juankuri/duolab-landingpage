@@ -9,3 +9,22 @@ ENVIRONMENT="local"
 # Which role the local bypass identity gets: "employee" or "manager".
 # Restart wrangler dev after changing it.
 DEV_ROLE="employee"
+
+# The two application secrets the public patient flow needs. Without them,
+# every /api/public/* request fails at runtime — which is what a fresh local
+# setup used to do before these lines existed.
+#
+# The values below are PLACEHOLDERS, not secrets: they are committed to git and
+# are correct only for local development. Staging and production get their own,
+# generated per environment and set with `wrangler secret put --env <name>`, so
+# a token minted locally can never validate anywhere real (DEC-025).
+
+# Keys the rate-limit fingerprints in domain/fingerprint.ts. Any non-empty
+# string works locally. Generate a real one with: openssl rand -base64 24
+RATE_LIMIT_KEY_SECRET="local-dev-rate-limit-key-not-a-secret"
+
+# Encrypts public download tokens (domain/download-token.ts). Must base64-decode
+# to exactly 32 bytes or the app fails at startup of the first download — this
+# value is 32 zero bytes, a valid shape carrying no entropy. Generate a real
+# one with: openssl rand -base64 32
+DOWNLOAD_TOKEN_SECRET="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="

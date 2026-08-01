@@ -1,0 +1,84 @@
+# Local development, containerized. This is the documented default; the native
+# `pnpm install && pnpm dev` flow stays fully supported and runs the same
+# commands. See docs/08-environments.md.
+#
+#   docker compose up            start Astro (:4321) and Wrangler (:8787)
+#   docker compose exec dev sh   a shell inside the running container
+#   docker compose down          stop; local D1/R2 data survives in the volume
+#   docker compose down -v       stop and DESTROY the local D1/R2 data
+#
+# No `version:` key — it has been ignored by Compose v2 for years.
+
+services:
+  dev:
+    build: .
+    # A fixed name, so `docker compose exec dev` reads the same in every
+    # terminal and in the docs.
+    container_name: duolab-dev
+    init: true
+
+    # Published on 127.0.0.1 only. These ports serve an app with the Cloudflare
+    # Access bypass switched on (ENVIRONMENT=local); binding them to every
+    # interface would expose an unauthenticated admin panel to the local
+    # network.
+    ports:
+      - "127.0.0.1:4321:4321" # Astro dev server
+      - "127.0.0.1:8787:8787" # Wrangler dev (the Worker + API)
+
+    volumes:
+      # The repo itself. Edits on the host are what the container serves, which
+      # is the entire point of a dev container rather than a build.
+      - .:/app
+
+      # Dependencies live in named volumes that SHADOW the bind mount above.
+      # Without these, the container and the host would fight over one
+      # node_modules tree: pnpm's store links are absolute, and a tree built by
+      # a different Node would be silently wrong rather than loudly broken.
+      - node_modules:/app/node_modules
+      - frontend_node_modules:/app/frontend/node_modules
+      - backend_node_modules:/app/backend/node_modules
+
+      # Miniflare's local D1 and R2 live here. A named volume, not a bind
+      # mount, so container and host each keep their own local database — the
+      # two flows would otherwise trade a SQLite file back and forth between
+      # different sqlite builds. This is why `down -v` is the destructive one.
+      - wrangler_state:/app/backend/.wrangler
+
+    environment:
+      # Astro's file watcher does not see inotify events through some bind
+      # mount setups; polling is slower but always correct.
+      CHOKIDAR_USEPOLLING: "true"
+      # Read by nothing in the app — it exists so a shell inside the container
+      # can tell where it is.
+      DUOLAB_CONTAINER: "1"
+
+    # backend/.dev.vars is read by wrangler from the bind-mounted repo. It is
+    # deliberately NOT passed through env_file: one file, one source of truth,
+    # and no secret value ends up in `docker inspect` output.
+
+    # Install, apply pending migrations, then start both servers. Install runs
+    # on every start on purpose: it is a no-op when the lockfile has not
+    # changed, and it removes the "works after I finally reinstalled" class of
+    # bug for anyone switching branches.
+    #
+    # The .dev.vars seeding is not a convenience: without that file the Access
+    # bypass is off, and every internal route answers 401 for reasons that look
+    # nothing like a missing config file. The example holds only placeholders,
+    # so copying it is safe; an existing file is never overwritten.
+    command: >
+      sh -c "[ -f backend/.dev.vars ] || cp backend/.dev.vars.example backend/.dev.vars &&
+             pnpm install --frozen-lockfile &&
+             pnpm run dev:setup &&
+             pnpm run dev:container"
+
+    # No stdin_open/tty here on purpose: `wrangler d1 migrations apply` in
+    # dev:setup only skips its interactive confirmation prompt when it detects
+    # a non-interactive terminal. Allocating a tty made the container hang
+    # forever on that prompt with no visible error. Use
+    # `docker compose exec dev sh` for an interactive shell instead.
+
+volumes:
+  node_modules:
+  frontend_node_modules:
+  backend_node_modules:
+  wrangler_state:

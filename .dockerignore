@@ -1,0 +1,17 @@
+# The image copies no source at all (see Dockerfile), so this file mostly
+# keeps the build context small — every entry here is something Docker would
+# otherwise stream to the daemon on every build.
+.git
+node_modules
+**/node_modules
+frontend/dist
+frontend/.astro
+backend/.wrangler
+**/coverage
+
+# Never in a build context, even though nothing COPYs it today. The cost of
+# this line is zero; the cost of forgetting it after someone adds a COPY is a
+# secret baked into an image layer.
+backend/.dev.vars
+.env
+.env.*
