@@ -40,5 +40,73 @@
   "vars": {
     "CLOUDFLARE_ACCESS_TEAM_DOMAIN": "duolab-team.cloudflareaccess.com",
     "CLOUDFLARE_ACCESS_AUDIENCE": "my-access-aud"
+  },
+
+  // Everything above is the top-level configuration: it is what `wrangler dev`
+  // reads locally and what `wrangler deploy` (no --env) ships to PRODUCTION.
+  // Staging is the named environment below. See docs/08-environments.md and
+  // DEC-025 for why the two must stay the same shape.
+  //
+  // Wrangler environments DO NOT INHERIT bindings, assets or vars. Every key
+  // an environment needs is restated here in full; one omitted is missing at
+  // runtime, not inherited from above. That is verbose on purpose — an
+  // inherited D1 binding would mean a staging Worker silently reading the
+  // production database, which is the one failure this whole file exists to
+  // make impossible.
+  "env": {
+    "staging": {
+      "name": "duolab-staging",
+
+      // Restated, not inherited. Same directory and same "none" fall-through
+      // as production: staging is single-origin or it is not a rehearsal.
+      "assets": {
+        "directory": "../frontend/dist",
+        "not_found_handling": "none"
+      },
+
+      // Separate database. The id is filled in from `wrangler d1 create
+      // duolab-staging` — see the runbook in backend/README.md. It is a
+      // resource identifier, not a secret, which is why it belongs in git.
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "duolab-staging",
+          "database_id": "STAGING_DATABASE_ID_PENDING",
+          "migrations_dir": "../database/migrations"
+        }
+      ],
+
+      // Separate bucket. A staging upload must never land next to a real
+      // patient's PDF.
+      "r2_buckets": [
+        {
+          "binding": "RESULTS_BUCKET",
+          "bucket_name": "duolab-results-staging"
+        }
+      ],
+
+      // Same team domain (one Cloudflare Access account), different
+      // application, therefore a different audience tag. Reusing production's
+      // aud would let a token issued for one hostname satisfy the other.
+      "vars": {
+        "CLOUDFLARE_ACCESS_TEAM_DOMAIN": "duolab-team.cloudflareaccess.com",
+        "CLOUDFLARE_ACCESS_AUDIENCE": "STAGING_ACCESS_AUD_PENDING"
+      },
+
+      "observability": {
+        "enabled": true
+      },
+
+      // The first staging deploy lands on the workers.dev subdomain, so it
+      // works before any DNS or zone setup exists. Once
+      // staging.laboratoriosduolab.com is a custom domain on this Worker,
+      // set "workers_dev": false and uncomment the route below — leaving both
+      // reachable would leave an unprotected hostname serving the same app,
+      // because the Access application is attached to the custom domain only.
+      "workers_dev": true
+      // "routes": [
+      //   { "pattern": "staging.laboratoriosduolab.com", "custom_domain": true }
+      // ]
+    }
   }
 }

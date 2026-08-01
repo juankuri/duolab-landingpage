@@ -6,12 +6,17 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "dev": "pnpm --parallel --filter duolab --filter @duolab/backend dev",
     "dev:setup": "pnpm --filter @duolab/backend dev:setup",
     "dev:seed": "pnpm --filter @duolab/backend dev:seed",
     "check": "pnpm --filter @duolab/backend check",
     "test": "pnpm --filter @duolab/backend test && pnpm --filter duolab test",
     "test:coverage": "pnpm --filter @duolab/backend test:coverage && pnpm --filter duolab test:coverage",
     "build": "PUBLIC_API_BASE= pnpm --filter duolab build",
-    "deploy": "pnpm run build && pnpm --filter @duolab/backend deploy"
+    "migrate:staging": "pnpm --filter @duolab/backend migrate:staging",
+    "migrate:production": "pnpm --filter @duolab/backend migrate:production",
+    "deploy:staging": "pnpm run build && pnpm --filter @duolab/backend deploy:staging",
+    "deploy:production": "pnpm run build && pnpm --filter @duolab/backend deploy:production",
+    "deploy": "node -e \"console.error('Refusing an unqualified deploy: run pnpm run deploy:staging or pnpm run deploy:production.'); process.exit(1)\""
   }
 }
