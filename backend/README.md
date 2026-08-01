@@ -104,9 +104,76 @@ There is no automated reconciliation sweep. Add one if these start appearing at 
 
 ## Deploying
 
-One Worker serves both the built frontend and the API on a single origin (DEC-020). `pnpm deploy` from the repo root builds the frontend with an empty `PUBLIC_API_BASE` and then deploys the Worker — run it that way rather than `wrangler deploy` directly, or the Worker ships whatever `frontend/dist` happened to be lying around, built against the wrong API base.
+One Worker serves both the built frontend and the API on a single origin (DEC-020). This is true in every environment (DEC-025), so both runbooks below share the same shape — staging is not a lighter version of this, it is a rehearsal of it against separate resources. `pnpm run deploy:staging` / `pnpm run deploy:production` build the frontend with an empty `PUBLIC_API_BASE` and then deploy the matching Worker — run one of those rather than `wrangler deploy` directly, or the Worker ships whatever `frontend/dist` happened to be lying around, built against the wrong API base. The bare `pnpm run deploy` refuses to run; there is deliberately no unqualified deploy.
 
-Nothing below has been done yet. In order:
+Staging deploys from a clean `develop`. Production deploys from a clean `main`, and only after the same change has already gone through staging.
+
+### Staging (first-time setup)
+
+Nothing below has been done yet — `wrangler.jsonc`'s `env.staging` still carries the placeholders `STAGING_DATABASE_ID_PENDING` and `STAGING_ACCESS_AUD_PENDING`. In order:
+
+**1. Create the resources**
+
+```sh
+wrangler d1 create duolab-staging
+wrangler r2 bucket create duolab-results-staging
+```
+
+Put the returned database id into `wrangler.jsonc`, replacing `STAGING_DATABASE_ID_PENDING` under `env.staging.d1_databases`.
+
+**2. Apply the migrations remotely**
+
+```sh
+pnpm run migrate:staging
+```
+
+Tracked independently from local and from production — each `--remote`/environment pair has its own applied-migrations record.
+
+**3. Set the secrets**
+
+```sh
+wrangler secret put RATE_LIMIT_KEY_SECRET --env staging     # openssl rand -base64 24
+wrangler secret put DOWNLOAD_TOKEN_SECRET --env staging     # openssl rand -base64 32, must decode to exactly 32 bytes
+```
+
+Generate fresh values, independent from both local and production. A staging-minted download token must never validate in production, and it won't as long as this step is never skipped by reusing a value from somewhere else.
+
+**4. Configure Cloudflare Access**
+
+Set `env.staging.vars.CLOUDFLARE_ACCESS_AUDIENCE` in `wrangler.jsonc` to the real value once the application below exists — it currently ships as `STAGING_ACCESS_AUD_PENDING`. `CLOUDFLARE_ACCESS_TEAM_DOMAIN` is already correct; staging uses the same Cloudflare Access account as production, a separate application within it.
+
+Create one self-hosted Access application for `staging.laboratoriosduolab.com`, with a destination for **each** of these paths — the same list as production, not the whole hostname (DEC-025):
+
+```
+/admin*      /records*      /files*      /me      /search*      /patients*
+```
+
+Do **not** include `/api/public/*` or the landing. Protecting the whole hostname was considered and rejected: it would make the patient flow — the most publicly exposed surface in the product — the one surface staging cannot exercise from a browser (DEC-025). Its policy can allow a narrower set of staff addresses than production; the path list itself must match.
+
+**5. First deploy, then attach the custom domain**
+
+The first deploy has no custom domain yet, so it lands on `*.workers.dev`:
+
+```sh
+pnpm run deploy:staging
+```
+
+Once it succeeds, add `staging.laboratoriosduolab.com` as a custom domain on the `duolab-staging` Worker, then in `wrangler.jsonc` set `env.staging.workers_dev` to `false` and uncomment `env.staging.routes`. Redeploy. Leaving `workers_dev: true` alongside a working custom domain would leave the app reachable on a second hostname the Access application above never covers.
+
+**6. Seed the staff users**
+
+```sh
+wrangler d1 execute duolab-staging --env staging --remote --command \
+  "INSERT INTO users (email, role) VALUES ('ana@duolab.mx', 'MANAGER');"
+```
+
+**7. Check**
+
+Confirm both halves answer on `staging.laboratoriosduolab.com` — the landing and `/resultados` (public, no Access) as HTML, `/admin` behind the Access login page, `/health` as JSON. If `/health` returns the 404 page instead of JSON, `assets.not_found_handling` is wrong; it must be `"none"` (DEC-020).
+
+### Production (first-time setup)
+
+Only after the change has been verified on staging. Same shape as above, against the top-level (non-`env`) configuration:
 
 **1. Create the resources**
 
@@ -120,10 +187,8 @@ Put the returned database id into `wrangler.jsonc` — it currently ships the pl
 **2. Apply the migrations remotely**
 
 ```sh
-wrangler d1 migrations apply duolab --remote
+pnpm run migrate:production
 ```
-
-A separate step from the local one, and easy to forget: `--local` and `--remote` track what they have applied independently.
 
 **3. Set the secrets**
 
@@ -132,13 +197,13 @@ wrangler secret put RATE_LIMIT_KEY_SECRET     # openssl rand -base64 24
 wrangler secret put DOWNLOAD_TOKEN_SECRET     # openssl rand -base64 32, must decode to exactly 32 bytes
 ```
 
-Generate fresh values. A local `.dev.vars` value is dev-only by convention, and copying it makes that convention false.
+Generate fresh values, independent from both local and staging.
 
 **4. Configure Cloudflare Access**
 
 Set `vars.CLOUDFLARE_ACCESS_TEAM_DOMAIN` and `vars.CLOUDFLARE_ACCESS_AUDIENCE` in `wrangler.jsonc` to the real values — the audience currently ships as `"my-access-aud"`.
 
-Then create one self-hosted application with a destination for **each** of these paths, and a policy allowing the lab's staff addresses:
+Create one self-hosted application for `laboratoriosduolab.com` with a destination for **each** of these paths, and a policy allowing the lab's staff addresses:
 
 ```
 /admin*      /records*      /files*      /me      /search*      /patients*
@@ -160,9 +225,9 @@ wrangler d1 execute duolab --remote --command \
 **6. Deploy and check**
 
 ```sh
-pnpm deploy      # from the repo root
+pnpm run deploy:production
 ```
 
-Then confirm both halves answer on the deployed origin — the landing and `/admin` as HTML, `/health` as JSON. If `/health` returns the 404 page instead of JSON, `assets.not_found_handling` is wrong; it must be `"none"` (DEC-020).
+Then confirm both halves answer on the deployed origin — the landing and `/admin` as HTML, `/health` as JSON.
 
 Finally, verify `.dev.vars` did not ship. It is gitignored and `wrangler deploy` does not read it, but the cost of checking is far below the cost of being wrong.
