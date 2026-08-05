@@ -37,7 +37,7 @@ app.use(
     origin: (origin, c: AppContext) =>
       isLocalDev(c) && LOCAL_FRONTEND_ORIGINS.has(origin) ? origin : null,
     allowHeaders: ["Content-Type"],
-    allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   }),
 );
 

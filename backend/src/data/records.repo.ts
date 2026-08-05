@@ -93,6 +93,44 @@ function prepareRecordInsert(
     .bind(record.recordId, record.folio, record.patientId);
 }
 
+/**
+ * Partial patient update. Each field is optional so a caller only names what
+ * actually changed; `patientId` is never one of them — it is immutable.
+ * `search_name` is only recomputed when `fullName` is part of the update
+ * (preparePatientInsert's normalizeForSearch, mirrored here) so an edit to
+ * just the phone or birth date can't accidentally touch it. `updated_at` is
+ * always bumped, since something did change if this runs at all.
+ */
+export function updatePatient(
+  db: D1Database,
+  patientId: string,
+  changes: { fullName?: string; birthDate?: string; phoneNumber?: string },
+) {
+  const sets: string[] = [];
+  const bindings: unknown[] = [];
+
+  if (changes.fullName !== undefined) {
+    sets.push("full_name = ?", "search_name = ?");
+    bindings.push(changes.fullName, normalizeForSearch(changes.fullName));
+  }
+  if (changes.birthDate !== undefined) {
+    sets.push("birth_date = ?");
+    bindings.push(changes.birthDate);
+  }
+  if (changes.phoneNumber !== undefined) {
+    sets.push("phone_number = ?");
+    bindings.push(changes.phoneNumber);
+  }
+
+  sets.push("updated_at = CURRENT_TIMESTAMP");
+  bindings.push(patientId);
+
+  return db
+    .prepare(`UPDATE patients SET ${sets.join(", ")} WHERE patient_id = ?`)
+    .bind(...bindings)
+    .run();
+}
+
 export function findPatient(db: D1Database, patientId: string) {
   return db
     .prepare(

@@ -5,8 +5,15 @@
  * "+ Nuevo folio" is Flow C: a new folio for a patient the system already
  * knows, asking only for a folio and a PDF (see /admin/nuevo's
  * `?patient=` branch).
+ *
+ * "Editar datos" opens an inline panel (not a new route) for name / phone /
+ * birth date. Phone and birth date are two of the three public-lookup
+ * authentication factors (services/public-result-service.ts), so changing
+ * either goes through ConfirmSheet naming that consequence before the
+ * PATCH is sent; a name-only edit saves directly.
  */
 import AdminLayout from "../../components/admin/AdminLayout.astro";
+import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
 ---
 
 <AdminLayout title="Paciente">
@@ -22,7 +29,43 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       <h1 class="card__title" id="patient-name"></h1>
       <p class="card__meta" id="patient-meta"></p>
     </div>
+    <button class="btn btn--secondary btn--sm" id="edit-open" type="button">Editar datos</button>
   </section>
+
+  <form class="card" id="edit-panel" hidden aria-labelledby="edit-h">
+    <h2 class="sect" id="edit-h">Editar datos</h2>
+
+    <div class="field">
+      <label for="edit-fullName">Nombre completo</label>
+      <input id="edit-fullName" name="fullName" type="text" autocomplete="off" />
+      <p class="err" id="edit-fullName-err"></p>
+    </div>
+
+    <div class="field">
+      <label for="edit-phoneNumber">Teléfono</label>
+      <input id="edit-phoneNumber" name="phoneNumber" type="tel" placeholder="9381234567" autocomplete="off" />
+      <p class="err" id="edit-phoneNumber-err"></p>
+    </div>
+
+    <div class="field">
+      <label for="edit-birthDate">Fecha de nacimiento</label>
+      <input id="edit-birthDate" name="birthDate" type="date" />
+      <p class="err" id="edit-birthDate-err"></p>
+    </div>
+
+    <p class="status" id="edit-status" role="status" aria-live="polite"></p>
+
+    <div class="actions">
+      <button class="btn btn--ghost" id="edit-cancel" type="button">Cancelar</button>
+      <button class="btn btn--primary" id="edit-save" type="submit">Guardar cambios</button>
+    </div>
+  </form>
+
+  <ConfirmSheet
+    id="edit-confirm"
+    title="Esto cambia quién puede descargar resultados"
+    confirmLabel="Guardar de todos modos"
+  />
 
   <div class="row row--between" id="folios-head" hidden>
     <h2 class="sect">Folios</h2>
@@ -43,8 +86,12 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
   <script>
     import { apiJson, withRef } from "../../scripts/admin/api.js";
     import { fillPatientCard, folioRowNode, setStatusLine } from "../../scripts/admin/render.js";
+    import { validateFullName, validatePhoneNumber, validateBirthDate } from "../../scripts/admin/validation.js";
 
     const $ = (id) => document.getElementById(id);
+
+    let patient = null;
+    let dirty = false;
 
     const showEmpty = (title, sub) => {
       $("patient").hidden = true;
@@ -53,6 +100,155 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       $("empty-sub").textContent = sub;
       $("empty").hidden = false;
     };
+
+    // Fields that authenticate a public lookup (public-result-service.ts) —
+    // changing either re-keys who can download this patient's published
+    // results, so those two (and only those two) route through the
+    // consequence confirmation before saving.
+    const AUTH_FACTOR_FIELDS = new Set(["phoneNumber", "birthDate"]);
+
+    const clearFieldErrors = () => {
+      for (const name of ["fullName", "phoneNumber", "birthDate"]) {
+        $(`edit-${name}-err`).textContent = "";
+      }
+    };
+
+    const fillFormFromPatient = () => {
+      $("edit-fullName").value = patient.fullName;
+      $("edit-phoneNumber").value = patient.phoneNumber;
+      $("edit-birthDate").value = patient.birthDate;
+      clearFieldErrors();
+      setStatusLine($("edit-status"), "");
+      dirty = false;
+    };
+
+    const openPanel = () => {
+      fillFormFromPatient();
+      $("edit-panel").hidden = false;
+      $("edit-fullName").focus();
+    };
+
+    const closePanel = () => {
+      $("edit-panel").hidden = true;
+      dirty = false;
+    };
+
+    /** Validates the form and returns only the fields that actually changed. */
+    const diffChanges = () => {
+      const fields = {
+        fullName: validateFullName($("edit-fullName").value),
+        phoneNumber: validatePhoneNumber($("edit-phoneNumber").value),
+        birthDate: validateBirthDate($("edit-birthDate").value),
+      };
+
+      clearFieldErrors();
+      let hasError = false;
+
+      for (const [name, result] of Object.entries(fields)) {
+        if (!result.ok) {
+          $(`edit-${name}-err`).textContent = result.error;
+          hasError = true;
+        }
+      }
+
+      if (hasError) return null;
+
+      const changes = {};
+      if (fields.fullName.value !== patient.fullName) changes.fullName = fields.fullName.value;
+      if (fields.phoneNumber.value !== patient.phoneNumber) changes.phoneNumber = fields.phoneNumber.value;
+      if (fields.birthDate.value !== patient.birthDate) changes.birthDate = fields.birthDate.value;
+
+      return changes;
+    };
+
+    const applyPatientUpdate = (updated) => {
+      patient = { ...patient, ...updated };
+      fillPatientCard(
+        { avatar: $("patient-initials"), name: $("patient-name"), meta: $("patient-meta") },
+        patient,
+      );
+      $("crumb-name").textContent = patient.fullName;
+      document.title = `${patient.fullName} · DúoLab`;
+    };
+
+    const submitChanges = async (changes) => {
+      setStatusLine($("edit-status"), "Guardando…");
+      $("edit-save").disabled = true;
+
+      const { ok, payload } = await apiJson(`/patients/${patient.patientId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(changes),
+      });
+
+      $("edit-save").disabled = false;
+
+      if (!ok) {
+        if (payload.fields) {
+          for (const [name, message] of Object.entries(payload.fields)) {
+            const err = $(`edit-${name}-err`);
+            if (err) err.textContent = message;
+          }
+        }
+        setStatusLine($("edit-status"), withRef(payload, "No se pudo guardar."), "error");
+        return;
+      }
+
+      applyPatientUpdate(payload.patient);
+      dirty = false;
+      closePanel();
+      setStatusLine($("status"), "Datos del paciente actualizados.");
+    };
+
+    $("edit-open").addEventListener("click", openPanel);
+    $("edit-cancel").addEventListener("click", () => {
+      if (dirty && !confirm("Hay cambios sin guardar. ¿Descartarlos?")) return;
+      closePanel();
+    });
+
+    $("edit-panel").addEventListener("input", () => {
+      dirty = true;
+    });
+
+    $("edit-panel").addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      const changes = diffChanges();
+      if (!changes) return;
+
+      if (Object.keys(changes).length === 0) {
+        closePanel();
+        return;
+      }
+
+      const touchesAuthFactor = Object.keys(changes).some((name) => AUTH_FACTOR_FIELDS.has(name));
+
+      if (touchesAuthFactor) {
+        $("edit-confirm-body").textContent =
+          "Esto cambia quién puede descargar los resultados ya publicados de este paciente.";
+        const confirmDialog = $("edit-confirm");
+        const onConfirm = () => {
+          confirmDialog.close();
+          submitChanges(changes);
+        };
+        $("edit-confirm-confirm").addEventListener("click", onConfirm, { once: true });
+        $("edit-confirm-cancel").addEventListener(
+          "click",
+          () => confirmDialog.close(),
+          { once: true },
+        );
+        confirmDialog.showModal();
+        return;
+      }
+
+      submitChanges(changes);
+    });
+
+    window.addEventListener("beforeunload", (event) => {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
 
     const init = async () => {
       const patientId = new URL(location.href).searchParams.get("id");
@@ -76,15 +272,10 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
         return;
       }
 
-      const patient = payload.patient;
+      patient = payload.patient;
 
       $("patient").hidden = false;
-      fillPatientCard(
-        { avatar: $("patient-initials"), name: $("patient-name"), meta: $("patient-meta") },
-        patient,
-      );
-      $("crumb-name").textContent = patient.fullName;
-      document.title = `${patient.fullName} · DúoLab`;
+      applyPatientUpdate(patient);
 
       $("new-folio").href = `/admin/nuevo?patient=${encodeURIComponent(patient.patientId)}`;
       $("folios-head").hidden = false;
