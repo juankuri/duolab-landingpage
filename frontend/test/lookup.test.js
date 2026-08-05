@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   digitsOnly,
   downloadUrl,
+  filesPublishedLabel,
   firstEmptyField,
   formatMsLeft,
   formatPublishedAt,
@@ -168,5 +169,17 @@ describe("resultsHeading", () => {
   it("pluralizes anything else", () => {
     expect(resultsHeading(2)).toBe("Encontramos 2 resultados");
     expect(resultsHeading(5)).toBe("Encontramos 5 resultados");
+  });
+});
+
+describe("filesPublishedLabel", () => {
+  it("singularizes exactly one file", () => {
+    expect(filesPublishedLabel(1)).toBe("1 archivo publicado");
+  });
+
+  it("pluralizes anything else, including zero", () => {
+    expect(filesPublishedLabel(0)).toBe("0 archivos publicados");
+    expect(filesPublishedLabel(2)).toBe("2 archivos publicados");
+    expect(filesPublishedLabel(5)).toBe("5 archivos publicados");
   });
 });

@@ -108,3 +108,9 @@ export function resultsHeading(count) {
   if (count === 1) return "Encontramos 1 resultado";
   return `Encontramos ${count} resultados`;
 }
+
+/** Plural-aware file count line for the P5 summary card ("2 archivos publicados"). */
+export function filesPublishedLabel(count) {
+  if (count === 1) return "1 archivo publicado";
+  return `${count} archivos publicados`;
+}
