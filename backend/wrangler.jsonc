@@ -67,11 +67,11 @@
       // Separate database. The id is filled in from `wrangler d1 create
       // duolab-staging` — see the runbook in backend/README.md. It is a
       // resource identifier, not a secret, which is why it belongs in git.
-      "d1_databases": [
+       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "duolab-staging",
-          "database_id": "STAGING_DATABASE_ID_PENDING",
+          "database_name": "staging-duolab-db",
+          "database_id": "4a06ac20-4ccf-4d87-81ee-6368bd9365c5",
           "migrations_dir": "../database/migrations"
         }
       ],
@@ -81,7 +81,7 @@
       "r2_buckets": [
         {
           "binding": "RESULTS_BUCKET",
-          "bucket_name": "duolab-results-staging"
+          "bucket_name": "staging-duolab-results"
         }
       ],
 
@@ -89,8 +89,8 @@
       // application, therefore a different audience tag. Reusing production's
       // aud would let a token issued for one hostname satisfy the other.
       "vars": {
-        "CLOUDFLARE_ACCESS_TEAM_DOMAIN": "duolab-team.cloudflareaccess.com",
-        "CLOUDFLARE_ACCESS_AUDIENCE": "STAGING_ACCESS_AUD_PENDING"
+        "CLOUDFLARE_ACCESS_TEAM_DOMAIN": "juankuri.cloudflareaccess.com",
+        "CLOUDFLARE_ACCESS_AUDIENCE": "94f2310dd448c604feff23efd86bb1d579e34ee1907a66f342f96197471b662e"
       },
 
       "observability": {

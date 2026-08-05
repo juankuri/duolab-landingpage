@@ -154,6 +154,8 @@ Do **not** include `/api/public/*` or the landing. Protecting the whole hostname
 
 **5. First deploy, then attach the custom domain**
 
+Before the real deploy, dry-run it with `pnpm run deploy:staging:dry-run` — never `pnpm run deploy:staging -- --dry-run`. A trailing `--` terminates Wrangler's own option parsing, so everything after it (including `--dry-run`) is dropped and the "dry run" deploys for real. Confirm the dry-run output contains no `Uploaded`, no `Deployed`, no public URL, and no Version ID before proceeding.
+
 The first deploy has no custom domain yet, so it lands on `*.workers.dev`:
 
 ```sh
