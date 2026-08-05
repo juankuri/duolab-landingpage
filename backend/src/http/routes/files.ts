@@ -46,7 +46,14 @@ files.get("/:fileId", async (c) => {
     "content-type",
     file.mime_type === "application/pdf" ? file.mime_type : "application/pdf",
   );
-  headers.set("content-disposition", contentDisposition(file.original_filename));
+  // ?download=1 is the only difference between "Ver PDF" and "Descargar" on
+  // /admin/folio — before this, both called this same route and both got
+  // `inline`, so "Descargar" only ever opened a new tab, never saved a file.
+  // Default stays inline: the manager viewer and every other existing
+  // caller fetch this route expecting an inline disposition and must not
+  // change behavior.
+  const disposition = c.req.query("download") ? "attachment" : "inline";
+  headers.set("content-disposition", contentDisposition(file.original_filename, disposition));
   headers.set("x-content-type-options", "nosniff");
   // Never at the edge or in a shared cache — same reasoning as the patient
   // download route (DEC-014): a revoke must take effect on the very next

@@ -43,7 +43,18 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
   </div>
   <p class="frow__meta" id="result-meta" hidden></p>
 
-  <iframe class="preview" id="preview" title="Vista previa del PDF" hidden></iframe>
+  <div class="pdf-preview" id="preview" hidden>
+    <canvas id="preview-canvas"></canvas>
+    <p class="vh" id="preview-text" aria-live="polite"></p>
+    <p class="status" id="preview-status" role="status" aria-live="polite"></p>
+  </div>
+
+  <div class="row" id="preview-actions" hidden>
+    <a class="btn btn--ghost btn--sm" id="preview-newtab" href="#" target="_blank" rel="noopener">
+      Ver PDF en pestaña nueva
+    </a>
+    <a class="btn btn--ghost btn--sm" id="preview-download" href="#">Descargar PDF</a>
+  </div>
 
   <div class="actions" id="confirm-actions" hidden>
     <button class="btn" id="confirm-btn" type="button">Confirmar resultado</button>
@@ -72,6 +83,7 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       resultName,
       setStatusLine,
     } from "../../scripts/admin/render.js";
+    import { createPdfViewer } from "../../scripts/shared/pdf-viewer.js";
 
     const $ = (id) => document.getElementById(id);
     const setStatus = (message, tone) => setStatusLine($("status"), message, tone);
@@ -81,11 +93,17 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
       $("result-head").hidden = true;
       $("result-meta").hidden = true;
       $("preview").hidden = true;
+      $("preview-actions").hidden = true;
       $("confirm-actions").hidden = true;
       $("empty-title").textContent = title;
       $("empty-sub").textContent = sub;
       $("empty").hidden = false;
     };
+
+    const viewer = createPdfViewer({
+      canvas: $("preview-canvas"),
+      textLayer: $("preview-text"),
+    });
 
     const init = async () => {
       const params = new URL(location.href).searchParams;
@@ -147,9 +165,30 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
         .filter(Boolean)
         .join(" · ");
 
-      const preview = $("preview");
-      preview.src = `${API_BASE}/files/${result.fileId}`;
-      preview.hidden = false;
+      $("preview").hidden = false;
+      $("preview-actions").hidden = false;
+      // A plain, tokenless URL is fine here — unlike the patient-facing
+      // preview (checkpoint D), this route sits behind Cloudflare Access
+      // with no download token in play, so a new-tab navigation carries
+      // nothing sensitive in it.
+      $("preview-newtab").href = `${API_BASE}/files/${result.fileId}`;
+      $("preview-download").href = `${API_BASE}/files/${result.fileId}?download=1`;
+
+      $("preview-status").textContent = "Cargando vista previa…";
+      try {
+        const res = await fetch(`${API_BASE}/files/${result.fileId}`);
+        if (!res.ok) throw new Error();
+        await viewer.open(await res.arrayBuffer());
+        $("preview-status").textContent = "";
+      } catch {
+        // The manager's pdf.js viewer has never needed this fallback in
+        // practice, but this route now shares the same code path, so a
+        // failed fetch or an unparseable PDF gets a real message instead of
+        // the iframe's silent blank box.
+        $("preview-status").textContent =
+          "No se pudo mostrar la vista previa. Ábrelo en una pestaña nueva.";
+        $("preview-status").dataset.tone = "error";
+      }
 
       if (result.status !== "UPLOADED") {
         setStatus(

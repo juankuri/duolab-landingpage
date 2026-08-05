@@ -10,6 +10,8 @@
  * created now or it isn't — nothing here is worth persisting half-filled.
  */
 import AdminLayout from "../../components/admin/AdminLayout.astro";
+import Dropzone from "../../components/admin/Dropzone.astro";
+import Icon from "../../components/Icon.astro";
 import PatientChip from "../../components/admin/PatientChip.astro";
 ---
 
@@ -58,11 +60,16 @@ import PatientChip from "../../components/admin/PatientChip.astro";
     </div>
 
     <div class="field">
-      <label class="dropzone" for="pdf-file" id="drop-label">
-        <span id="drop-label-text">Arrastra el PDF o haz clic para elegirlo *</span>
-      </label>
-      <input id="pdf-file" name="file" type="file" accept="application/pdf" required hidden />
+      <Dropzone id="pdf-file" label="Arrastra el PDF aquí *" required />
       <p class="err" id="err-file" data-err></p>
+
+      <div class="pdf-preview" id="pdf-preview" hidden>
+        <canvas id="pdf-preview-canvas"></canvas>
+        <p class="vh" id="pdf-preview-text" aria-live="polite"></p>
+        <button class="btn btn--ghost btn--sm" id="pdf-preview-expand" type="button">
+          Ampliar vista previa
+        </button>
+      </div>
     </div>
 
     <progress class="progress" id="progress" hidden max="100" value="0"></progress>
@@ -73,6 +80,17 @@ import PatientChip from "../../components/admin/PatientChip.astro";
 
     <p class="status" id="status" role="status" aria-live="polite"></p>
   </form>
+
+  <dialog class="sheet sheet--pdf" id="pdf-fullscreen" aria-label="Vista previa del PDF">
+    <div class="pdf-fullscreen__bar">
+      <button class="btn btn--ghost btn--sm" id="pdf-fullscreen-close" type="button">
+        Cerrar
+      </button>
+    </div>
+    <div class="pdf-fullscreen__body">
+      <canvas id="pdf-fullscreen-canvas"></canvas>
+    </div>
+  </dialog>
 
   <dialog class="sheet" id="dup-dialog" aria-labelledby="dup-h">
     <h2 class="sheet__h" id="dup-h">Ese folio ya existe</h2>
@@ -88,7 +106,9 @@ import PatientChip from "../../components/admin/PatientChip.astro";
     import { suggestFolio } from "../../scripts/admin/folio.js";
     import { initials } from "../../scripts/admin/render.js";
     import { createRecord } from "../../scripts/admin/upload.js";
-    import { validateCreation, validatePdf } from "../../scripts/admin/validation.js";
+    import { validateCreation } from "../../scripts/admin/validation.js";
+    import { attachDropzone } from "../../scripts/shared/dropzone.js";
+    import { createPdfViewer } from "../../scripts/shared/pdf-viewer.js";
 
     const $ = (id) => document.getElementById(id);
 
@@ -136,21 +156,49 @@ import PatientChip from "../../components/admin/PatientChip.astro";
       folioTouchedByHand = true;
     });
 
-    $("pdf-file").addEventListener("change", () => {
-      const file = $("pdf-file").files[0];
-      const check = validatePdf(file);
+    /* ---------- preview: renders the moment a file is chosen or dropped ---------- */
 
-      if (!check.ok) {
-        pendingFile = null;
-        $("drop-label-text").textContent = "Arrastra el PDF o haz clic para elegirlo *";
-        $("err-file").textContent = file ? check.error : "";
-        return;
-      }
-
-      pendingFile = file;
-      $("drop-label-text").textContent = file.name;
-      $("err-file").textContent = "";
+    const previewViewer = createPdfViewer({
+      canvas: $("pdf-preview-canvas"),
+      textLayer: $("pdf-preview-text"),
     });
+    const fullscreenViewer = createPdfViewer({ canvas: $("pdf-fullscreen-canvas") });
+
+    const showPreview = async (file) => {
+      $("pdf-preview").hidden = false;
+      try {
+        await previewViewer.open(await file.arrayBuffer());
+      } catch {
+        // A corrupt-but-PDF-typed file (renamed extension, truncated
+        // upload) fails here rather than at the server — the field error
+        // below still names it, this just avoids a broken blank canvas.
+        $("pdf-preview").hidden = true;
+      }
+    };
+
+    attachDropzone({
+      zone: $("pdf-file-zone"),
+      input: $("pdf-file"),
+      textEl: $("pdf-file-text"),
+      statusEl: $("err-file"),
+      onFile: (file) => {
+        pendingFile = file;
+        if (file) {
+          $("err-file").textContent = "";
+          showPreview(file);
+        } else {
+          $("pdf-preview").hidden = true;
+        }
+      },
+    });
+
+    $("pdf-preview-expand").addEventListener("click", async () => {
+      $("pdf-fullscreen").showModal();
+      if (pendingFile) await fullscreenViewer.open(await pendingFile.arrayBuffer());
+    });
+
+    $("pdf-fullscreen-close").addEventListener("click", () => $("pdf-fullscreen").close());
+    $("pdf-fullscreen").addEventListener("close", () => fullscreenViewer.close());
 
     let lastConflict = null;
 

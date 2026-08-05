@@ -11,6 +11,8 @@
  * wires the buttons, and calls .showModal()/.close(). `showFile` renders a
  * PDF picker inside the sheet (replace needs a new file; revoke does not).
  */
+import Dropzone from "./Dropzone.astro";
+
 interface Props {
   id: string;
   title: string;
@@ -25,16 +27,7 @@ const { id, title, confirmLabel, showFile = false } = Astro.props;
   <h2 class="sheet__h" id={`${id}-h`}>{title}</h2>
   <p class="sheet__body" id={`${id}-body`}></p>
 
-  {
-    showFile && (
-      <Fragment>
-        <label class="dropzone" for={`${id}-file`} id={`${id}-drop`}>
-          <span id={`${id}-drop-text`}>Arrastra el PDF o haz clic para elegirlo</span>
-        </label>
-        <input id={`${id}-file`} type="file" accept="application/pdf" hidden />
-      </Fragment>
-    )
-  }
+  {showFile && <Dropzone id={`${id}-file`} />}
 
   <p class="status" id={`${id}-status`} role="status" aria-live="polite"></p>
 

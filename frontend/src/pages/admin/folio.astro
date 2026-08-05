@@ -19,6 +19,7 @@
  */
 import AdminLayout from "../../components/admin/AdminLayout.astro";
 import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
+import Dropzone from "../../components/admin/Dropzone.astro";
 ---
 
 <AdminLayout title="Folio">
@@ -78,10 +79,7 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
       Se crea un resultado <strong>nuevo</strong> · no reemplaza los
       existentes.
     </p>
-    <label class="dropzone" for="add-sheet-file" id="add-sheet-drop">
-      <span id="add-sheet-drop-label">Arrastra el PDF o haz clic para elegirlo</span>
-    </label>
-    <input id="add-sheet-file" type="file" accept="application/pdf" hidden />
+    <Dropzone id="add-sheet-file" />
     <progress class="progress" id="add-sheet-progress" hidden max="100" value="0"
     ></progress>
     <p class="status" id="add-sheet-status" role="status" aria-live="polite"></p>
@@ -108,7 +106,7 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
     import { actionErrorMessage, actionsFor } from "../../scripts/admin/status.js";
     import { fillWho, loadActor } from "../../scripts/admin/session.js";
     import { uploadResult } from "../../scripts/admin/upload.js";
-    import { validatePdf } from "../../scripts/admin/validation.js";
+    import { attachDropzone } from "../../scripts/shared/dropzone.js";
     import {
       fillPatientCard,
       formatMoment,
@@ -189,20 +187,23 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
     };
 
     const runAction = (action, result, button) => {
-      const url = `${API_BASE}/files/${result.fileId}`;
-
       switch (action) {
         case "preview":
+          window.open(`${API_BASE}/files/${result.fileId}`, "_blank", "noopener");
+          return;
         case "download":
-          window.open(url, "_blank", "noopener");
+          // ?download=1 is what actually makes this a download rather than
+          // a second "open in a new tab" — before this the two actions were
+          // the same inline-disposition URL.
+          window.open(`${API_BASE}/files/${result.fileId}?download=1`, "_blank", "noopener");
           return;
         case "confirm":
-          return act(
-            button,
-            post(`/files/${result.fileId}/confirm`),
-            "Confirmando…",
-            "Resultado confirmado.",
-          );
+          // Confirming used to POST immediately from this row. Now it opens
+          // the review screen — the same one "+ Añadir resultado" already
+          // lands on after an upload — so an employee always looks at the
+          // PDF before vouching for it, on every path that reaches CONFIRMED.
+          location.href = `/admin/revisar?f=${encodeURIComponent(current.folio)}&r=${result.fileId}`;
+          return;
         case "withdraw":
           return act(
             button,
@@ -273,41 +274,30 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
     let replaceTarget = null;
     let replaceFile = null;
 
+    const replaceDropzone = attachDropzone({
+      zone: $("replace-sheet-file-zone"),
+      input: $("replace-sheet-file"),
+      textEl: $("replace-sheet-file-text"),
+      statusEl: $("replace-sheet-status"),
+      onFile: (file) => {
+        replaceFile = file;
+        $("replace-sheet-confirm").disabled = !file;
+      },
+    });
+
     const openReplaceSheet = (result, triggerButton) => {
       replaceTarget = { result, triggerButton };
       replaceFile = null;
       $("replace-sheet-body").textContent =
         "Se ocultará del paciente inmediatamente · vuelve a Borrador · debe ser confirmado y publicado de nuevo · el PDF anterior se elimina permanentemente · NO crea un nuevo resultado.";
-      $("replace-sheet-drop-text").textContent = "Arrastra el PDF o haz clic para elegirlo";
-      $("replace-sheet-status").textContent = "";
       $("replace-sheet-confirm").disabled = true;
-      $("replace-sheet-file").value = "";
+      replaceDropzone.reset();
       $("replace-sheet").showModal();
     };
 
     $("replace-sheet").addEventListener("close", () => replaceTarget?.triggerButton?.focus());
 
     $("replace-sheet-cancel").addEventListener("click", () => $("replace-sheet").close());
-
-    $("replace-sheet-file").addEventListener("change", () => {
-      const file = $("replace-sheet-file").files[0];
-      const check = validatePdf(file);
-
-      if (!check.ok) {
-        replaceFile = null;
-        $("replace-sheet-drop-text").textContent = "Arrastra el PDF o haz clic para elegirlo";
-        $("replace-sheet-status").textContent = check.error;
-        $("replace-sheet-status").dataset.tone = "error";
-        $("replace-sheet-confirm").disabled = true;
-        return;
-      }
-
-      replaceFile = file;
-      $("replace-sheet-drop-text").textContent = file.name;
-      $("replace-sheet-status").textContent = "";
-      delete $("replace-sheet-status").dataset.tone;
-      $("replace-sheet-confirm").disabled = false;
-    });
 
     $("replace-sheet-confirm").addEventListener("click", async () => {
       if (!replaceTarget || !replaceFile || !current) return;
@@ -318,9 +308,11 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
 
       const form = new FormData();
       form.set("file", replaceFile);
+      const replacedFileId = replaceTarget.result.fileId;
+      const folio = current.folio;
 
       const { ok, payload } = await apiForm(
-        `/records/${current.recordId}/files/${replaceTarget.result.fileId}/replace`,
+        `/records/${current.recordId}/files/${replacedFileId}/replace`,
         form,
       );
 
@@ -331,9 +323,13 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
         return;
       }
 
+      // Replace used to close the sheet and refresh the list in place — the
+      // same immediate-confirmation shortcut requirement 2 asks to remove.
+      // Landing on review, same as a fresh upload, means the employee looks
+      // at the new PDF before it can be confirmed, on every path that
+      // reaches CONFIRMED, not only the "add a result" one.
       $("replace-sheet").close();
-      setStatus("Archivo reemplazado.");
-      await load(current.folio);
+      location.href = `/admin/revisar?f=${encodeURIComponent(folio)}&r=${replacedFileId}`;
     });
 
     /** One open menu at a time. Esc closes it and returns focus to its toggle. */
@@ -457,7 +453,12 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
 
       body.append(name, meta);
 
-      const actions = actionsFor(result.status).filter(permitted);
+      // ACTIONS.UPLOADED lists "delete" (status.js) but no route or label
+      // exists for it yet (docs/04-backlog.md's open phantom-delete
+      // question) — filtering to labelled actions here means the ⋯ menu
+      // never renders a button reading the literal string "undefined"
+      // while that question stays open rather than being decided here.
+      const actions = actionsFor(result.status).filter(permitted).filter((a) => ACTION_LABELS[a]);
       row.append(icon, body, statusBadge(result.status));
 
       /*
@@ -513,21 +514,28 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
     /* ---------- add a result ---------- */
 
     const addSheet = $("add-sheet");
-    const addFileInput = $("add-sheet-file");
-    const addDropLabel = $("add-sheet-drop-label");
     const addSubmit = $("add-sheet-submit");
     const addProgress = $("add-sheet-progress");
     const addStatus = $("add-sheet-status");
     let pendingFile = null;
 
+    const addDropzone = attachDropzone({
+      zone: $("add-sheet-file-zone"),
+      input: $("add-sheet-file"),
+      textEl: $("add-sheet-file-text"),
+      statusEl: addStatus,
+      onFile: (file) => {
+        pendingFile = file;
+        addSubmit.disabled = !file;
+      },
+    });
+
     const resetAddSheet = () => {
       pendingFile = null;
-      addFileInput.value = "";
-      addDropLabel.textContent = "Arrastra el PDF o haz clic para elegirlo";
+      addDropzone.reset();
       addSubmit.disabled = true;
       addProgress.hidden = true;
       addProgress.value = 0;
-      addStatus.textContent = "";
     };
 
     $("add-result-open").addEventListener("click", () => {
@@ -537,24 +545,6 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
 
     $("add-sheet-cancel").addEventListener("click", () => addSheet.close());
     addSheet.addEventListener("close", () => $("add-result-open")?.focus());
-
-    const pickFile = (file) => {
-      const check = validatePdf(file);
-      if (!check.ok) {
-        addStatus.textContent = check.error;
-        addStatus.dataset.tone = "error";
-        addSubmit.disabled = true;
-        return;
-      }
-
-      pendingFile = file;
-      addDropLabel.textContent = file.name;
-      addStatus.textContent = "";
-      delete addStatus.dataset.tone;
-      addSubmit.disabled = false;
-    };
-
-    addFileInput.addEventListener("change", () => pickFile(addFileInput.files[0]));
 
     addSubmit.addEventListener("click", async () => {
       if (!pendingFile || !current) return;
