@@ -4,6 +4,7 @@ import * as filesRepo from "../../data/files.repo";
 import * as recordsRepo from "../../data/records.repo";
 import { AppError } from "../../domain/errors";
 import { isFileStatus } from "../../domain/file-lifecycle";
+import { labDayUtcBounds, suggestFolio } from "../../domain/folio";
 import {
   MAX_UPLOAD_BYTES,
   isPdf,
@@ -270,6 +271,62 @@ async function recordDetailResponse(
     },
   });
 }
+
+/**
+ * The server-authoritative folio suggestion (DEC-027) — {INITIALS}-{DDMMYY}-
+ * {sequence}, where the sequence is global across every folio created in
+ * the lab's own calendar day, not scoped to this patient or these initials.
+ * Either `?patientId=` (Flow C, the patient already exists) or `?name=`
+ * (Flow A, typed before the patient is created) — advisory only, the
+ * `records.folio` UNIQUE index is what actually enforces uniqueness under
+ * concurrency; a caller that races another suggestion still gets the
+ * existing 409 FOLIO_CONFLICT from POST /records, never a new failure mode
+ * from this endpoint.
+ *
+ * Registered before /:recordId so the literal segment is not captured as an id.
+ */
+records.get("/folio-suggestion", async (c) => {
+  const patientId = c.req.query("patientId");
+  const rawName = c.req.query("name");
+
+  let fullName: string;
+
+  if (patientId) {
+    if (!isUuid(patientId)) {
+      throw new AppError("INVALID_INPUT", "El identificador del paciente no es válido.");
+    }
+
+    const patient = await recordsRepo.findPatient(c.env.DB, patientId);
+
+    if (!patient) {
+      throw new AppError("NOT_FOUND", "No encontramos al paciente.");
+    }
+
+    fullName = patient.full_name;
+  } else {
+    // Deliberately not run through validateFullName's full rule set: this
+    // is a live suggestion fired while an employee is still typing, and a
+    // name that's too short to be valid yet should still get *some*
+    // suggestion (initialsFromName degrades gracefully on partial input)
+    // rather than a 400 the client has to specially handle mid-keystroke.
+    if (typeof rawName !== "string" || !rawName.trim()) {
+      throw new AppError("INVALID_INPUT", "Falta el nombre o el identificador del paciente.");
+    }
+
+    fullName = rawName.trim();
+  }
+
+  const now = new Date();
+  const bounds = labDayUtcBounds(now);
+  const todaysFolios = await recordsRepo.listFoliosForDay(c.env.DB, bounds);
+  const suggestion = suggestFolio(
+    fullName,
+    now,
+    todaysFolios.results.map((row) => row.folio),
+  );
+
+  return c.json(suggestion);
+});
 
 // Registered before /:recordId so the literal segment is not captured as an id.
 records.get("/by-folio/:folio", async (c) => {

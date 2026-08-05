@@ -337,6 +337,23 @@ export async function listFilesForRecords(
 }
 
 /**
+ * Every folio created within a lab-local calendar day, across all patients —
+ * the pool `domain/folio.ts#nextDailySequence` reads to suggest the next
+ * number. `bounds` is a [startUtc, endUtc) pair already computed against
+ * `records.created_at`'s storage format, so this is a plain indexed range
+ * scan, not a per-row date computation.
+ */
+export function listFoliosForDay(
+  db: D1Database,
+  bounds: { startUtc: string; endUtc: string },
+) {
+  return db
+    .prepare("SELECT folio FROM records WHERE created_at >= ? AND created_at < ?")
+    .bind(bounds.startUtc, bounds.endUtc)
+    .all<{ folio: string }>();
+}
+
+/**
  * Folios matching a folio, patient name, or phone query — the three criteria
  * the unified search box supports in one input.
  *
