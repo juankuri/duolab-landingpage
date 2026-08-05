@@ -163,6 +163,17 @@ describe("GET /files/:fileId", () => {
     expect(await response.text()).toContain("%PDF-");
   });
 
+  it("defaults to inline, and switches to attachment only with ?download=1", async () => {
+    const { file } = await createRecordWithFile("informe.pdf");
+
+    const inline = await request(`/files/${file.fileId}`);
+    expect(inline.headers.get("content-disposition")).toMatch(/^inline;/);
+
+    const download = await request(`/files/${file.fileId}?download=1`);
+    expect(download.headers.get("content-disposition")).toMatch(/^attachment;/);
+    expect(download.headers.get("content-disposition")).toContain('filename="informe.pdf"');
+  });
+
   it("never lets an edge or shared cache keep serving a revoked file", async () => {
     const { file } = await createRecordWithFile();
 
