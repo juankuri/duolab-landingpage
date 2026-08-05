@@ -101,6 +101,21 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
 
       if (desktop) sessionStorage.setItem("duolab-admin-desktop", "1");
 
+      // Un-waterfall (checkpoint F): neither list depends on the actor's
+      // role — only whether the gated content is even shown does. Firing
+      // both immediately, before awaiting the role, turns "role, then two
+      // lists in series" into three requests in parallel. If `roleRedirect`
+      // ends up bouncing away, the fetches were wasted but never blocked
+      // the page that needed them; if it doesn't, the lists are already
+      // most of the way done by the time gate-content unhides.
+      loadList("/records?limit=8", "recent-list", "recent-status", "recent-empty");
+      loadList(
+        "/records?limit=8&status=CONFIRMED",
+        "queue-list",
+        "queue-status",
+        "queue-empty",
+      );
+
       const { role } = await loadActor();
       const target = roleRedirect(role, location.pathname, {
         desktop: desktop || sessionStorage.getItem("duolab-admin-desktop") === "1",
@@ -121,14 +136,6 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
         if (!query) return;
         location.href = `/admin/buscar?q=${encodeURIComponent(query)}`;
       });
-
-      loadList("/records?limit=8", "recent-list", "recent-status", "recent-empty");
-      loadList(
-        "/records?limit=8&status=CONFIRMED",
-        "queue-list",
-        "queue-status",
-        "queue-empty",
-      );
     };
 
     init();

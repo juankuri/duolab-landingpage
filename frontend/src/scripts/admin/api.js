@@ -18,6 +18,19 @@
 export const API_BASE =
   import.meta.env.PUBLIC_API_BASE ?? "http://localhost:8787";
 
+// A lazy require-shaped import, not a static one: session.js imports
+// `apiJson` from this module, so a top-level `import { clearCachedActor }
+// from "./session.js"` here would be circular. Both sides only ever touch
+// the other's export from inside a function body (never at module-eval
+// time), which is safe for a circular ES import — but the dynamic import
+// keeps the dependency direction honest in the source rather than relying
+// on that being remembered.
+let clearCachedActorPromise = null;
+function clearCachedActor() {
+  clearCachedActorPromise ??= import("./session.js");
+  clearCachedActorPromise.then((mod) => mod.clearCachedActor()).catch(() => {});
+}
+
 /**
  * Failures carry the request id that the server logged. Showing it means a report
  * of "it did not save" comes with the exact line to look up.
@@ -38,6 +51,12 @@ export function withRef(payload, fallback) {
 export async function apiJson(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, options);
   const payload = await res.json().catch(() => ({}));
+
+  // Any 401/403 from anywhere clears the cached actor role in one place —
+  // a session that ended mid-visit (expired Access, revoked user row)
+  // must not keep a stale MANAGER/EMPLOYEE reading in sessionStorage past
+  // the first request that actually finds out.
+  if (res.status === 401 || res.status === 403) clearCachedActor();
 
   return { ok: res.ok, status: res.status, payload };
 }

@@ -62,6 +62,10 @@ import "../../styles/manager.css";
           <span class="mgr-empty__icon" aria-hidden="true">⏳</span>
           <p class="mgr-empty__text" id="queue-empty-text"></p>
         </div>
+        <div class="mgr-more" id="queue-more" hidden>
+          <p class="tiny" id="queue-more-count"></p>
+          <button class="btn btn--ghost btn--sm" id="queue-more-btn" type="button">Cargar más</button>
+        </div>
         <p class="status" id="queue-status" role="status" aria-live="polite"></p>
       </div>
     </section>
@@ -225,33 +229,50 @@ import "../../styles/manager.css";
 
     const tabQueueStatus = $("queue-status");
 
-    async function loadTab(tabId) {
+    const PAGE_SIZE = 50;
+
+    // `payload.total` (checkpoint F, GET /records) is the real match count —
+    // before this, `.length` on a `limit=50` response silently reported
+    // "50" forever past the 50th item. The tab chip and the "Cargar más"
+    // affordance below both key off `total`, never `.length`.
+    async function loadTab(tabId, { append = false } = {}) {
       const status = statusForTab(tabId);
+      const offset = append ? (cache[tabId]?.items.length ?? 0) : 0;
       const { ok, payload } = await apiJson(
-        `/records?limit=50&status=${status}&include=files`,
+        `/records?limit=${PAGE_SIZE}&offset=${offset}&status=${status}&include=files`,
       );
 
       if (!ok) {
-        cache[tabId] = null;
+        if (!append) cache[tabId] = null;
         return { ok: false, payload };
       }
 
-      cache[tabId] = queueItems(payload.records, status);
+      const page = queueItems(payload.records, status);
+      const total = typeof payload.total === "number" ? payload.total : page.length;
+
+      cache[tabId] =
+        append && cache[tabId]
+          ? { items: [...cache[tabId].items, ...page], total }
+          : { items: page, total };
+
       return { ok: true };
     }
 
     function renderQueue() {
-      const items = cache[activeTab];
+      const entry = cache[activeTab];
+      const items = entry?.items ?? null;
 
       // The pending-review count is the only one worth a chip (Zeigarnik):
       // the other two tabs are already-done work, not open loops, so only
       // "pending" has a `.mgr-tab__count` element in the markup at all.
-      $("count-pending").textContent = cache.pending ? String(cache.pending.length) : "";
+      $("count-pending").textContent =
+        cache.pending && typeof cache.pending.total === "number" ? String(cache.pending.total) : "";
 
       $("queue-empty").hidden = true;
       $("queue-groups").replaceChildren();
+      $("queue-more").hidden = true;
 
-      if (!items) {
+      if (!entry) {
         tabQueueStatus.textContent = "No se pudo cargar la lista.";
         tabQueueStatus.dataset.tone = "error";
         return;
@@ -268,6 +289,11 @@ import "../../styles/manager.css";
 
       const groups = groupQueue(items);
       $("queue-groups").replaceChildren(...groups.map(groupNode));
+
+      if (items.length < entry.total) {
+        $("queue-more-count").textContent = `Mostrando ${items.length} de ${entry.total}.`;
+        $("queue-more").hidden = false;
+      }
     }
 
     async function refreshTab(tabId) {
@@ -301,6 +327,23 @@ import "../../styles/manager.css";
       if (!cache[tabId]) await loadTab(tabId);
       renderQueue();
     }
+
+    let loadingMore = false;
+
+    $("queue-more-btn").addEventListener("click", async () => {
+      if (loadingMore) return; // duplicate-tap guard
+      loadingMore = true;
+      $("queue-more-btn").disabled = true;
+      $("queue-more-btn").setAttribute("aria-busy", "true");
+
+      const { ok } = await loadTab(activeTab, { append: true });
+
+      loadingMore = false;
+      $("queue-more-btn").disabled = false;
+      $("queue-more-btn").removeAttribute("aria-busy");
+
+      if (ok) renderQueue();
+    });
 
     const tabIds = TABS.map((tab) => tab.id);
 
@@ -608,7 +651,7 @@ import "../../styles/manager.css";
       const publishedRecordId = publishTarget.recordId;
       await refreshAllTabs();
 
-      const pending = cache.pending ?? [];
+      const pending = cache.pending?.items ?? [];
       const next = nextPending(pending, publishedRecordId);
       showPublishSuccess(publishTarget, next, () => {
         if (next) {

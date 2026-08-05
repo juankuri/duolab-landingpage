@@ -267,43 +267,117 @@ export function exists(db: D1Database, recordId: string) {
     .first<{ record_id: string }>();
 }
 
-/**
- * Every record with its results' tally, newest activity first.
- *
- * `status` used to filter to "the latest file is in this state", which
- * quietly dropped a folio from the manager queue (`?status=CONFIRMED`) the
- * moment a newer draft was added on top of an older confirmed result — the
- * confirmed one didn't go anywhere, but the query stopped seeing it. It now
- * means "has at least one result in this state", via HAVING on the same
- * per-status counts the tally already computes, so the fix and the tally
- * share one query instead of disagreeing with each other.
- *
- * uploaded_at resolves to the second, so file_id breaks ties for
- * "most recent activity" the same way it does everywhere else in this file.
- */
-export function listRecent(db: D1Database, limit: number, status?: string) {
-  const having = status ? "HAVING SUM(CASE WHEN files.status = ? THEN 1 ELSE 0 END) > 0" : "";
-  const bindings = status ? [status, limit] : [limit];
+// listRecent (every record's tally, newest activity first, no total) lived
+// here through the DEC-024 refinement pass. Replaced by searchRecords below
+// in the checkpoint F scale/search pass — same "has at least one result in
+// this state" HAVING semantics, same ordering, plus a composable `?q=` and a
+// real `total` GET /records' callers previously had no way to get. Superseded
+// rather than kept alongside: two functions answering "records matching a
+// status" that could silently drift apart is worse than one call site
+// updating.
 
-  return db
-    .prepare(
-      `SELECT
-         records.record_id,
-         records.folio,
-         records.created_at,
-         patients.full_name,
-         ${TALLY_COLUMNS},
-         MAX(files.uploaded_at) AS latest_uploaded_at
-       FROM records
-       JOIN patients ON patients.patient_id = records.patient_id
-       LEFT JOIN files ON files.record_id = records.record_id
-       GROUP BY records.record_id
-       ${having}
-       ORDER BY COALESCE(MAX(files.uploaded_at), records.created_at) DESC
-       LIMIT ?`,
+/**
+ * Builds the shared WHERE/HAVING predicate for `searchRecords` below, so the
+ * page-of-rows query and the total-count query can never disagree about
+ * which records match — they're built from literally the same strings.
+ */
+function searchRecordsPredicate(input: {
+  q?: { normalizedQuery: string; folioQuery: string; phoneDigits: string | null };
+  status?: string;
+}) {
+  const clauses: string[] = [];
+  const bindings: unknown[] = [];
+
+  if (input.q) {
+    const phoneClause = input.q.phoneDigits ? "OR patients.phone_number LIKE ? || '%'" : "";
+    clauses.push(
+      `(UPPER(records.folio) LIKE UPPER(?) || '%' OR patients.search_name LIKE '%' || ? || '%' ${phoneClause})`,
+    );
+    bindings.push(input.q.folioQuery, input.q.normalizedQuery);
+    if (input.q.phoneDigits) bindings.push(input.q.phoneDigits);
+  }
+
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const having = input.status
+    ? "HAVING SUM(CASE WHEN files.status = ? THEN 1 ELSE 0 END) > 0"
+    : "";
+  const havingBinding = input.status ? [input.status] : [];
+
+  return { where, having, whereBindings: bindings, havingBindings: havingBinding };
+}
+
+/**
+ * `listRecent` with two things it didn't have: a text query composing with
+ * `?status=`, and a real total — the manager's tab counts and `/admin`'s two
+ * lists were capped at whatever `limit` happened to be, which is not a
+ * count, it's a truncation.
+ *
+ * Two queries, not one: a `COUNT(*) OVER()` window column looked like a
+ * single-round-trip shortcut, but it is only present on the rows actually
+ * returned — page past the last row (`offset` beyond the match count) and
+ * zero rows come back, taking the total down with them to 0. Wrong count is
+ * worse than one extra query, so this runs the page and the total as two
+ * queries against the identical predicate (`searchRecordsPredicate`,
+ * shared so they cannot drift apart), in parallel.
+ *
+ * `q` reuses exactly the same three-criteria match `searchFolios` (GET
+ * /search) already established — exact/prefix folio, accent-insensitive
+ * name substring, phone prefix — so a manager typing in this box gets the
+ * same matching behavior as the employee search box, not a second dialect.
+ */
+export async function searchRecords(
+  db: D1Database,
+  input: {
+    q?: { normalizedQuery: string; folioQuery: string; phoneDigits: string | null };
+    status?: string;
+    limit: number;
+    offset: number;
+  },
+): Promise<{ rows: RecordListRow[]; total: number }> {
+  const { where, having, whereBindings, havingBindings } = searchRecordsPredicate(input);
+
+  const pageStatement = `
+    SELECT
+      records.record_id,
+      records.folio,
+      records.created_at,
+      patients.full_name,
+      ${TALLY_COLUMNS},
+      MAX(files.uploaded_at) AS latest_uploaded_at
+    FROM records
+    JOIN patients ON patients.patient_id = records.patient_id
+    LEFT JOIN files ON files.record_id = records.record_id
+    ${where}
+    GROUP BY records.record_id
+    ${having}
+    ORDER BY COALESCE(MAX(files.uploaded_at), records.created_at) DESC
+    LIMIT ? OFFSET ?
+  `;
+
+  const countStatement = `
+    SELECT COUNT(*) AS total FROM (
+      SELECT records.record_id
+      FROM records
+      JOIN patients ON patients.patient_id = records.patient_id
+      LEFT JOIN files ON files.record_id = records.record_id
+      ${where}
+      GROUP BY records.record_id
+      ${having}
     )
-    .bind(...bindings)
-    .all<RecordListRow>();
+  `;
+
+  const [pageResult, countResult] = await Promise.all([
+    db
+      .prepare(pageStatement)
+      .bind(...whereBindings, ...havingBindings, input.limit, input.offset)
+      .all<RecordListRow>(),
+    db
+      .prepare(countStatement)
+      .bind(...whereBindings, ...havingBindings)
+      .first<{ total: number }>(),
+  ]);
+
+  return { rows: pageResult.results, total: countResult?.total ?? 0 };
 }
 
 export type QueueFileRow = {

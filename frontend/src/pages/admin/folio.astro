@@ -573,7 +573,15 @@ import Dropzone from "../../components/admin/Dropzone.astro";
 
     /* ---------- loading ---------- */
 
-    const load = async (folio) => {
+    // `skipRender` is only for init()'s first load (below): it runs the
+    // folio fetch and the actor fetch in parallel (checkpoint F — the folio
+    // id is in `location.search` immediately, nothing about it depends on
+    // the role), but `permitted()` reads the outer `actorRole` closure
+    // variable at render time, so rendering has to wait until that's
+    // actually resolved, not just until the folio fetch is. The two
+    // post-mutation callers don't pass it — actorRole is already settled
+    // by the time either of them runs, so they keep rendering immediately.
+    const load = async (folio, { skipRender = false } = {}) => {
       const { ok, status, payload } = await apiJson(
         `/records/by-folio/${encodeURIComponent(folio)}`,
       );
@@ -584,24 +592,22 @@ import Dropzone from "../../components/admin/Dropzone.astro";
           "Revisa el folio o créalo desde el inicio.",
         );
         setStatus("");
-        return;
+        return null;
       }
 
       if (!ok) {
         setStatus(withRef(payload, "No se pudo abrir el folio."), "error");
-        return;
+        return null;
       }
+
+      if (skipRender) return payload.record;
 
       render(payload.record);
       setStatus("");
+      return payload.record;
     };
 
     const init = async () => {
-      // Role decides what is worth offering, never what is allowed. A failed
-      // lookup falls back to EMPLOYEE: the server is the gate either way.
-      actorRole = (await loadActor()).role;
-      fillWho(actorRole);
-
       const folio = new URL(location.href).searchParams.get("f");
 
       if (!folio) {
@@ -609,7 +615,21 @@ import Dropzone from "../../components/admin/Dropzone.astro";
         return;
       }
       setStatus("Abriendo el folio…");
-      await load(folio.trim().toUpperCase());
+
+      const [{ role }, record] = await Promise.all([
+        loadActor(),
+        load(folio.trim().toUpperCase(), { skipRender: true }),
+      ]);
+
+      // Role decides what is worth offering, never what is allowed. A failed
+      // lookup falls back to EMPLOYEE: the server is the gate either way.
+      actorRole = role;
+      fillWho(actorRole);
+
+      if (record) {
+        render(record);
+        setStatus("");
+      }
     };
 
     init();

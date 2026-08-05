@@ -39,6 +39,16 @@ const whatsappMessage =
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Checkpoint F performance fix — see AdminLayout.astro's identical
+         addition; this page builds its own <head> rather than using that
+         layout, so it needs the same preload written here separately. -->
+    <link
+      rel="preload"
+      href="/fonts/plus-jakarta-sans-variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <title>Consulta tus resultados · DúoLab</title>
   </head>
   <body>

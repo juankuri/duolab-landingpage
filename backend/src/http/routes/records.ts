@@ -5,6 +5,7 @@ import * as recordsRepo from "../../data/records.repo";
 import { AppError } from "../../domain/errors";
 import { isFileStatus } from "../../domain/file-lifecycle";
 import { labDayUtcBounds, suggestFolio } from "../../domain/folio";
+import { normalizeForSearch, normalizePhoneQuery } from "../../domain/search";
 import {
   MAX_UPLOAD_BYTES,
   isPdf,
@@ -158,6 +159,9 @@ records.get("/", async (c) => {
     ? Math.min(Math.max(Math.trunc(limitParam), 1), 100)
     : 20;
 
+  const offsetParam = Number(c.req.query("offset") ?? "0");
+  const offset = Number.isFinite(offsetParam) ? Math.max(Math.trunc(offsetParam), 0) : 0;
+
   // The manager queue is this list filtered to CONFIRMED: everything
   // reviewed and waiting to be released.
   const status = c.req.query("status");
@@ -172,15 +176,31 @@ records.get("/", async (c) => {
     throw new AppError("INVALID_INPUT", "El include solicitado no existe.");
   }
 
-  const rows = await recordsRepo.listRecent(c.env.DB, limit, status);
+  // Same three-criteria match GET /search already uses (folio exact/prefix,
+  // accent-insensitive name substring, phone prefix) — a manager typing here
+  // gets the employee search box's behavior, not a second dialect of it.
+  const rawQuery = c.req.query("q")?.trim();
+  const q = rawQuery
+    ? {
+        normalizedQuery: normalizeForSearch(rawQuery),
+        folioQuery: rawQuery.toUpperCase(),
+        phoneDigits: (() => {
+          const digits = normalizePhoneQuery(rawQuery);
+          return digits.length >= 3 ? digits : null;
+        })(),
+      }
+    : undefined;
+
+  const { rows, total } = await recordsRepo.searchRecords(c.env.DB, { q, status, limit, offset });
 
   // Additive: without ?include=files the response is byte-identical to
-  // before, which is what keeps every existing caller (the employee home's
-  // two /records calls) working untouched.
+  // before (minus the new `total`, which every caller already tolerates an
+  // unknown field for), which is what keeps every existing caller (the
+  // employee home's two /records calls) working untouched.
   let filesByRecord: Map<string, recordsRepo.QueueFileRow[]> | null = null;
 
   if (include === "files") {
-    const recordIds = rows.results.map((row) => row.record_id);
+    const recordIds = rows.map((row) => row.record_id);
     const fileRows = await recordsRepo.listFilesForRecords(c.env.DB, recordIds, status);
 
     filesByRecord = new Map();
@@ -192,7 +212,8 @@ records.get("/", async (c) => {
   }
 
   return c.json({
-    records: rows.results.map((row) => {
+    total,
+    records: rows.map((row) => {
       const base = {
         recordId: row.record_id,
         folio: row.folio,

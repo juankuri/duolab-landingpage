@@ -361,6 +361,23 @@
   margin: 0;
 }
 
+/* "Cargar más" below a queue page that stopped short of `total` — a full
+   row on this mobile-first screen, not a discreet corner link, since a
+   thumb needs an unambiguous target here the same way DEC-021 already
+   asks for everywhere else on this page. */
+.mgr-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: var(--space-sm) 0;
+  text-align: center;
+}
+
+.mgr-more .btn {
+  min-height: 48px;
+}
+
 /* ---------- confirm sheets: full-width stacked actions on a phone ----------
  * ConfirmSheet.astro's own `.actions` (admin.css) is a row justified to the
  * end — fine on desktop, wrong here: two 40-ish-px buttons side by side on a

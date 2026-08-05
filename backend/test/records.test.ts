@@ -420,6 +420,119 @@ describe("GET /records", () => {
       expect(record.files).toHaveLength(1);
     }
   });
+
+  describe("?q= — checkpoint F, the manager/home search box", () => {
+    it("matches by folio prefix", async () => {
+      await createRecord({ folio: "SRCH-010919-01", fullName: "Buscar Prueba" });
+
+      const body = await json(await request("/records?q=SRCH-010919"));
+
+      expect(body.records.some((r: { folio: string }) => r.folio === "SRCH-010919-01")).toBe(
+        true,
+      );
+    });
+
+    it("matches by name, accent-insensitive", async () => {
+      await createRecord({ folio: "NUNZ-010919-01", fullName: "María Núñez" });
+
+      const body = await json(await request(`/records?q=${encodeURIComponent("nunez")}`));
+
+      expect(body.records.some((r: { folio: string }) => r.folio === "NUNZ-010919-01")).toBe(
+        true,
+      );
+    });
+
+    it("matches by phone prefix", async () => {
+      await createRecord({ folio: "PHNE-010919-01", phoneNumber: "9387654321" });
+
+      const body = await json(await request("/records?q=938765"));
+
+      expect(body.records.some((r: { folio: string }) => r.folio === "PHNE-010919-01")).toBe(
+        true,
+      );
+    });
+
+    it("composes with ?status=", async () => {
+      const { body: record } = await createRecord({
+        folio: "COMP-010919-01",
+        fullName: "Compuesta Consulta",
+      });
+      await request(`/files/${record.fileId}/confirm`, { method: "POST" });
+
+      const matches = await json(
+        await request(`/records?q=${encodeURIComponent("Compuesta")}&status=CONFIRMED`),
+      );
+      expect(matches.records.some((r: { folio: string }) => r.folio === "COMP-010919-01")).toBe(
+        true,
+      );
+
+      const wrongStatus = await json(
+        await request(`/records?q=${encodeURIComponent("Compuesta")}&status=PUBLISHED`),
+      );
+      expect(
+        wrongStatus.records.some((r: { folio: string }) => r.folio === "COMP-010919-01"),
+      ).toBe(false);
+    });
+
+    it("an empty ?q= behaves like no query at all", async () => {
+      await createRecord({ folio: "EMPT-010919-01" });
+
+      const body = await json(await request("/records?q="));
+
+      expect(body.records.some((r: { folio: string }) => r.folio === "EMPT-010919-01")).toBe(
+        true,
+      );
+    });
+  });
+
+  describe("?offset= and total — checkpoint F pagination", () => {
+    it("total is the full match count, not capped at limit", async () => {
+      for (let index = 0; index < 5; index += 1) {
+        await createRecord({ folio: `TTL-01091${index}-01` });
+      }
+
+      const body = await json(await request("/records?limit=2&q=TTL-01091"));
+
+      expect(body.records).toHaveLength(2);
+      expect(body.total).toBe(5);
+    });
+
+    it("offset pages without gaps or repeats", async () => {
+      const folios: string[] = [];
+      for (let index = 0; index < 5; index += 1) {
+        const folio = `PAGE-01092${index}-01`;
+        folios.push(folio);
+        await createRecord({ folio });
+      }
+
+      const seen = new Set<string>();
+      for (let offset = 0; offset < 5; offset += 2) {
+        const body = await json(
+          await request(`/records?limit=2&offset=${offset}&q=PAGE-0109`),
+        );
+        for (const record of body.records) seen.add(record.folio);
+      }
+
+      for (const folio of folios) expect(seen.has(folio)).toBe(true);
+      expect(seen.size).toBe(5);
+    });
+
+    it("total is still correct when offset pages past the last row — the bug a naive COUNT(*) OVER() would reintroduce", async () => {
+      await createRecord({ folio: "PAST-010919-01" });
+
+      const body = await json(await request("/records?limit=10&offset=50&q=PAST-010919"));
+
+      expect(body.records).toHaveLength(0);
+      expect(body.total).toBe(1);
+    });
+
+    it("total reflects zero when nothing matches", async () => {
+      const body = await json(await request("/records?q=NOTHING-MATCHES-THIS-AT-ALL"));
+
+      expect(body.records).toHaveLength(0);
+      expect(body.total).toBe(0);
+    });
+  });
 });
 
 describe("GET /records/:recordId", () => {
