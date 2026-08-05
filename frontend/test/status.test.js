@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { withRef } from "../src/scripts/admin/api.js";
 import {
   ACTIONS,
   STATUS,
   STATUS_ORDER,
-  actionErrorMessage,
   actionsFor,
   allows,
   labelOf,
@@ -93,21 +93,21 @@ describe("the actions a status offers", () => {
   });
 });
 
-describe("actionErrorMessage", () => {
+describe("withRef", () => {
   it("uses the server's message for any error code", () => {
     expect(
-      actionErrorMessage({ code: "INVALID_TRANSITION", error: "No se pudo." }, "fallback"),
+      withRef({ code: "INVALID_TRANSITION", error: "No se pudo." }, "fallback"),
     ).toBe("No se pudo.");
   });
 
   it("falls back to the given message when there is no payload at all", () => {
-    expect(actionErrorMessage(null, "fallback")).toBe("fallback");
-    expect(actionErrorMessage(undefined, "fallback")).toBe("fallback");
+    expect(withRef(null, "fallback")).toBe("fallback");
+    expect(withRef(undefined, "fallback")).toBe("fallback");
   });
 
   it("appends the request id when the server logged one", () => {
     expect(
-      actionErrorMessage({ error: "Algo falló.", requestId: "abc-123" }, "fallback"),
+      withRef({ error: "Algo falló.", requestId: "abc-123" }, "fallback"),
     ).toBe("Algo falló. (Ref: abc-123)");
   });
 });

@@ -13,7 +13,7 @@ export default defineConfig({
     }),
   ],
   // pdfjs-dist is only ever reached through a runtime `await import()` inside
-  // a page <script> (manager.astro, scripts/shared/pdf-viewer.js) — Vite's
+  // a page <script> (manager.astro) — Vite's
   // cold-start dependency scan doesn't see it, so the first request for it
   // triggers a re-optimize mid-session and the browser's in-flight request
   // for the old `?v=` hash 404s ("Failed to fetch dynamically imported

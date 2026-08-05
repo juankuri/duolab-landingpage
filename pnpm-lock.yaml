@@ -47,9 +47,6 @@ importers:
       pdfjs-dist:
         specifier: ^6.1.200
         version: 6.1.200
-      sitemap:
-        specifier: ^9.0.1
-        version: 9.0.1
     devDependencies:
       '@astrojs/check':
         specifier: ^0.9.9

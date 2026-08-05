@@ -9,7 +9,6 @@ import { normalizeForSearch, normalizePhoneQuery } from "../../domain/search";
 import {
   MAX_UPLOAD_BYTES,
   isPdf,
-  isRecordInclude,
   isUuid,
   validateBirthDate,
   validateFolio,
@@ -172,7 +171,7 @@ records.get("/", async (c) => {
 
   const include = c.req.query("include");
 
-  if (include !== undefined && !isRecordInclude(include)) {
+  if (include !== undefined && include !== "files") {
     throw new AppError("INVALID_INPUT", "El include solicitado no existe.");
   }
 

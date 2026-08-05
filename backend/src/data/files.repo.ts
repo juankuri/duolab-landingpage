@@ -149,23 +149,6 @@ export function withdraw(db: D1Database, fileId: string) {
 }
 
 /**
- * The file to stream for a public download, live-checked against
- * `PUBLISHED` in the same query rather than trusting a status a caller might
- * have read earlier — a revoke must take effect on the very next request
- * (DEC-014), including one made against an otherwise still-valid token.
- */
-export function findPublishedForDownload(db: D1Database, fileId: string) {
-  return db
-    .prepare(
-      `SELECT file_id, r2_key, original_filename, mime_type
-       FROM files
-       WHERE file_id = ? AND status = 'PUBLISHED'`,
-    )
-    .bind(fileId)
-    .first<FilePreviewRow>();
-}
-
-/**
  * Every published file on a record, newest first — a folio is an order and
  * may hold several released studies at once (migration 0009).
  */

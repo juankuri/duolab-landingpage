@@ -2,7 +2,7 @@
  * Native inline PDF preview via a `blob:` object URL, for the desktop
  * employee surfaces (/admin/nuevo, /admin/revisar).
  *
- * Chosen over the pdf.js/canvas viewer (scripts/shared/pdf-viewer.js) for
+ * Chosen over the pdf.js/canvas viewer that `/admin/manager` runs inline for
  * these two screens specifically: DEC-022 rejected `<iframe src>` because
  * iOS Safari cannot render an embedded PDF usably — a constraint about that
  * one mobile engine, not about desktop browsers, and employees are
@@ -10,9 +10,9 @@
  * Firefox, Safari) renders a `<object type="application/pdf">` pointed at a
  * blob: URL with its own full-featured native viewer — no worker to spin
  * up, no CORS/Range negotiation (blob: URLs are not network requests), and
- * no version-specific pdf.js behavior to depend on. `pdf-viewer.js` stays
- * reserved for the manager (mobile) and the patient preview (mobile-first,
- * checkpoint D), where DEC-022's reasoning actually applies.
+ * no version-specific pdf.js behavior to depend on. The canvas/pdf.js
+ * approach stays confined to `/admin/manager`'s own inline viewer (mobile),
+ * where DEC-022's reasoning actually applies.
  *
  * A `blob:` URL is origin-scoped, unguessable outside this document, and is
  * revoked as soon as it's no longer shown — nothing here is ever a network

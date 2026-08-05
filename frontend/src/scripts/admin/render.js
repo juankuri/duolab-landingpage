@@ -166,17 +166,6 @@ export function setStatusLine(node, message, tone) {
 }
 
 /**
- * Fills a page's `.empty` block (title + optional sub) and shows it. Callers
- * pass the nodes rather than ids so this stays independent of any one page's
- * id scheme.
- */
-export function renderEmpty({ container, title: titleNode, sub: subNode }, title, sub) {
-  if (titleNode) titleNode.textContent = title ?? "";
-  if (subNode) subNode.textContent = sub ?? "";
-  container.hidden = false;
-}
-
-/**
  * One folio row: folio → patient name, plus its tally. Used by /admin,
  * /admin/buscar and /admin/paciente, previously three near-identical inline
  * builders differing only in which link they pointed at.

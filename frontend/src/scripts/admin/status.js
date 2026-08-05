@@ -1,5 +1,3 @@
-import { withRef } from "./api.js";
-
 /**
  * The result status vocabulary — one source for every admin surface.
  *
@@ -88,20 +86,4 @@ export function actionsFor(value) {
 
 export function allows(value, action) {
   return actionsFor(value).includes(action);
-}
-
-/**
- * Turns an error payload into something worth showing an actor.
- *
- * It used to special-case ALREADY_PUBLISHED, back when a record could hold
- * only one PUBLISHED file and a second publish was refused. Migration 0009
- * removed that rule — a folio is an order and its studies are published
- * independently — so the server no longer raises that code and the branch
- * that handled it is gone with it.
- *
- * Lifted out of folio.astro (where it started) so the manager screens can
- * share the same message instead of re-deriving it.
- */
-export function actionErrorMessage(payload, fallback) {
-  return withRef(payload, fallback);
 }

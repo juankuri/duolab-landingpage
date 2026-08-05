@@ -125,7 +125,7 @@ import "../../styles/manager.css";
   <ConfirmSheet id="revoke-sheet" title="¿Revocar este resultado?" confirmLabel="Sí, revocar definitivamente" />
 
   <script>
-    import { API_BASE, apiJson } from "../../scripts/admin/api.js";
+    import { API_BASE, apiJson, withRef } from "../../scripts/admin/api.js";
     import {
       TABS,
       groupQueue,
@@ -144,7 +144,7 @@ import "../../styles/manager.css";
     } from "../../scripts/admin/pdf-view.js";
     import { formatMoment, statusBadge } from "../../scripts/admin/render.js";
     import { fillWho, loadActor, roleRedirect } from "../../scripts/admin/session.js";
-    import { actionErrorMessage, labelOf } from "../../scripts/admin/status.js";
+    import { labelOf } from "../../scripts/admin/status.js";
     import { iconNode } from "../../scripts/shared/icons.js";
 
     const $ = (id) => document.getElementById(id);
@@ -641,7 +641,7 @@ import "../../styles/manager.css";
         if (payload?.code === "INVALID_TRANSITION") {
           $("publish-sheet-status").textContent = transitionConflictMessage(payload, labelOf);
         } else {
-          $("publish-sheet-status").textContent = actionErrorMessage(
+          $("publish-sheet-status").textContent = withRef(
             payload,
             "No se pudo publicar.",
           );
@@ -697,7 +697,7 @@ import "../../styles/manager.css";
         $("revoke-sheet-status").textContent =
           payload?.code === "INVALID_TRANSITION"
             ? transitionConflictMessage(payload, labelOf)
-            : actionErrorMessage(payload, "No se pudo revocar.");
+            : withRef(payload, "No se pudo revocar.");
         $("revoke-sheet-status").dataset.tone = "error";
         button.disabled = false;
         return;
