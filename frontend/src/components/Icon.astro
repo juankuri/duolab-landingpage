@@ -1,0 +1,32 @@
+---
+/**
+ * Renders one of scripts/shared/icons.js's glyphs. Always aria-hidden —
+ * every call site is expected to carry its own visible text label
+ * (requirement 4: "do not depend on icons alone").
+ */
+import { ICONS } from "../scripts/shared/icons.js";
+
+interface Props {
+  name: keyof typeof ICONS;
+  size?: number;
+  class?: string;
+}
+
+const { name, size = 20, class: className } = Astro.props;
+const path = ICONS[name];
+---
+
+<svg
+  class={className}
+  width={size}
+  height={size}
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.75"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+  focusable="false"
+  set:html={path}
+/>

@@ -1,0 +1,37 @@
+---
+/**
+ * One markup shape for every PDF drop target — /admin/nuevo, /admin/folio's
+ * add-result sheet, and ConfirmSheet.astro's replace variant. Pairs with
+ * scripts/shared/dropzone.js, which owns the drag/drop/keyboard behavior;
+ * this component only emits the DOM that module expects to find by id.
+ *
+ * `id` becomes the input's id (what `for` points at); `textId`/`statusId`
+ * are exposed so the host page's script can pass them straight into
+ * attachDropzone() without re-deriving ids.
+ */
+import Icon from "../Icon.astro";
+
+interface Props {
+  id: string;
+  label?: string;
+  required?: boolean;
+}
+
+const { id, label = "Arrastra el PDF aquí", required = false } = Astro.props;
+const textId = `${id}-text`;
+---
+
+<label class="dropzone" for={id} id={`${id}-zone`} tabindex="0">
+  <span class="dropzone__icon" aria-hidden="true">
+    <Icon name="upload" size={28} />
+  </span>
+  <span class="dropzone__text" id={textId}>{label}</span>
+  <p class="dropzone__hint">o selecciónalo · sólo PDF · máx 15 MB</p>
+</label>
+<input
+  id={id}
+  type="file"
+  accept="application/pdf"
+  hidden
+  required={required}
+/>

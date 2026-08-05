@@ -476,11 +476,17 @@ body {
   font-size: 12px;
 }
 
+/*
+ * Used to collapse every variant (primary, secondary, danger) into the same
+ * flat neutral fill, because the attribute selector's specificity beat
+ * .btn--secondary/.btn--danger regardless of source order — a disabled
+ * primary button read as a plain white/grey box, exactly the "white square"
+ * defect this rule now avoids. Dimming in place keeps each variant
+ * recognizable while still reading as inert.
+ */
 .btn[disabled] {
-  color: var(--text-secondary);
   cursor: default;
-  background: var(--color-neutral-surface);
-  border-color: var(--color-neutral-border);
+  opacity: 0.5;
 }
 
 .iconbtn {
@@ -498,13 +504,18 @@ body {
   font-size: 1.1rem;
   color: var(--text-secondary);
   cursor: pointer;
-  background: var(--color-surface);
+  /* Transparent at rest, not a filled white square sitting next to the row's
+     primary/secondary button — the surface only appears on hover/focus, as
+     an interaction response (branding/guidelines.md's Tint-Not-Shadow spirit
+     applied to a control rather than a card). */
+  background: transparent;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 }
 
 .iconbtn:hover {
   color: var(--color-primary);
+  background: var(--color-surface-soft);
   border-color: var(--color-primary);
 }
 
@@ -580,7 +591,10 @@ body {
 .empty {
   padding: var(--space-lg) var(--space-md);
   text-align: center;
-  background: var(--color-surface);
+  /* Muted, not plain white — a big pale panel wrapping a primary CTA
+     (the "empty folio list" / "empty queue" states) otherwise reads as a
+     white square sitting behind the button. */
+  background: var(--color-surface-muted);
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-md);
 }
@@ -622,15 +636,6 @@ body {
 .hero .row {
   max-width: 480px;
   margin: 0 auto 16px;
-}
-
-.preview {
-  width: 100%;
-  height: 480px;
-  margin-top: 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md, 8px);
-  background: var(--color-surface-muted);
 }
 
 /* ---------- forms ---------- */
@@ -689,6 +694,11 @@ body {
  * backdrop.
  */
 .sheet {
+  /* The UA default for <dialog> is `background-color: canvas` (system
+     white), never a token — every sheet's buttons were sitting on an
+     untokenized white panel. Explicit now so it follows the surface token
+     like everything else. */
+  background: var(--color-surface);
   border: none;
   border-radius: var(--radius-lg, 12px);
   padding: 24px;
@@ -714,6 +724,13 @@ body {
 }
 
 .dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  /* A real drop target, not a thin strip — big enough to aim a drag at. */
+  min-height: 140px;
+  justify-content: center;
   border: 2px dashed var(--color-border-strong);
   border-radius: var(--radius-md, 8px);
   padding: 24px 16px;
@@ -721,16 +738,50 @@ body {
   cursor: pointer;
   color: var(--text-secondary);
   font-size: 0.9rem;
+  transition: border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.dropzone__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+}
+
+.dropzone__text {
+  font-weight: var(--font-weight-title);
+  color: var(--text-primary);
+}
+
+.dropzone__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
 }
 
 .dropzone:hover,
 .dropzone:focus-within {
   border-color: var(--color-primary);
+  background: var(--color-surface-soft);
 }
 
+/* Set by dropzone.js while a dragged file is over the target — the state
+   the copy has always promised and, until now, nothing ever produced. */
 .dropzone[data-active="true"] {
   border-style: solid;
+  border-color: var(--color-primary);
+  background: var(--color-surface-soft);
   color: var(--text-primary);
+}
+
+.dropzone[data-tone="selected"] {
+  border-style: solid;
+  border-color: var(--color-success);
+}
+
+.dropzone[data-tone="error"] {
+  border-color: var(--color-danger);
 }
 
 .progress {
@@ -738,6 +789,58 @@ body {
   height: 8px;
   margin-top: 12px;
   accent-color: var(--color-success, currentColor);
+}
+
+/* ---------- pdf preview (nuevo.astro, revisar.astro) ---------- */
+
+.pdf-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.pdf-preview canvas {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 4px rgb(20 33 41 / 12%);
+}
+
+.sheet--pdf {
+  max-width: none;
+  width: min(96vw, 900px);
+  height: 90vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-fullscreen__bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pdf-fullscreen__body {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  background: var(--color-surface-muted);
+}
+
+.pdf-fullscreen__body canvas {
+  max-width: 100%;
+  height: auto;
+  box-shadow: 0 1px 4px rgb(20 33 41 / 12%);
 }
 
 /* Also had no rule — the Cancelar/Confirmar pair inside a sheet stacked as
