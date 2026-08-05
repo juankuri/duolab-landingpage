@@ -35,6 +35,11 @@ const content = {
         ],
         city: "Ciudad del Carmen, Campeche",
         phoneNumber: WHATSAPP_NUMBER,
+        // Display-only landline, rendered as text and never as a tel:/wa.me
+        // action — the WhatsApp number is the only actionable contact
+        // (standing rule). Lives here rather than in index.astro so the footer
+        // and the Location section read the same value.
+        phoneDisplay: "938 383 0700",
         hours: [
             { label: "Lunes a viernes", value: "7:00 a.m. – 6:00 p.m." },
             { label: "Sábados", value: "7:00 a.m. – 2:00 p.m." },
@@ -81,6 +86,44 @@ const content = {
             "Laboratorio en Ciudad del Carmen con 11 años de experiencia. Sin cita para análisis de rutina, resultados confiables el mismo día.",
         canonicalUrl: `${SITE_ORIGIN}/`,
         ogImage: null,
+    },
+
+    /**
+     * Legal pages. The BODIES are placeholders — see the [PENDIENTE] markers in
+     * src/pages/_legal/*.astro — and the routes are gated behind LEGAL_ENABLED
+     * (config/features.js) so they exist in staging and nowhere else.
+     *
+     * `updatedAt` is the date the approved text was last revised. It is null
+     * while the text is a placeholder, because a "última actualización" date on
+     * unapproved copy is a claim we cannot make.
+     */
+    legal: {
+        privacy: {
+            path: "/aviso-de-privacidad",
+            label: "Aviso de privacidad",
+            title: "Aviso de Privacidad",
+            /** @type {string | null} */
+            updatedAt: null,
+        },
+        terms: {
+            path: "/terminos-de-uso",
+            label: "Términos de uso",
+            title: "Términos de Uso",
+            /** @type {string | null} */
+            updatedAt: null,
+        },
+    },
+
+    // /404. Hierarchy per the approved wireframe: one primary way home, one
+    // secondary route to results, and WhatsApp as a help link — not a third
+    // equally-weighted CTA.
+    notFound: {
+        code: "404",
+        headline: "No encontramos esta página.",
+        body: "Puede que el enlace esté roto o que la página haya cambiado de lugar.",
+        primaryCta: { href: "/", label: "Volver al inicio" },
+        secondaryCta: { href: "/resultados", label: "Consultar resultado" },
+        helpLabel: "¿Necesitas ayuda? Escríbenos por WhatsApp",
     },
 
     // SECCIÓN 1 — Hero (copy.md). H1 is verbatim and MUST NOT be paraphrased (FR-002).

@@ -34,6 +34,7 @@ export default defineConfig({
         "src/scripts/admin/pdf-view.js",
         "src/scripts/admin/manager.js",
         "src/scripts/public/lookup.js",
+        "src/scripts/public/nav.js",
       ],
       thresholds: {
         statements: 85,

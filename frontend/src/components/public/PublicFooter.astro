@@ -1,0 +1,276 @@
+---
+/**
+ * PublicFooter — the one footer on every public page (/, /resultados, the legal
+ * pages, /404). Four columns per the approved wireframe: identity, contact,
+ * patient help, legal.
+ *
+ * Two deliberate departures from components/landing/Footer.astro, which this
+ * replaces:
+ *
+ * 1. It takes NO props and reads `content` directly. Five pages would otherwise
+ *    each restate the same six props, and resultados.astro already imports
+ *    site.js this way. White-labelling still means swapping one content file
+ *    and one CSS file, which is what Principle V actually protects.
+ *
+ * 2. The same links render on every page — the current one is marked with
+ *    aria-current="page", never removed. Removing it makes the footer differ
+ *    per page for no benefit and costs a screen-reader user the confirmation of
+ *    where they are.
+ *
+ * The #contacto and #horarios ids are kept from the old footer: they are the
+ * landing's smooth-scroll targets and may exist in links we don't control.
+ *
+ * Styles are Astro-scoped on purpose. This component must NEVER declare a
+ * global rule — resultados.astro builds its result rows at runtime and styles
+ * them from an `is:global` block, so a global `.btn`/`.status`/`.card` here
+ * would silently restyle a patient's download buttons.
+ */
+import content from "../../config/site.js";
+import { LEGAL_ENABLED } from "../../config/features.js";
+import { isCurrentPath } from "../../scripts/public/nav.js";
+
+const { business, whatsapp, hero, legal } = content;
+
+const here = Astro.url.pathname;
+const year = new Date().getFullYear();
+
+const mapUrl = hero.secondaryCta.href;
+
+const whatsappHelpUrl = `https://wa.me/${whatsapp.phoneNumber}?text=${encodeURIComponent(
+  whatsapp.messages.find((m) => m.context === "resultados")?.text ??
+    whatsapp.messages[0].text,
+)}`;
+
+/** aria-current + a non-colour cue, or nothing. */
+const current = (href: string) =>
+  isCurrentPath(here, href) ? "page" : undefined;
+---
+
+<footer class="pfoot" id="contacto">
+  <div class="pfoot__inner">
+    <div class="pfoot__col">
+      <p class="pfoot__brand">{business.name}</p>
+      <p class="pfoot__tagline">
+        Laboratorio de análisis clínicos y patología
+      </p>
+    </div>
+
+    <div class="pfoot__col" id="horarios">
+      <h2 class="pfoot__heading">Contacto</h2>
+      <address class="pfoot__address">
+        {business.addressLines.map((line: string) => (<>{line}<br /></>))}
+        {business.city}
+      </address>
+      <ul class="pfoot__hours">
+        {
+          business.hours.map((h: { label: string; value: string }) => (
+            <li>
+              <span class="pfoot__hours-label">{h.label}:</span> {h.value}
+            </li>
+          ))
+        }
+      </ul>
+      <p class="pfoot__phone">Telmex. {business.phoneDisplay}</p>
+      <p class="pfoot__links">
+        <a
+          class="pfoot__link"
+          href={mapUrl}
+          target="_blank"
+          rel="noopener noreferrer">Ver en el mapa</a
+        >
+      </p>
+    </div>
+
+    <div class="pfoot__col">
+      <h2 class="pfoot__heading">Ayuda al paciente</h2>
+      <ul class="pfoot__list">
+        <li>
+          <a class="pfoot__link" href="/resultados" aria-current={current("/resultados")}>
+            Consultar resultado
+          </a>
+        </li>
+        <li>
+          <!-- The old footer's WhatsApp CTA was a commented-out pill button.
+               Restored as a text link: the footer is not where the primary
+               action belongs, and a second pill would compete with the one in
+               the header. -->
+          <a
+            class="pfoot__link"
+            href={whatsappHelpUrl}
+            target="_blank"
+            rel="noopener noreferrer">WhatsApp</a
+          >
+        </li>
+      </ul>
+    </div>
+
+    {
+      /* Gated on LEGAL_ENABLED: while the pages carry placeholder copy they do
+         not exist in a production build, and a link to a route that 404s is
+         worse than no link. Drop the condition with the approved text. */
+      LEGAL_ENABLED && (
+        <div class="pfoot__col">
+          <h2 class="pfoot__heading">Legal</h2>
+          <ul class="pfoot__list">
+            <li>
+              <a
+                class="pfoot__link"
+                href={legal.privacy.path}
+                aria-current={current(legal.privacy.path)}
+              >
+                {legal.privacy.label}
+              </a>
+            </li>
+            <li>
+              <a
+                class="pfoot__link"
+                href={legal.terms.path}
+                aria-current={current(legal.terms.path)}
+              >
+                {legal.terms.label}
+              </a>
+            </li>
+          </ul>
+        </div>
+      )
+    }
+  </div>
+
+  <div class="pfoot__baseline">
+    <p class="pfoot__copyright">
+      © {year} {business.name} · {business.city}
+    </p>
+  </div>
+</footer>
+
+<style>
+  .pfoot {
+    background-color: var(--color-primary); /* Morado Principal */
+    color: var(--text-on-primary);
+    padding-block: var(--space-xl) var(--space-md);
+    padding-inline: var(--space-md);
+  }
+
+  .pfoot__inner {
+    max-width: 1120px;
+    margin-inline: auto;
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  .pfoot__brand {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-display);
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
+    color: var(--text-on-primary);
+  }
+
+  .pfoot__tagline {
+    margin: var(--space-xs) 0 0;
+    color: var(--color-surface-soft);
+    font-size: var(--font-size-label);
+    line-height: 1.5;
+    max-width: 30ch;
+  }
+
+  .pfoot__heading {
+    margin: 0 0 var(--space-sm);
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-title);
+    font-size: var(--font-size-title);
+    color: var(--text-on-primary);
+  }
+
+  .pfoot__address {
+    margin: 0 0 var(--space-xs);
+    font-style: normal;
+    color: var(--color-surface-soft);
+    line-height: 1.6;
+  }
+
+  .pfoot__hours,
+  .pfoot__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .pfoot__hours {
+    margin-bottom: var(--space-xs);
+    color: var(--color-surface-soft);
+    line-height: 1.6;
+  }
+
+  .pfoot__hours-label {
+    font-weight: var(--font-weight-medium);
+    color: var(--text-on-primary);
+  }
+
+  .pfoot__phone {
+    margin: 0 0 var(--space-xs);
+    color: var(--color-surface-soft);
+  }
+
+  .pfoot__links {
+    margin: 0;
+  }
+
+  .pfoot__list li + li {
+    margin-top: var(--space-3xs);
+  }
+
+  .pfoot__link {
+    display: inline-block;
+    color: var(--text-on-primary);
+    font-weight: var(--font-weight-medium);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    /* Comfortable touch target without turning the column into a button list —
+       same reasoning as the ~44px rule in admin.css. */
+    padding-block: var(--space-xs);
+    min-height: 24px;
+  }
+
+  .pfoot__link:hover,
+  .pfoot__link:focus-visible {
+    color: var(--color-surface-soft);
+  }
+
+  .pfoot__link:focus-visible {
+    outline: 2px solid var(--color-surface);
+    outline-offset: 2px;
+  }
+
+  /* The current page keeps its link and is marked instead. Weight + a thicker
+     underline carry it, so the cue is not colour alone (WCAG 1.4.1). */
+  .pfoot__link[aria-current="page"] {
+    font-weight: var(--font-weight-heading);
+    text-decoration-thickness: 2px;
+  }
+
+  .pfoot__baseline {
+    max-width: 1120px;
+    margin: var(--space-lg) auto 0;
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--color-primary-dark);
+  }
+
+  .pfoot__copyright {
+    margin: 0;
+    color: var(--color-surface-soft);
+    font-size: var(--font-size-label);
+    line-height: 1.5;
+  }
+
+  @media (min-width: 768px) {
+    .pfoot__inner {
+      /* auto-fit rather than a fixed column count: the Legal column disappears
+         with the flag, and the remaining three should spread instead of
+         leaving a hole. */
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--space-xl);
+    }
+  }
+</style>

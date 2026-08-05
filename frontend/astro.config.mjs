@@ -7,9 +7,13 @@ export default defineConfig({
   site: 'https://laboratoriosduolab.com',
   // Keep the internal admin tool and the noindexed patient lookup out of the
   // public sitemap — reachable by the footer link, not by search discovery.
+  // /404 is a status page, not a destination.
   integrations: [
     sitemap({
-      filter: (page) => !page.includes("/admin") && !page.includes("/resultados"),
+      filter: (page) =>
+        !page.includes("/admin") &&
+        !page.includes("/resultados") &&
+        !page.includes("/404"),
     }),
   ],
   // pdfjs-dist is only ever reached through a runtime `await import()` inside

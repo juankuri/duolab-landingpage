@@ -20,7 +20,7 @@ import Location from "../components/landing/Location.astro";
 import Faq from "../components/landing/Faq.astro";
 import ReviewUs from "../components/landing/ReviewUs.astro";
 import FinalCta from "../components/landing/FinalCta.astro";
-import Footer from "../components/landing/Footer.astro";
+import PublicFooter from "../components/public/PublicFooter.astro";
 import WhatsAppFloat from "../components/landing/WhatsAppFloat.astro";
 
 const {
@@ -48,13 +48,15 @@ const navLinks = [
 
 // Display-only business phone (spec/standing rule: shown as text, never a
 // wa.me/tel CTA — the WhatsApp number is the only actionable contact).
-const phoneDisplay = "938 383 0700";
+const phoneDisplay = business.phoneDisplay;
 
 // Display-only WhatsApp number (shown as text in Location; the actionable
 // WhatsApp CTAs use whatsapp.phoneNumber via wa.me).
 const whatsappDisplay = "938 115 6464";
 
-// Slogan — copy.md FOOTER, verbatim.
+// Slogan — copy.md FOOTER, verbatim. Empty: no approved slogan exists, and the
+// Hero renders nothing in its place rather than inventing one. Only the Hero
+// consumes it now; the footer no longer has a slogan slot.
 const footerSlogan = "";
 
 /** Resolve a context-keyed prefilled WhatsApp message into a CTA prop object. */
@@ -161,13 +163,7 @@ const childCare = {
     />
   </main>
 
-  <Footer
-    business={business}
-    phoneDisplay={phoneDisplay}
-    slogan={footerSlogan}
-    mapUrl={hero.secondaryCta.href}
-    cta={ctaFor(finalCta.ctaMessageContext, finalCta.ctaLabel)}
-  />
+  <PublicFooter />
 
   <WhatsAppFloat cta={ctaFor(finalCta.ctaMessageContext, finalCta.ctaLabel)} />
 </Layout>
