@@ -11,13 +11,14 @@
  * the CTA come from props — no client-specific value is hard-coded here.
  *
  * Props:
- *   brand      string                                    the wordmark text
- *   navLinks   { label: string, href: string }[]         in-page anchor links
- *   cta        { phoneNumber, message, label }           the one WhatsApp action
+ *   brand        string                                    the wordmark text
+ *   navLinks     { label: string, href: string }[]         in-page anchor links
+ *   cta          { phoneNumber, message, label }           the one WhatsApp action
+ *   resultsHref  string  default "/resultados"              real link, leaves the page
  */
 import WhatsAppButton from "./WhatsAppButton.astro";
 
-const { brand, navLinks, cta } = Astro.props;
+const { brand, navLinks, cta, resultsHref = "/resultados" } = Astro.props;
 ---
 
 <header class="site-header" id="top">
@@ -31,6 +32,12 @@ const { brand, navLinks, cta } = Astro.props;
         height="40"
       />
     </a>
+
+    <!-- A real link, not an in-page anchor — it leaves the page, so it stays
+         visually distinct (purple, bold) and reachable without opening the
+         mobile menu: it sits outside .site-header__nav, between the logo and
+         the hamburger, matching the wireframe's mobile-header spec (1b). -->
+    <a class="site-header__results" href={resultsHref}>Resultados</a>
 
     <button
       class="site-header__toggle"
@@ -96,6 +103,31 @@ const { brand, navLinks, cta } = Astro.props;
     display: inline-flex;
     align-items: center;
     text-decoration: none;
+  }
+
+  /* Pushes itself + the hamburger to the right, keeping the brand pinned left
+     now that .site-header__inner has three direct children instead of two. */
+  .site-header__results {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    /* ~44px target without changing the header's height */
+    min-height: 44px;
+    padding-inline: var(--space-xs);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-title);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .site-header__results:hover,
+  .site-header__results:focus-visible {
+    text-decoration: underline;
+  }
+
+  .site-header__results:focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
   }
 
   /* Official DúoLab logo (mark without the subtitle — illegible at header scale).

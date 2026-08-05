@@ -19,7 +19,12 @@ import WhatsAppButton from "./WhatsAppButton.astro";
 const { eyebrow, headline, intro, items, highlight, cta } = Astro.props;
 ---
 
-<Section width="1000px" background="surface" labelledby="services-heading">
+<Section
+  width="1000px"
+  background="surface"
+  id="servicios"
+  labelledby="services-heading"
+>
   <SectionHeader
     eyebrow={eyebrow}
     headline={headline}

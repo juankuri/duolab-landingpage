@@ -39,11 +39,13 @@ const {
   finalCta,
 } = content;
 
-// Header nav: smooth-scroll anchors into the footer's info blocks (single-page).
+// Header nav: smooth-scroll anchors into content sections (single-page). Per
+// the approved wireframe (1b/1c) — not the footer's #horarios/#contacto, which
+// stay as valid anchors for anyone already linking to them, just off the nav.
 const navLinks = [
-  { label: "Horarios", href: "#horarios" },
+  { label: "Servicios", href: "#servicios" },
+  { label: "Cómo funciona", href: "#como-funciona" },
   { label: "Ubicación", href: "#ubicacion" },
-  { label: "Contacto", href: "#contacto" },
 ];
 
 // Display-only business phone (spec/standing rule: shown as text, never a
