@@ -4,6 +4,7 @@ import {
   fillPatientCard,
   folioRowNode,
   formatSize,
+  formatValue,
   initials,
   patientRowNode,
   resultName,
@@ -185,6 +186,13 @@ describe("folioRowNode", () => {
     const li = folioRowNode(folio, { metaText: null });
     expect(li.querySelector(".frow__meta")).toBeNull();
   });
+
+  it("carries the full folio and meta text in `title`, for a name too long to display in full", () => {
+    const longName = "A".repeat(120);
+    const li = folioRowNode({ ...folio, patientName: longName });
+    expect(li.querySelector(".frow__name").title).toBe("A-1024");
+    expect(li.querySelector(".frow__meta").title).toBe(longName);
+  });
 });
 
 describe("patientRowNode", () => {
@@ -212,6 +220,17 @@ describe("patientRowNode", () => {
     expect(li.querySelector(".frow__meta").textContent).toContain("1 folio");
     expect(li.querySelector(".frow__meta").textContent).not.toContain("folios");
   });
+
+  it("carries the full name in `title` for a name too long to display in full", () => {
+    const longName = "B".repeat(120);
+    const li = patientRowNode({
+      patientId: "p1",
+      fullName: longName,
+      phoneNumber: "9381234567",
+      folioCount: 1,
+    });
+    expect(li.querySelector(".frow__name").title).toBe(longName);
+  });
 });
 
 describe("fillPatientCard", () => {
@@ -228,6 +247,10 @@ describe("fillPatientCard", () => {
     expect(avatar.textContent).toBe("JK");
     expect(name.textContent).toBe("Juan Pablo Kuri");
     expect(meta.textContent).toBe("1990-01-01 · 9381234567");
+    // The name node is visually clamped for a long name (admin.css .clamp-2)
+    // — `title` is what makes the full value reachable regardless.
+    expect(name.title).toBe("Juan Pablo Kuri");
+    expect(meta.title).toBe("1990-01-01 · 9381234567");
   });
 
   it("tolerates a missing avatar/meta node", () => {
@@ -236,5 +259,25 @@ describe("fillPatientCard", () => {
       fillPatientCard({ name }, { fullName: "X", birthDate: "d", phoneNumber: "p" }),
     ).not.toThrow();
     expect(name.textContent).toBe("X");
+  });
+});
+
+describe("formatValue — the null convention: never a blank cell", () => {
+  it.each([null, undefined, ""])("renders an explicit dash for %p, not blank text", (value) => {
+    const node = formatValue(value);
+    expect(node.textContent).toBe("—");
+    expect(node.className).toBe("data-empty");
+    expect(node.getAttribute("aria-label")).toBe("sin dato");
+  });
+
+  it("renders a real value as plain text, not the empty marker", () => {
+    const node = formatValue("9381234567");
+    expect(node.textContent).toBe("9381234567");
+    expect(node.nodeType).toBe(Node.TEXT_NODE);
+  });
+
+  it("stringifies a non-string value rather than rejecting it", () => {
+    expect(formatValue(0).textContent).toBe("0");
+    expect(formatValue(false).textContent).toBe("false");
   });
 });

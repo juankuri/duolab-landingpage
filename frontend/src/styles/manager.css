@@ -20,7 +20,14 @@
   padding: var(--space-xs) 0;
   position: sticky;
   top: 0;
-  background: var(--color-surface);
+  /* The page body is --color-surface-muted (admin.css:25); this bar used to
+     paint --color-surface (pure white) over it — an opaque white slab
+     wherever it stuck to the top of a scrolled queue. Matching the body lets
+     it sit on the page instead of floating above it; the border gives it a
+     seam once content scrolls under it, which the white version didn't need
+     because it was never transparent. */
+  background: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border);
   z-index: var(--z-sticky);
 }
 
@@ -250,7 +257,9 @@
   gap: 10px;
   padding: var(--space-sm) 0;
   padding-bottom: calc(var(--space-sm) + env(safe-area-inset-bottom, 0px));
-  background: var(--color-surface);
+  /* Same fix as .mgr-tabs above: matches the muted page body instead of
+     painting an opaque white bar over it. */
+  background: var(--color-surface-muted);
   border-top: 1px solid var(--color-border);
 }
 

@@ -34,10 +34,11 @@ In this order. A step skipped is a step reported as skipped, not silently droppe
 - Thresholds are set **per directory** (see `backend/vitest.config.ts`, `frontend/vitest.config.js`), not as one global number, because the layers do different jobs and shouldn't be graded the same:
   - `backend/src/domain/**` — statements 90 / branches 85. Pure rules; there's no excuse for an untested branch here.
   - `backend/src/services/**` — statements 90 / branches 80.
-  - `backend/src/data/**` — statements 80 / branches 55 (see gap below).
+  - `backend/src/data/**` — statements 85 / branches 75 (see gap below).
   - `backend/src/http/**` — statements 80 / branches 70.
   - `frontend/src/scripts/admin/{status,folio,render,validation,session,manager,pdf-view}.js` and `frontend/src/scripts/public/lookup.js` — statements 85 / branches 75.
-- **Known gap, not hidden:** `backend/src/data/users.repo.ts` has no direct test (0% today, only exercised indirectly through `auth.ts`), which is why `src/data/**` branches sits at 55 instead of the 70 every other layer clears. Raise it the day a test is added, not before — a threshold set above what's actually measured just teaches everyone to ignore the coverage command.
+- **Known gap, not hidden:** `backend/src/data/users.repo.ts` has no direct test (0% today, only exercised indirectly through `auth.ts`). The rest of `src/data/**` clears the threshold comfortably on its own coverage, which is what keeps the directory-wide number at 85/75 despite this one file — `users.repo.ts` itself is the gap, not the directory threshold. Add a direct test for it the day someone touches that file for another reason, not as a separate project.
+- **Current measured baseline, to beat, not to fall below:** backend 320 tests, statements 93.95 / branches 88.13 overall (per-directory: domain 100/94.4, data 92.6/84.8, http 94.5/90.4). Frontend 184 tests, statements 93.61 / branches 87.5 (checkpoint C added `dialog.test.js`, `format.test.js`, `patient-edit.test.js` at full coverage, holding the overall percentage rather than moving it).
 
 ## What a new unit test needs
 
@@ -100,6 +101,21 @@ Run against `wrangler dev` (backend) + `astro dev --background` (frontend), one 
 7. **Multi-publish.** Publish a second study on the same folio, then look it up again → confirm both appear, each with its own name, date and download, and that each link fetches the right PDF.
 8. **Token scoping, the guard DEC-023 makes necessary.** Take a valid token from folio A and request a published file id belonging to folio B (`/api/public/results/<tokenA>/download/<fileB>`) → must be `404 LOOKUP_FAILED`. Same for a file on folio A that is only `CONFIRMED`, and for a malformed file id. If any of these ever returns a PDF or a `400`, stop and fix the route, not the test.
 9. Revoke one of several published results → confirm the patient's list loses exactly that one and keeps the rest.
+
+**Flow F — Hostile data** (`backend/scripts/seed-hostile.mjs`, `pnpm --filter @duolab/backend dev:seed-hostile`), added in the checkpoint C UX pass. Every admin screen is reviewed against this data, not `dev:seed`'s clean walkthrough names, because a screen that only survives friendly data isn't done:
+1. `/admin/buscar` — search "Guadalupe" (a 120-character name) and the single unbroken 60-character word. Both must render truncated with an ellipsis and a `title` attribute carrying the full value, never overflow the row or break the layout.
+2. `/admin/paciente?id=<Roberto's id>` — the 40-folio patient. Confirm the list caps at 20 with a "Mostrando 20 de 40." count and a working "Mostrar todos".
+3. `/admin/folio?f=CFRM-251275-01` — 15 results on one folio. Confirm the list renders all of them without breaking the tally or the layout.
+4. `/admin/folio?f=PCAL-090988-01` — a 200-character filename. Confirm it truncates rather than pushing the row's other content off-screen.
+5. Any screen showing an optional or caller-supplied value that could legitimately be absent — confirm it renders an explicit "—" (`.data-empty`, `render.js#formatValue`), never a blank cell indistinguishable from "still loading".
+
+## Loading and error states
+
+For every asynchronous surface (a page load, a search, a mutation), the states below are part of the manual QA script, not an afterthought — confirm each one where it applies, and confirm no two contradictory states are visible at once (an empty message showing while a request is still loading; a stale success line left standing after a later action failed):
+
+idle → loading → loaded → empty → submitting/mutating → success → validation error → recoverable operation error → authorization/expired-session error → unexpected error.
+
+Concretely: a duplicate-submit guard on every mutating button (a second click mid-request must not fire a second request); `aria-busy` or an equivalent visible label on any control mid-request; a field-level error next to the control it belongs to, not only in a page-level region; a page-level error for an operation failure, in a `role="status"`/`aria-live` region so it's announced, not just painted; the backend's `requestId` shown as a secondary reference on an unexpected error, never a stack trace or an R2 key; a distinct message for an expired session (401/403) versus a validation failure versus "something broke" — see `frontend/src/scripts/admin/api.js#withRef` and the per-status branches in `pages/admin/nuevo.astro` and `pages/admin/paciente.astro` for the current pattern.
 
 ## Reporting
 

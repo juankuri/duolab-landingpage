@@ -271,6 +271,60 @@ body {
   text-align: right;
 }
 
+/*
+ * A card that holds a form, not a summary row. `.card` is `display: flex;
+ * align-items: center` for the row-of-content case (avatar + name + meta) —
+ * wrapping /admin/paciente's edit panel in it made its heading and three
+ * fields into flex siblings, laid out side by side instead of stacked. This
+ * is the vertical variant: same surface, border and radius, block layout.
+ */
+.form-card {
+  display: block;
+  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.form-card .sect {
+  margin-bottom: 14px;
+}
+
+/*
+ * ---------- "ugly data" utilities ----------
+ * Every screen here is reviewed against backend/scripts/seed-hostile.ts, not
+ * demo data: a 120-character name, a single 60-character unbroken word, a
+ * patient with 40 folios. These three rules are what "designed for that"
+ * means in CSS, shared rather than re-invented per page.
+ */
+
+/* Single-line ellipsis. Pair with a `title` attribute carrying the full
+   value — truncation must never be the only place the real value exists. */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Two-line clamp for names and filenames where a single line is too
+   aggressive but an unbounded block still breaks the layout next to it. */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The null convention: never render null/undefined/"" as a blank cell — an
+   employee reading a blank cannot tell "no data" from "still loading" from
+   "the query broke". render.js's formatValue() is what actually emits this
+   markup; the class only carries the visual treatment. */
+.data-empty {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 .card__folio dt {
   font-size: 11px;
   color: var(--text-secondary);
@@ -847,6 +901,15 @@ body {
   width: min(96vw, 900px);
   height: 90vh;
   padding: 0;
+}
+
+/* `dialog:not([open]) { display: none }` is a UA rule, not an admin.css one —
+   any `display` set on the bare `.sheet--pdf` selector above overrode it
+   unconditionally, so the dialog painted (non-modally, full of its own
+   flex layout) even while closed. It sat on top of every page that renders
+   this markup — /admin/nuevo's whole form was unreachable behind it. Scoping
+   `display: flex` to `[open]` is what actually makes "closed" mean hidden. */
+.sheet--pdf[open] {
   display: flex;
   flex-direction: column;
 }

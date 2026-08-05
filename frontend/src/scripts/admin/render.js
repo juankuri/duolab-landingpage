@@ -169,10 +169,16 @@ export function folioRowNode(folio, { href, metaText } = {}) {
   link.style.textDecoration = "none";
   link.style.color = "inherit";
 
-  link.append(el("p", "frow__name", folio.folio));
+  const nameNode = el("p", "frow__name truncate", folio.folio);
+  nameNode.title = folio.folio;
+  link.append(nameNode);
 
   const meta = metaText === undefined ? folio.patientName : metaText;
-  if (meta) link.append(el("p", "frow__meta", meta));
+  if (meta) {
+    const metaNode = el("p", "frow__meta truncate", meta);
+    metaNode.title = meta;
+    link.append(metaNode);
+  }
 
   li.append(link, tallyNode(folio.results));
   return li;
@@ -193,8 +199,10 @@ export function patientRowNode(patient) {
   link.style.color = "inherit";
 
   const folioWord = patient.folioCount === 1 ? "folio" : "folios";
+  const nameNode = el("p", "frow__name truncate", patient.fullName);
+  nameNode.title = patient.fullName;
   link.append(
-    el("p", "frow__name", patient.fullName),
+    nameNode,
     el("p", "frow__meta", `${patient.phoneNumber} · ${patient.folioCount} ${folioWord}`),
   );
 
@@ -211,8 +219,36 @@ export function patientRowNode(patient) {
  */
 export function fillPatientCard({ avatar, name, meta }, patient) {
   if (avatar) avatar.textContent = initials(patient.fullName);
+  // The name node is visually clamped (`.clamp-2` in admin.css) for the
+  // hostile-data case — a 120-character name or one unbroken 60-character
+  // word — so `title` is what lets someone actually read the full value,
+  // not just the CSS ellipsis.
   name.textContent = patient.fullName;
-  if (meta) meta.textContent = `${patient.birthDate} · ${patient.phoneNumber}`;
+  name.title = patient.fullName;
+  if (meta) {
+    const metaText = `${patient.birthDate} · ${patient.phoneNumber}`;
+    meta.textContent = metaText;
+    meta.title = metaText;
+  }
+}
+
+/**
+ * The null convention (docs/09-ux-completion-plan.md §C3): null, undefined
+ * and "" never render as a blank cell — a blank cannot be told apart from
+ * "still loading" or "the query broke". Renders an explicit em dash with an
+ * accessible label instead. Every screen that shows optional or
+ * caller-supplied data should format it through this rather than interpolate
+ * the raw value.
+ */
+export function formatValue(value) {
+  if (value === null || value === undefined || value === "") {
+    const span = document.createElement("span");
+    span.className = "data-empty";
+    span.textContent = "—";
+    span.setAttribute("aria-label", "sin dato");
+    return span;
+  }
+  return document.createTextNode(String(value));
 }
 
 /** Initials for the patient avatar. Two letters, first and last word. */

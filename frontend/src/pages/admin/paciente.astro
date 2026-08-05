@@ -25,14 +25,14 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
 
   <section class="card" id="patient" hidden aria-labelledby="patient-name">
     <span class="pavatar" id="patient-initials" aria-hidden="true"></span>
-    <div class="card__body">
-      <h1 class="card__title" id="patient-name"></h1>
-      <p class="card__meta" id="patient-meta"></p>
+    <div class="card__body" style="min-width: 0;">
+      <h1 class="card__title clamp-2" id="patient-name"></h1>
+      <p class="card__meta truncate" id="patient-meta"></p>
     </div>
     <button class="btn btn--secondary btn--sm" id="edit-open" type="button">Editar datos</button>
   </section>
 
-  <form class="card" id="edit-panel" hidden aria-labelledby="edit-h">
+  <form class="form-card" id="edit-panel" hidden aria-labelledby="edit-h">
     <h2 class="sect" id="edit-h">Editar datos</h2>
 
     <div class="field">
@@ -75,6 +75,11 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
   </div>
 
   <ul class="results" id="folios-list"></ul>
+
+  <div class="row row--between" id="folios-more" hidden>
+    <p class="tiny" id="folios-more-count"></p>
+    <button class="btn btn--ghost btn--sm" id="folios-more-btn" type="button">Mostrar todos</button>
+  </div>
 
   <div class="empty" id="empty" hidden>
     <p class="empty__title" id="empty-title">No encontramos al paciente</p>
@@ -291,16 +296,44 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
       $("new-folio").href = `/admin/nuevo?patient=${encodeURIComponent(patient.patientId)}`;
       $("folios-head").hidden = false;
 
-      if (patient.folios.length === 0) {
-        $("folios-list").replaceChildren();
-        setStatusLine($("status"), "Este paciente todavía no tiene folios.");
-      } else {
-        $("folios-list").replaceChildren(
-          ...patient.folios.map((folio) => folioRowNode(folio, { metaText: null })),
-        );
-        setStatusLine($("status"), "");
-      }
+      renderFolios(patient.folios);
     };
+
+    // The 40-folio hostile-data case (docs/09-ux-completion-plan.md §C3):
+    // an unpaginated list of that length is its own kind of broken, even
+    // though nothing here is technically an error. Capped at 20 with an
+    // explicit count and a "mostrar todos" escape hatch — client-side only,
+    // since GET /patients/:id already returns every folio in one response;
+    // no new endpoint needed for a list this size.
+    const FOLIO_LIST_CAP = 20;
+    let foliosExpanded = false;
+
+    function renderFolios(folios) {
+      if (folios.length === 0) {
+        $("folios-list").replaceChildren();
+        $("folios-more").hidden = true;
+        setStatusLine($("status"), "Este paciente todavía no tiene folios.");
+        return;
+      }
+
+      const visible = foliosExpanded ? folios : folios.slice(0, FOLIO_LIST_CAP);
+      $("folios-list").replaceChildren(
+        ...visible.map((folio) => folioRowNode(folio, { metaText: null })),
+      );
+      setStatusLine($("status"), "");
+
+      if (folios.length > FOLIO_LIST_CAP && !foliosExpanded) {
+        $("folios-more-count").textContent = `Mostrando ${visible.length} de ${folios.length}.`;
+        $("folios-more").hidden = false;
+      } else {
+        $("folios-more").hidden = true;
+      }
+    }
+
+    $("folios-more-btn").addEventListener("click", () => {
+      foliosExpanded = true;
+      renderFolios(patient.folios);
+    });
 
     init();
   </script>
