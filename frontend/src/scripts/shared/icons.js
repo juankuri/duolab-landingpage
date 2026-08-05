@@ -20,12 +20,14 @@
  * Every use is still required to sit beside a visible text label; this file
  * has no opinion on that, Icon.astro's callers do.
  */
+import arrowLeft from "@phosphor-icons/core/assets/regular/arrow-left.svg?raw";
 import arrowSquareOut from "@phosphor-icons/core/assets/regular/arrow-square-out.svg?raw";
 import calendarBlank from "@phosphor-icons/core/assets/regular/calendar-blank.svg?raw";
 import caretRight from "@phosphor-icons/core/assets/regular/caret-right.svg?raw";
 import checkCircle from "@phosphor-icons/core/assets/regular/check-circle.svg?raw";
 import clock from "@phosphor-icons/core/assets/regular/clock.svg?raw";
 import downloadSimple from "@phosphor-icons/core/assets/regular/download-simple.svg?raw";
+import eye from "@phosphor-icons/core/assets/regular/eye.svg?raw";
 import filePdf from "@phosphor-icons/core/assets/regular/file-pdf.svg?raw";
 import flask from "@phosphor-icons/core/assets/regular/flask.svg?raw";
 import phone from "@phosphor-icons/core/assets/regular/phone.svg?raw";
@@ -51,12 +53,14 @@ function parse(svgSource) {
 }
 
 const REGULAR = {
+  "arrow-left": arrowLeft,
   "external-link": arrowSquareOut,
   calendar: calendarBlank,
   chevron: caretRight,
   "check-circle": checkCircle,
   clock,
   download: downloadSimple,
+  eye,
   file: filePdf,
   laboratory: flask,
   phone,
@@ -80,3 +84,23 @@ export const ICONS_FILL = Object.fromEntries(
 );
 
 export const ICON_NAMES = Object.keys(ICONS);
+
+/**
+ * Builds the same markup Icon.astro renders, for the DOM built at runtime by
+ * scripts/admin/render.js and manager.astro's inline script — those can't
+ * reach a .astro component. Always aria-hidden, same contract as Icon.astro:
+ * every call site is expected to carry its own visible text label.
+ */
+export function iconNode(name, { weight = "regular", size = 20, className } = {}) {
+  const icon = (weight === "fill" && ICONS_FILL[name]) || ICONS[name];
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", String(size));
+  svg.setAttribute("height", String(size));
+  svg.setAttribute("viewBox", icon.viewBox);
+  svg.setAttribute("fill", "currentColor");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  if (className) svg.setAttribute("class", className);
+  svg.innerHTML = icon.inner;
+  return svg;
+}

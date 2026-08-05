@@ -14,12 +14,13 @@
  */
 import AdminLayout from "../../components/admin/AdminLayout.astro";
 import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
+import Icon from "../../components/Icon.astro";
 ---
 
 <AdminLayout title="Paciente">
   <nav class="crumb" aria-label="Ubicación">
     <a href="/admin">Inicio</a>
-    <span aria-hidden="true">›</span>
+    <Icon name="chevron" size={14} />
     <b id="crumb-name">Paciente</b>
   </nav>
 

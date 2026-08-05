@@ -12,6 +12,7 @@
  */
 import AdminLayout from "../../components/admin/AdminLayout.astro";
 import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
+import Icon from "../../components/Icon.astro";
 import "../../styles/manager.css";
 ---
 
@@ -59,7 +60,7 @@ import "../../styles/manager.css";
       <div id="queue-panel" role="tabpanel" aria-labelledby="tab-pending">
         <div id="queue-groups"></div>
         <div id="queue-empty" class="mgr-empty" hidden>
-          <span class="mgr-empty__icon" aria-hidden="true">⏳</span>
+          <Icon name="clock" size={24} class="mgr-empty__icon" />
           <p class="mgr-empty__text" id="queue-empty-text"></p>
         </div>
         <div class="mgr-more" id="queue-more" hidden>
@@ -73,7 +74,9 @@ import "../../styles/manager.css";
     <!-- ---------- detail + preview ---------- -->
     <section id="mgr-detail" hidden>
       <div class="mgr-detail__head">
-        <button class="mgr-back" id="detail-back" type="button" aria-label="Volver a la lista">←</button>
+        <button class="mgr-back" id="detail-back" type="button" aria-label="Volver a la lista">
+          <Icon name="arrow-left" size={20} />
+        </button>
         <div style="flex: 1;">
           <p class="card__title" id="detail-name" style="margin: 0; font-size: 20px;"></p>
           <p class="card__meta" id="detail-meta" style="margin: 0;"></p>
@@ -105,7 +108,7 @@ import "../../styles/manager.css";
     <!-- ---------- publish success (M5) ---------- -->
     <section id="mgr-success" hidden tabindex="-1" role="status">
       <div class="mgr-success">
-        <span class="mgr-success__icon" aria-hidden="true">✓</span>
+        <Icon name="check-circle" weight="fill" size={32} class="mgr-success__icon" />
         <p class="mgr-success__title">Resultado publicado</p>
         <p class="mgr-success__meta" id="success-meta"></p>
         <div class="mgr-success__actions" id="success-actions"></div>
@@ -137,6 +140,7 @@ import "../../styles/manager.css";
     import { formatMoment, statusBadge } from "../../scripts/admin/render.js";
     import { fillWho, loadActor, roleRedirect } from "../../scripts/admin/session.js";
     import { actionErrorMessage, labelOf } from "../../scripts/admin/status.js";
+    import { iconNode } from "../../scripts/shared/icons.js";
 
     const $ = (id) => document.getElementById(id);
 
@@ -180,10 +184,7 @@ import "../../styles/manager.css";
         }),
       );
 
-      const arrow = document.createElement("span");
-      arrow.className = "mgr-card__arrow";
-      arrow.textContent = "→";
-      arrow.setAttribute("aria-hidden", "true");
+      const arrow = iconNode("chevron", { size: 20, className: "mgr-card__arrow" });
 
       button.append(text, arrow);
       button.addEventListener("click", () => openDetail(item));
