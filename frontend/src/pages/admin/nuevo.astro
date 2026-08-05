@@ -64,8 +64,12 @@ import PatientChip from "../../components/admin/PatientChip.astro";
       <p class="err" id="err-file" data-err></p>
 
       <div class="pdf-preview" id="pdf-preview" hidden>
-        <canvas id="pdf-preview-canvas"></canvas>
-        <p class="vh" id="pdf-preview-text" aria-live="polite"></p>
+        <object id="pdf-preview-object" type="application/pdf" aria-label="Vista previa del PDF">
+          <p class="pdf-preview__fallback">
+            Tu navegador no puede mostrar la vista previa aquí.
+            <a id="pdf-preview-fallback-link" target="_blank" rel="noopener">Abrir en una pestaña nueva</a>
+          </p>
+        </object>
         <button class="btn btn--ghost btn--sm" id="pdf-preview-expand" type="button">
           Ampliar vista previa
         </button>
@@ -88,7 +92,12 @@ import PatientChip from "../../components/admin/PatientChip.astro";
       </button>
     </div>
     <div class="pdf-fullscreen__body">
-      <canvas id="pdf-fullscreen-canvas"></canvas>
+      <object id="pdf-fullscreen-object" type="application/pdf" aria-label="Vista previa del PDF, ampliada">
+        <p class="pdf-preview__fallback">
+          Tu navegador no puede mostrar la vista previa aquí.
+          <a id="pdf-fullscreen-fallback-link" target="_blank" rel="noopener">Abrir en una pestaña nueva</a>
+        </p>
+      </object>
     </div>
   </dialog>
 
@@ -107,8 +116,8 @@ import PatientChip from "../../components/admin/PatientChip.astro";
     import { initials } from "../../scripts/admin/render.js";
     import { createRecord } from "../../scripts/admin/upload.js";
     import { validateCreation } from "../../scripts/admin/validation.js";
+    import { createBlobPreview } from "../../scripts/shared/blob-preview.js";
     import { attachDropzone } from "../../scripts/shared/dropzone.js";
-    import { createPdfViewer } from "../../scripts/shared/pdf-viewer.js";
 
     const $ = (id) => document.getElementById(id);
 
@@ -158,22 +167,12 @@ import PatientChip from "../../components/admin/PatientChip.astro";
 
     /* ---------- preview: renders the moment a file is chosen or dropped ---------- */
 
-    const previewViewer = createPdfViewer({
-      canvas: $("pdf-preview-canvas"),
-      textLayer: $("pdf-preview-text"),
-    });
-    const fullscreenViewer = createPdfViewer({ canvas: $("pdf-fullscreen-canvas") });
+    const inlinePreview = createBlobPreview($("pdf-preview-object"));
+    const fullscreenPreview = createBlobPreview($("pdf-fullscreen-object"));
 
-    const showPreview = async (file) => {
+    const showPreview = (file) => {
       $("pdf-preview").hidden = false;
-      try {
-        await previewViewer.open(await file.arrayBuffer());
-      } catch {
-        // A corrupt-but-PDF-typed file (renamed extension, truncated
-        // upload) fails here rather than at the server — the field error
-        // below still names it, this just avoids a broken blank canvas.
-        $("pdf-preview").hidden = true;
-      }
+      $("pdf-preview-fallback-link").href = inlinePreview.show(file);
     };
 
     attachDropzone({
@@ -188,17 +187,19 @@ import PatientChip from "../../components/admin/PatientChip.astro";
           showPreview(file);
         } else {
           $("pdf-preview").hidden = true;
+          inlinePreview.clear();
         }
       },
     });
 
-    $("pdf-preview-expand").addEventListener("click", async () => {
+    $("pdf-preview-expand").addEventListener("click", () => {
+      if (!pendingFile) return;
+      $("pdf-fullscreen-fallback-link").href = fullscreenPreview.show(pendingFile);
       $("pdf-fullscreen").showModal();
-      if (pendingFile) await fullscreenViewer.open(await pendingFile.arrayBuffer());
     });
 
     $("pdf-fullscreen-close").addEventListener("click", () => $("pdf-fullscreen").close());
-    $("pdf-fullscreen").addEventListener("close", () => fullscreenViewer.close());
+    $("pdf-fullscreen").addEventListener("close", () => fullscreenPreview.clear());
 
     let lastConflict = null;
 
