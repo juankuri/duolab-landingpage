@@ -29,14 +29,16 @@ POST   /files/:fileId/publish                   — manager only
 POST   /files/:fileId/revoke                    — employee or manager (DEC-018)
 GET    /search                                  — ?q=, folio/name/phone in one query
 GET    /patients/:patientId                     — a patient with every folio they have
+PATCH  /patients/:patientId                     — name/phone/birthDate, each optional (DEC-026); no requireRole, MANAGER inherits via DEC-013
+GET    /records/folio-suggestion                — ?name= or ?patientId= -> {folio, initials, day, sequence} (DEC-027)
 GET    /me
 ```
 
 Public (no `requireAccess`; DEC-012, DEC-014, DEC-015):
 
 ```
-POST /api/public/results/lookup                        — {folio, phone, birthDate} -> {downloadToken, expiresAt}
-GET  /api/public/results/:downloadToken/download
+POST /api/public/results/lookup                        — {folio, phone, birthDate} -> {downloadToken, expiresAt, patientDisplayName, results}
+GET  /api/public/results/:downloadToken/download/:fileId
 ```
 
 ## Contract — POST /records

@@ -44,6 +44,18 @@ describe("POST /api/public/results/lookup", () => {
     expect(body).not.toHaveProperty("recordId");
   });
 
+  it("returns the patient's masked name, never the full legal name, once verified", async () => {
+    await publishedResultRecord({ folio: "MASK-010190-1" });
+    // publishedRecord (test/helpers.ts) defaults fullName to "Maria Lopez Ruiz".
+
+    const response = await lookup({ folio: "MASK-010190-1", phone: PHONE, birthDate: BIRTH_DATE });
+    const body = await json(response);
+
+    expect(response.status).toBe(200);
+    expect(body.patientDisplayName).toBe("Maria Lopez R.");
+    expect(body.patientDisplayName).not.toContain("Ruiz");
+  });
+
   // A folio is an order and may hold several released studies at once. The
   // patient is entitled to all of them from one verification.
   it("returns every published result on the folio, with a name and a date", async () => {
@@ -124,6 +136,13 @@ describe("POST /api/public/results/lookup", () => {
 
       expect(response.status).toBe(404);
       expect(parsed.code).toBe("LOOKUP_FAILED");
+      // The masked-name field (patientDisplayName, added alongside the
+      // checkpoint E patient-experience pass) is exactly the kind of field
+      // this guardrail exists to catch: it must never appear on a failure
+      // response, no matter which of the underlying reasons caused it —
+      // its mere presence would tell a caller "a record for this input
+      // exists" even without leaking the name itself.
+      expect(parsed).not.toHaveProperty("patientDisplayName");
       return parsed;
     }
 

@@ -38,7 +38,7 @@ In this order. A step skipped is a step reported as skipped, not silently droppe
   - `backend/src/http/**` — statements 80 / branches 70.
   - `frontend/src/scripts/admin/{status,folio,render,validation,session,manager,pdf-view}.js` and `frontend/src/scripts/public/lookup.js` — statements 85 / branches 75.
 - **Known gap, not hidden:** `backend/src/data/users.repo.ts` has no direct test (0% today, only exercised indirectly through `auth.ts`). The rest of `src/data/**` clears the threshold comfortably on its own coverage, which is what keeps the directory-wide number at 85/75 despite this one file — `users.repo.ts` itself is the gap, not the directory threshold. Add a direct test for it the day someone touches that file for another reason, not as a separate project.
-- **Current measured baseline, to beat, not to fall below:** backend 320 tests, statements 93.95 / branches 88.13 overall (per-directory: domain 100/94.4, data 92.6/84.8, http 94.5/90.4). Frontend 184 tests, statements 93.61 / branches 87.5 (checkpoint C added `dialog.test.js`, `format.test.js`, `patient-edit.test.js` at full coverage, holding the overall percentage rather than moving it).
+- **Current measured baseline, to beat, not to fall below (as of checkpoint E):** backend 328 tests, statements 94.02 / branches 88.19 overall (per-directory: domain 98.5/95.1, data 92.6/84.8, http 94.5/90.4). Frontend 200 tests, statements 94.08 / branches 87.81.
 
 ## What a new unit test needs
 
@@ -101,6 +101,8 @@ Run against `wrangler dev` (backend) + `astro dev --background` (frontend), one 
 7. **Multi-publish.** Publish a second study on the same folio, then look it up again → confirm both appear, each with its own name, date and download, and that each link fetches the right PDF.
 8. **Token scoping, the guard DEC-023 makes necessary.** Take a valid token from folio A and request a published file id belonging to folio B (`/api/public/results/<tokenA>/download/<fileB>`) → must be `404 LOOKUP_FAILED`. Same for a file on folio A that is only `CONFIRMED`, and for a malformed file id. If any of these ever returns a PDF or a `400`, stop and fix the route, not the test.
 9. Revoke one of several published results → confirm the patient's list loses exactly that one and keeps the rest.
+10. **Masked name (checkpoint E).** Confirm the success panel shows given names in full and surnames as an initial (e.g. "Rosa Elena C. P." for "Rosa Elena Chan Pech"), never the full legal name. Re-run step 4's four failure cases and confirm `patientDisplayName` is absent from every one of them, not just the message.
+11. **Token-in-URL, the guard checkpoint E's blob-fetch preview exists for.** Click "Ver PDF" and "Descargar PDF" → confirm both work, and **inspect the resulting tab's/download's address — it must be a `blob:` URL, never `/api/public/results/<token>/...`.** Check browser history after both actions: no entry should contain the download token. If either ever shows the real download URL, the regression is back.
 
 **Flow F — Hostile data** (`backend/scripts/seed-hostile.mjs`, `pnpm --filter @duolab/backend dev:seed-hostile`), added in the checkpoint C UX pass. Every admin screen is reviewed against this data, not `dev:seed`'s clean walkthrough names, because a screen that only survives friendly data isn't done:
 1. `/admin/buscar` — search "Guadalupe" (a 120-character name) and the single unbroken 60-character word. Both must render truncated with an ellipsis and a `title` attribute carrying the full value, never overflow the row or break the layout.

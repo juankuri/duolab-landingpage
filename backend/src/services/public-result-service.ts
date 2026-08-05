@@ -1,5 +1,6 @@
 import { AppError } from "../domain/errors";
 import { encryptToken } from "../domain/download-token";
+import { maskPatientName } from "../domain/masking";
 import { timingSafeEqual } from "../domain/public-verification";
 import {
   validateBirthDate,
@@ -33,6 +34,9 @@ export type LookupInput = {
 export type LookupResult = {
   downloadToken: string;
   expiresAt: string;
+  /** Given names in full, surnames as an initial — see domain/masking.ts.
+   * Only ever present once folio + phone + birth date all matched. */
+  patientDisplayName: string;
   /**
    * Every published study on the folio. Filename and publication date are
    * exposed so a patient holding several PDFs can tell them apart — with
@@ -120,6 +124,7 @@ export async function lookupPublicResult(
   return {
     downloadToken,
     expiresAt: new Date(exp).toISOString(),
+    patientDisplayName: maskPatientName(record.full_name),
     results: published.results.map((file) => ({
       fileId: file.file_id,
       filename: file.original_filename,

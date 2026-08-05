@@ -39,7 +39,7 @@ const whatsappMessage =
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Consulta tu resultado · DúoLab</title>
+    <title>Consulta tus resultados · DúoLab</title>
   </head>
   <body>
     <a class="skip-link" href="#main">Saltar al contenido</a>
@@ -57,9 +57,9 @@ const whatsappMessage =
 
     <main class="wrap" id="main">
       <section class="card" aria-labelledby="lookup-h">
-        <h1 id="lookup-h" class="card__h">Consulta tu resultado</h1>
+        <h1 id="lookup-h" class="card__h">Consulta tus resultados aquí</h1>
         <p class="card__lead">
-          Captura los datos exactamente como se registraron en el laboratorio.
+          Captura los datos que te dio el laboratorio, exactamente como se registraron.
         </p>
 
         <!--
@@ -145,7 +145,7 @@ const whatsappMessage =
           <WhatsAppButton
             phoneNumber={content.whatsapp.phoneNumber}
             message={whatsappMessage}
-            label="Ayuda por WhatsApp"
+            label="¿Necesitas ayuda? Escríbenos por WhatsApp"
             variant="outline"
           />
         </div>
@@ -252,7 +252,24 @@ const whatsappMessage =
 
       /* ---------- lookup ---------- */
 
-      /** One row per published study: its name, its date, and its own download. */
+      /**
+       * Fetches one file as a Blob rather than ever pointing a navigation at
+       * `downloadUrl()` directly. A plain `<a href>` carrying the token is a
+       * navigation, so the token would land in the address bar, in browser
+       * history, and in session-restore state — a `Content-Disposition`
+       * header only ever affects what a navigation *does with* the
+       * response, not whether the URL itself is exposed. `fetch()` doesn't
+       * navigate anywhere, so the token in the request URL is never shown
+       * or stored by the browser. No new backend route: this calls the same
+       * `GET .../download/:fileId` the old link pointed at.
+       */
+      async function fetchResultBlob(downloadToken, fileId) {
+        const res = await fetch(downloadUrl(API_BASE, downloadToken, fileId));
+        if (!res.ok) throw new Error(`download failed: ${res.status}`);
+        return res.blob();
+      }
+
+      /** One row per published study: its name, its date, view + download. */
       const fileRow = (folio, downloadToken, result, index) => {
         const li = document.createElement("li");
         li.className = "file";
@@ -269,17 +286,85 @@ const whatsappMessage =
         const published = formatPublishedAt(result.publishedAt);
         meta.textContent = published ? `Publicado el ${published}` : "";
 
-        const link = document.createElement("a");
-        link.className = "btn btn--sm";
-        link.href = downloadUrl(API_BASE, downloadToken, result.fileId);
-        link.textContent = "Descargar PDF";
-        // Names the study rather than repeating "Descargar PDF" N times,
-        // which is what a screen reader would otherwise announce.
-        link.setAttribute("aria-label", `Descargar ${result.filename}`);
+        const actions = document.createElement("div");
+        actions.className = "file__actions";
+
+        const status = document.createElement("p");
+        status.className = "file__status";
+        status.setAttribute("role", "status");
+        status.setAttribute("aria-live", "polite");
+
+        const withPending = (button, label, run) => {
+          button.addEventListener("click", async () => {
+            if (button.disabled) return; // duplicate-click guard
+            button.disabled = true;
+            button.setAttribute("aria-busy", "true");
+            status.textContent = `${label}…`;
+            try {
+              await run();
+              status.textContent = "";
+            } catch {
+              status.textContent =
+                "No pudimos abrir este archivo. Revisa tu conexión e inténtalo de nuevo.";
+            } finally {
+              button.disabled = false;
+              button.removeAttribute("aria-busy");
+            }
+          });
+        };
+
+        const viewBtn = document.createElement("button");
+        viewBtn.type = "button";
+        viewBtn.className = "btn btn--ghost btn--sm";
+        viewBtn.textContent = "Ver PDF";
+        viewBtn.setAttribute("aria-label", `Ver ${result.filename}`);
+        withPending(viewBtn, "Abriendo", async () => {
+          // A tab opened synchronously on the click, then pointed at the
+          // blob: URL once the fetch resolves — window.open() called only
+          // after an await risks the popup blocker; opening blank first,
+          // inside the same click handler, keeps the user-gesture context.
+          const tab = window.open("", "_blank", "noopener");
+          try {
+            const blob = await fetchResultBlob(downloadToken, result.fileId);
+            const blobUrl = URL.createObjectURL(blob);
+            if (tab) {
+              tab.location.href = blobUrl;
+            } else {
+              // Popup blocked outright — fall back to the same tab. Still a
+              // blob: URL, still no token, just not a new tab.
+              location.href = blobUrl;
+            }
+            // Revoked on a delay, not immediately: the new tab needs the
+            // URL to still resolve when it finishes loading it.
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+          } catch (error) {
+            tab?.close();
+            throw error;
+          }
+        });
+
+        const downloadBtn = document.createElement("button");
+        downloadBtn.type = "button";
+        downloadBtn.className = "btn btn--sm";
+        downloadBtn.textContent = "Descargar PDF";
+        downloadBtn.setAttribute("aria-label", `Descargar ${result.filename}`);
+        withPending(downloadBtn, "Descargando", async () => {
+          const blob = await fetchResultBlob(downloadToken, result.fileId);
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = result.filename || "resultado.pdf";
+          document.body.append(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 5_000);
+        });
+
+        actions.append(viewBtn, downloadBtn);
 
         li.append(name);
         if (meta.textContent) li.append(meta);
-        li.append(link);
+        li.append(actions, status);
         return li;
       };
 
@@ -288,7 +373,13 @@ const whatsappMessage =
 
         form.hidden = true;
         resultEl.hidden = false;
-        resultMsg.textContent = `${resultsHeading(results.length)} del folio ${folio}.`;
+        // patientDisplayName is given names in full, surnames as an
+        // initial (backend/src/domain/masking.ts) — enough for the patient
+        // to recognize it's theirs, without the full legal name appearing
+        // on a page nothing has authenticated beyond folio+phone+birthDate.
+        resultMsg.textContent = payload.patientDisplayName
+          ? `${resultsHeading(results.length)} para ${payload.patientDisplayName}, folio ${folio}.`
+          : `${resultsHeading(results.length)} del folio ${folio}.`;
 
         fileList.replaceChildren(
           ...results.map((result, index) =>
@@ -296,7 +387,7 @@ const whatsappMessage =
           ),
         );
 
-        fileList.querySelector("a")?.focus();
+        fileList.querySelector("button")?.focus();
 
         clearExpiryTimer();
         tickExpiry(payload.expiresAt);
@@ -616,17 +707,39 @@ const whatsappMessage =
         color: var(--text-secondary);
       }
 
-      .file .btn {
+      .file__actions {
+        display: flex;
+        gap: 8px;
         margin-top: 10px;
-        /* Each row carries its own download, so these are secondary to the
+      }
+
+      .file__actions .btn {
+        width: auto;
+        flex: 1;
+        margin-top: 0;
+        /* Each row carries its own actions, so these are secondary to the
            page as a whole — outlined rather than N solid purple blocks. */
-        color: var(--color-primary);
-        background: transparent;
         padding: 10px 14px;
       }
 
-      .file .btn:hover {
+      .file__actions .btn:not(.btn--ghost) {
+        color: var(--color-primary);
+        background: transparent;
+        border-color: var(--color-primary);
+      }
+
+      .file__actions .btn:hover {
         background: var(--color-surface-soft);
+      }
+
+      .file__status {
+        margin: 6px 0 0;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+
+      .file__status:empty {
+        display: none;
       }
 
       .result__expiry {

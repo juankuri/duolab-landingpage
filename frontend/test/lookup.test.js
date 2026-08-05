@@ -72,7 +72,19 @@ describe("lookupErrorMessage", () => {
     // 400 (malformed body) and 404 (no match / not published / revoked) must
     // read identically — this is the regression DEC-015 exists to prevent.
     expect(lookupErrorMessage(400)).toBe(lookupErrorMessage(404));
-    expect(lookupErrorMessage(404)).toContain("No encontramos un resultado");
+    expect(lookupErrorMessage(404)).toContain(
+      "No fue posible mostrar tus resultados con la información proporcionada",
+    );
+  });
+
+  it("the generic message tells the patient what to do next, without naming which check failed", () => {
+    const message = lookupErrorMessage(404);
+    expect(message).toContain("Verifica tus datos");
+    expect(message).toContain("comunícate con el laboratorio");
+    // Never reveal which factor was wrong.
+    expect(message.toLowerCase()).not.toContain("folio");
+    expect(message.toLowerCase()).not.toContain("teléfono");
+    expect(message.toLowerCase()).not.toContain("nacimiento");
   });
 });
 

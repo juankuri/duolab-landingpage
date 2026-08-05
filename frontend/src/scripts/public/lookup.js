@@ -39,8 +39,11 @@ export function lookupErrorMessage(status) {
   }
 
   // Every other non-2xx (400 malformed body, 404 no match / not published /
-  // revoked) reads identically on purpose.
-  return "No encontramos un resultado con esos datos. Verifica el folio, el teléfono y la fecha de nacimiento.";
+  // revoked) reads identically on purpose — this exact wording is what the
+  // product asked for: it never says which of "wrong folio", "wrong phone",
+  // "wrong birth date" or "nothing published yet" happened, only that the
+  // provided information didn't produce a result.
+  return "No fue posible mostrar tus resultados con la información proporcionada. Verifica tus datos o intenta nuevamente más tarde. Si el problema continúa, comunícate con el laboratorio.";
 }
 
 /**
