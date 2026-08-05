@@ -1,0 +1,83 @@
+---
+/**
+ * /terminos-de-uso — site terms of use.
+ *
+ * Body is placeholder, same standing as aviso-de-privacidad.astro: no term is
+ * invented here. Only reachable when LEGAL_ENABLED=1.
+ */
+import LegalLayout from "../../layouts/LegalLayout.astro";
+import content from "../../config/site.js";
+
+const { legal, business } = content;
+---
+
+<LegalLayout
+  title={legal.terms.title}
+  description="Términos de uso del sitio web de DúoLab."
+  canonicalPath={legal.terms.path}
+  updated={legal.terms.updatedAt}
+>
+  <nav slot="toc" aria-labelledby="toc-h">
+    <span id="toc-h" class="sr-only">Contenido</span>
+    <ol>
+      <li><a href="#aceptacion">1. Aceptación de los términos</a></li>
+      <li><a href="#uso-del-sitio">2. Uso del sitio</a></li>
+      <li><a href="#propiedad">3. Propiedad intelectual</a></li>
+      <li><a href="#limitacion">4. Limitación de responsabilidad</a></li>
+      <li><a href="#cambios">5. Cambios a estos términos</a></li>
+      <li><a href="#contacto">6. Contacto</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="aceptacion">1. Aceptación de los términos</h2>
+  <p class="legal-pending">
+    [PENDIENTE — condiciones de aceptación al usar el sitio.]
+  </p>
+
+  <h2 id="uso-del-sitio">2. Uso del sitio</h2>
+  <p class="legal-pending">
+    [PENDIENTE — usos permitidos y no permitidos del sitio y de la consulta de
+    resultados.]
+  </p>
+
+  <h2 id="propiedad">3. Propiedad intelectual</h2>
+  <p class="legal-pending">
+    [PENDIENTE — titularidad de marca, contenido y materiales del sitio.]
+  </p>
+
+  <h2 id="limitacion">4. Limitación de responsabilidad</h2>
+  <p class="legal-pending">
+    [PENDIENTE — alcance y límites de la responsabilidad del laboratorio por el
+    uso del sitio.]
+  </p>
+
+  <h2 id="cambios">5. Cambios a estos términos</h2>
+  <p class="legal-pending">
+    [PENDIENTE — mecanismo para informar modificaciones a estos términos.]
+  </p>
+
+  <h2 id="contacto">6. Contacto</h2>
+  <p class="legal-pending">
+    Para dudas sobre estos términos, ver los datos de contacto al final de la
+    página.
+  </p>
+
+  <address slot="contacto" class="legal-pending">
+    [PENDIENTE — correo y/o teléfono de contacto.]
+    {business.addressLines.join(" · ")}, {business.city}
+  </address>
+</LegalLayout>
+
+<style>
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>

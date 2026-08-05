@@ -1,0 +1,232 @@
+---
+/**
+ * LegalLayout — shell only, reused by the privacy notice and terms pages.
+ *
+ * It owns: <head>/SEO, the SecondaryHeader, a breadcrumb, the title + "última
+ * actualización" date, a TOC region, and the shared PublicFooter. It does NOT
+ * own body content — per locked decision 7, each legal page passes its own
+ * semantic markup (<h2> <p> <ul> <address>) through the default slot, not a
+ * config/JSON list of blocks rendered as cards.
+ *
+ * Deliberately does not extend layouts/Layout.astro: that layout emits the
+ * landing's canonical URL, OG tags and MedicalBusiness JSON-LD, none of which
+ * belong on a legal page. A small amount of <head> duplication here is the
+ * right trade against sharing the wrong abstraction.
+ *
+ * Props:
+ *   title          string   page <h1> and breadcrumb leaf
+ *   description    string   meta description
+ *   canonicalPath  string   e.g. "/aviso-de-privacidad"
+ *   updated        string | null   ISO date; renders nothing if null (no
+ *                  "última actualización" claim on placeholder copy)
+ *   noindex        boolean  default true — both pages carry it while their
+ *                  bodies are [PENDIENTE] placeholders
+ */
+import SecondaryHeader from "../components/public/SecondaryHeader.astro";
+import PublicFooter from "../components/public/PublicFooter.astro";
+import "../styles/clients/duolab.css";
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath: string;
+  updated: string | null;
+  noindex?: boolean;
+}
+
+const { title, description, canonicalPath, updated, noindex = true } = Astro.props;
+const canonicalUrl = new URL(canonicalPath, Astro.site).toString();
+---
+
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="preload"
+      href="/fonts/plus-jakarta-sans-variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <title>{title} · DúoLab</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Saltar al contenido</a>
+
+    <SecondaryHeader
+      links={[
+        { label: "Inicio", href: "/" },
+        { label: "Consultar resultados", href: "/resultados" },
+      ]}
+    />
+
+    <main class="legal" id="main">
+      <nav class="legal__crumb" aria-label="Ruta de navegación">
+        <a href="/">Inicio</a> / <span aria-current="page">{title}</span>
+      </nav>
+
+      <h1 class="legal__title">{title}</h1>
+
+      {
+        updated && (
+          <p class="legal__updated">
+            Última actualización: <time datetime={updated}>{updated}</time>
+          </p>
+        )
+      }
+
+      <div class="legal__grid">
+        <details class="legal__toc" open>
+          <summary>Contenido</summary>
+          <slot name="toc" />
+        </details>
+
+        <div class="legal__body">
+          <slot />
+        </div>
+      </div>
+
+      <slot name="contacto" />
+    </main>
+
+    <PublicFooter />
+  </body>
+</html>
+
+<style is:global>
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: var(--font-size-body);
+    line-height: 1.6;
+    color: var(--text-primary);
+    background-color: var(--color-surface);
+  }
+</style>
+
+<style>
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 8px;
+    z-index: var(--z-toast);
+    padding: 10px 16px;
+    background: var(--color-primary);
+    color: var(--text-on-primary);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-weight: 600;
+    transition: top var(--duration-fast) var(--ease-out);
+  }
+
+  .skip-link:focus {
+    top: 8px;
+  }
+
+  .legal {
+    max-width: 860px;
+    margin-inline: auto;
+    padding: var(--space-md);
+  }
+
+  .legal__crumb {
+    font-size: var(--font-size-label);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+  }
+
+  .legal__crumb a {
+    color: var(--color-primary);
+  }
+
+  .legal__title {
+    font-size: var(--font-size-headline);
+    margin-bottom: var(--space-3xs);
+  }
+
+  .legal__updated {
+    color: var(--text-secondary);
+    font-size: var(--font-size-label);
+    margin: 0 0 var(--space-md);
+  }
+
+  .legal__grid {
+    display: block;
+  }
+
+  .legal__toc {
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+
+  .legal__toc summary {
+    cursor: pointer;
+    font-weight: var(--font-weight-title);
+  }
+
+  .legal__toc :global(ol) {
+    margin: var(--space-xs) 0 0;
+    padding-left: 1.25em;
+  }
+
+  .legal__body :global(h2) {
+    font-size: var(--font-size-title);
+    margin: var(--space-md) 0 var(--space-xs);
+  }
+
+  .legal__body :global(p) {
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .legal__body :global(.legal-pending) {
+    color: var(--color-warning);
+    font-style: italic;
+  }
+
+  @media (min-width: 768px) {
+    .legal__grid {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: var(--space-lg);
+      align-items: start;
+    }
+
+    /* At this width the TOC is a persistent sidebar, not a collapsible —
+       <details open> with no <summary> interaction needed, so hide it
+       instead of relying on the toggle. */
+    .legal__toc {
+      border: none;
+      padding: 0;
+      margin-bottom: 0;
+    }
+
+    .legal__toc summary {
+      display: none;
+    }
+  }
+</style>

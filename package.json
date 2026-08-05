@@ -17,7 +17,8 @@
     "build": "PUBLIC_API_BASE= pnpm --filter duolab build",
     "migrate:staging": "pnpm --filter @duolab/backend migrate:staging",
     "migrate:production": "pnpm --filter @duolab/backend migrate:production",
-    "deploy:staging": "pnpm run build && pnpm --filter @duolab/backend deploy:staging",
+    "build:staging": "LEGAL_ENABLED=1 PUBLIC_API_BASE= pnpm --filter duolab build",
+    "deploy:staging": "pnpm run build:staging && pnpm --filter @duolab/backend deploy:staging",
     "deploy:production": "pnpm run build && pnpm --filter @duolab/backend deploy:production",
     "deploy": "node -e \"console.error('Refusing an unqualified deploy: run pnpm run deploy:staging or pnpm run deploy:production.'); process.exit(1)\""
   }

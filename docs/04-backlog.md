@@ -52,6 +52,26 @@
 
 ## Later
 
+- **Approved legal copy for `/aviso-de-privacidad` and `/terminos-de-uso`.**
+  Structure shipped in `docs/10-public-site-restructure-plan.md`'s Phase 4:
+  `LegalLayout.astro` and both pages exist, but every body section is a
+  visible `[PENDIENTE — …]` placeholder — no privacy or terms claim has been
+  written, let alone approved. Needs the business owner and, for the privacy
+  notice specifically, someone who can sign off on LFPDPPP compliance
+  (identidad y domicilio del responsable, datos recabados, finalidades,
+  transferencias, medios para ejercer derechos ARCO). Until that lands, the
+  pages are gated behind `LEGAL_ENABLED` (`frontend/src/config/features.js`,
+  `frontend/astro.config.mjs`'s `injectRoute` block, `frontend/package.json`'s
+  `build:staging`) so they exist in staging for review and nowhere else —
+  `noindex` alone was judged insufficient, since it is a request to crawlers,
+  not access control. Landing the real copy is one commit that: replaces every
+  `[PENDIENTE]`, deletes `features.js`, deletes the `injectRoute` block and its
+  sitemap-filter clause, moves both pages from `src/pages/_legal/` to
+  `src/pages/` directly, makes `PublicFooter.astro`'s Legal column
+  unconditional, and drops `noindex` plus the sitemap exclusion. Delete
+  `frontend/test/legal-gating.test.js` in the same commit — it exists only to
+  guard the flag that commit removes.
+
 - ~~Patient editing (name/birth date/phone correction after creation).~~ **Done** — `PATCH /patients/:patientId` (DEC-026), the checkpoint B/C UX pass.
 - "Descargar todos" (ZIP) on the patient result page. Still unblocked — multi-publish shipped — but not built: the patient downloads each result individually, which covers the need. Needs a zip library in the Worker and a multi-object streaming endpoint. Worth adding when a folio routinely carries enough studies that one-by-one is tedious.
 - Surface `?supersedes=` as a deliberate action in the employee screens (DEC-011). The API supports correcting an already-released study atomically, but no UI reaches it since the ALREADY_PUBLISHED error that used to expose it is gone. Today the path is revoke-then-publish, which is two steps and leaves a brief gap.

@@ -1,0 +1,96 @@
+---
+/**
+ * /aviso-de-privacidad — Mexican privacy notice (LFPDPPP-shaped structure).
+ *
+ * Body is placeholder: no legal claim is made up here. Every section below
+ * needs the business owner and someone who can sign off on LFPDPPP compliance
+ * before this page is safe to publish — see docs/04-backlog.md. Until then
+ * this file is only reachable when LEGAL_ENABLED=1 (astro.config.mjs), and
+ * only in the routing sense: Astro does not route anything under
+ * src/pages/_legal/ on its own.
+ */
+import LegalLayout from "../../layouts/LegalLayout.astro";
+import content from "../../config/site.js";
+
+const { legal, business } = content;
+---
+
+<LegalLayout
+  title={legal.privacy.title}
+  description="Aviso de privacidad de DúoLab: qué datos personales recabamos y cómo los tratamos."
+  canonicalPath={legal.privacy.path}
+  updated={legal.privacy.updatedAt}
+>
+  <nav slot="toc" aria-labelledby="toc-h">
+    <span id="toc-h" class="sr-only">Contenido</span>
+    <ol>
+      <li><a href="#responsable">1. Responsable de los datos personales</a></li>
+      <li><a href="#datos-recabados">2. Datos personales que recabamos</a></li>
+      <li><a href="#finalidades">3. Finalidades del tratamiento</a></li>
+      <li><a href="#transferencias">4. Transferencia de datos</a></li>
+      <li><a href="#derechos-arco">5. Derechos ARCO</a></li>
+      <li><a href="#cambios">6. Cambios a este aviso</a></li>
+      <li><a href="#contacto">7. Contacto</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="responsable">1. Responsable de los datos personales</h2>
+  <p class="legal-pending">
+    [PENDIENTE — identidad y domicilio del responsable, por confirmar con el
+    laboratorio antes de publicar.]
+  </p>
+
+  <h2 id="datos-recabados">2. Datos personales que recabamos</h2>
+  <p class="legal-pending">
+    [PENDIENTE — qué datos se recaban (identificación, contacto, datos de
+    salud) y por qué medio.]
+  </p>
+
+  <h2 id="finalidades">3. Finalidades del tratamiento</h2>
+  <p class="legal-pending">
+    [PENDIENTE — finalidades primarias y, si existen, finalidades secundarias
+    que requieran consentimiento expreso.]
+  </p>
+
+  <h2 id="transferencias">4. Transferencia de datos</h2>
+  <p class="legal-pending">
+    [PENDIENTE — si se realizan transferencias a terceros y bajo qué
+    condiciones.]
+  </p>
+
+  <h2 id="derechos-arco">5. Derechos ARCO</h2>
+  <p class="legal-pending">
+    [PENDIENTE — medios para ejercer los derechos de Acceso, Rectificación,
+    Cancelación y Oposición.]
+  </p>
+
+  <h2 id="cambios">6. Cambios a este aviso</h2>
+  <p class="legal-pending">
+    [PENDIENTE — mecanismo para informar modificaciones al aviso.]
+  </p>
+
+  <h2 id="contacto">7. Contacto</h2>
+  <p class="legal-pending">
+    Para dudas sobre este aviso, ver los datos de contacto al final de la
+    página.
+  </p>
+
+  <address slot="contacto" class="legal-pending">
+    [PENDIENTE — correo y/o teléfono de contacto para el aviso de privacidad.]
+    {business.addressLines.join(" · ")}, {business.city}
+  </address>
+</LegalLayout>
+
+<style>
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>
