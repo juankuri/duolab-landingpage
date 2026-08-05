@@ -1,4 +1,5 @@
 import { STATUS_ORDER, statusOf } from "./status.js";
+import { ICONS } from "../shared/icons.js";
 
 /**
  * DOM builders shared by the admin screens.
@@ -17,6 +18,27 @@ const el = (tag, className, text) => {
   if (text !== undefined) node.textContent = text;
   return node;
 };
+
+/**
+ * Icon.astro's runtime-DOM counterpart. Icon.astro only renders at build/
+ * server time — these builders run in the browser, so an icon placed beside
+ * text they generate has to be assembled the same way as everything else in
+ * this file: real nodes, from the same `ICONS` source Icon.astro reads.
+ * Always `aria-hidden`; the caller is responsible for the visible label
+ * beside it, same contract as Icon.astro's.
+ */
+function iconNode(name, size = 16) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const icon = ICONS[name];
+  svg.setAttribute("width", String(size));
+  svg.setAttribute("height", String(size));
+  svg.setAttribute("viewBox", icon.viewBox);
+  svg.setAttribute("fill", "currentColor");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.innerHTML = icon.inner;
+  return svg;
+}
 
 /**
  * The derived summary of a folio: how many results, and how many in each state.
@@ -226,9 +248,17 @@ export function fillPatientCard({ avatar, name, meta }, patient) {
   name.textContent = patient.fullName;
   name.title = patient.fullName;
   if (meta) {
+    // Icon + visible text, never icon alone (brief §5) — the calendar and
+    // phone glyphs are a scan aid for a card repeated on three screens, not
+    // the only way to tell which value is which.
     const metaText = `${patient.birthDate} · ${patient.phoneNumber}`;
-    meta.textContent = metaText;
     meta.title = metaText;
+    meta.replaceChildren(
+      iconNode("calendar", 14),
+      document.createTextNode(` ${patient.birthDate}  ·  `),
+      iconNode("phone", 14),
+      document.createTextNode(` ${patient.phoneNumber}`),
+    );
   }
 }
 

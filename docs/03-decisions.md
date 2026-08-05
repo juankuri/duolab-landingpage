@@ -328,3 +328,19 @@ Status: Accepted
 **Concurrency: the suggestion is advisory, the `UNIQUE` index is the actual guard.** This endpoint does no locking or reservation — two employees who both load the create form at the same instant can both be offered the same next number. `records.folio TEXT NOT NULL UNIQUE` (`0002_records.sql`) is what actually prevents two rows sharing one folio; the second `POST /records` gets the same `409 FOLIO_CONFLICT` it always did (`isFolioConflict()` matching the SQLite constraint error), unchanged by this feature. The client-side consequence: when the folio in the field is the untouched suggestion (not hand-edited), a `409` triggers one silent retry against a fresh suggestion before falling back to the duplicate-folio dialog a hand-typed conflict already showed. A dedicated test creates two records with the same suggested folio via `Promise.all` and asserts `[201, 409]`, proving the index — not the suggestion — is what decides.
 
 The folio stays editable after being suggested, exactly as before this feature existed: staff-supplied and immutable only once the record is created.
+
+## DEC-028: Icons are sourced from @phosphor-icons/core as build-time inlined SVG, not a UI library
+
+Status: Accepted
+
+`frontend/src/scripts/shared/icons.js` sources every glyph from `@phosphor-icons/core`, replacing a first pass (checkpoint A of this UX refinement) that hand-drew 8 SVG paths instead of using the icon set the original brief named explicitly.
+
+**Why this is not "adding a UI library"**, which every prior decision in this document has resisted: `@phosphor-icons/core` ships nothing but SVG files — no components, no React/Vue bindings, no runtime, no icon font. `icons.js` imports the specific files it needs with Vite's `?raw` suffix (`import phone from "@phosphor-icons/core/assets/regular/phone.svg?raw"`), which resolves and inlines each one as a plain string constant *at build time*. The shape leaving the bundler is identical to the hand-rolled set it replaces — a map of `{ name: { viewBox, inner } }` — just sourced from a maintained set of ~1,200 glyphs instead of redrawn by hand for each new need. `Icon.astro` (server-rendered) and `render.js#iconNode` (the client-side DOM-builder equivalent, for nodes assembled at runtime like `fillPatientCard`'s meta line) both consume the same map.
+
+**Verified, not assumed:** `grep -ril phosphor dist/` after a production build finds nothing — the package name itself does not survive into shipped output, only the path data does. Total `frontend/dist` size is unchanged (2.0 MB) since only the handful of icons actually imported are ever bundled; the other ~1,190 glyphs in the package are never touched by the build.
+
+**Weight:** the `regular` weight (outlined, `fill="currentColor"`) is the default; a small `fill` set exists for the one case that needs a visually "on" state distinguishable from its outlined default (`ICONS_FILL`), rather than importing a second full glyph per icon speculatively — the fill set only contains entries for names that currently use it.
+
+**Every icon still requires a visible text label beside it** — this is unchanged from the hand-rolled set's contract and is not something the icon source can enforce; it stays a convention each call site follows (`Icon.astro`'s `aria-hidden="true"` and `render.js#iconNode`'s matching attribute make that the only sane default).
+
+**Domain gap, not papered over:** the original brief asks for icons covering email, address, doctor and ID — none of those have a column in `database/migrations/0002_records.sql`. Adding icons for fields the schema does not have would either sit unused or imply data the product does not collect; `docs/04-backlog.md` records the fields as an open product question rather than this decision inventing them.

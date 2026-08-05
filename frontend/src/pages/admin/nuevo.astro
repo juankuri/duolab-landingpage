@@ -29,7 +29,14 @@ import PatientChip from "../../components/admin/PatientChip.astro";
   <form id="create-form" novalidate>
     <div class="field" id="field-fullName">
       <label for="fullName">Nombre completo *</label>
-      <input id="fullName" name="fullName" type="text" autocomplete="off" required />
+      <input
+        id="fullName"
+        name="fullName"
+        type="text"
+        autocomplete="off"
+        placeholder="Nombre y apellidos, como en su identificación"
+        required
+      />
       <p class="err" id="err-fullName" data-err></p>
     </div>
 
@@ -47,6 +54,7 @@ import PatientChip from "../../components/admin/PatientChip.astro";
         type="tel"
         inputmode="tel"
         autocomplete="off"
+        placeholder="9381234567"
         required
       />
       <p class="err" id="err-phoneNumber" data-err></p>
@@ -54,7 +62,14 @@ import PatientChip from "../../components/admin/PatientChip.astro";
 
     <div class="field">
       <label for="folio">Folio *</label>
-      <input id="folio" name="folio" type="text" autocomplete="off" required />
+      <input
+        id="folio"
+        name="folio"
+        type="text"
+        autocomplete="off"
+        placeholder="JPKR-050826-0131"
+        required
+      />
       <p class="tiny">
         Sugerido a partir del nombre — puedes cambiarlo.
         <button class="linklike" id="folio-use-suggested" type="button" hidden>Usar el sugerido</button>

@@ -55,7 +55,7 @@ body {
 
 .topbar__brand {
   display: flex;
-  gap: 8px;
+  gap: var(--space-xs);
   align-items: center;
   font-weight: var(--font-weight-heading);
   color: inherit;
@@ -70,7 +70,7 @@ body {
   position: relative;
   display: flex;
   flex: 1;
-  gap: 8px;
+  gap: var(--space-xs);
   align-items: center;
   max-width: 520px;
   padding: 8px 12px;
@@ -109,7 +109,7 @@ body {
 
 .topbar__who {
   display: flex;
-  gap: 8px;
+  gap: var(--space-xs);
   align-items: center;
   margin: 0 0 0 auto;
   font-size: var(--font-size-label);
@@ -160,7 +160,7 @@ body {
 .sect {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-xs);
   align-items: center;
   margin: 0;
   font-size: 11px;
@@ -262,9 +262,18 @@ body {
 }
 
 .card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
   margin: 2px 0 0;
   font-size: var(--font-size-label);
   color: var(--text-secondary);
+}
+
+.card__meta svg {
+  flex: none;
+  opacity: 0.7;
 }
 
 .card__folio {
@@ -280,7 +289,7 @@ body {
  */
 .form-card {
   display: block;
-  padding: 16px;
+  padding: var(--space-sm);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -357,7 +366,7 @@ body {
 .results {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-xs);
   padding: 0;
   margin: 0;
   list-style: none;
@@ -775,7 +784,7 @@ body {
   background: var(--color-surface);
   border: none;
   border-radius: var(--radius-lg, 12px);
-  padding: 24px;
+  padding: var(--space-md);
   max-width: 440px;
   width: calc(100% - 32px);
   box-shadow: 0 20px 60px rgb(0 0 0 / 0.25);
@@ -871,7 +880,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: var(--space-xs);
   margin-top: 10px;
   padding: 12px;
   background: var(--color-surface-muted);
@@ -938,7 +947,7 @@ body {
    unspaced full-width blocks instead of sitting on one row. */
 .actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-xs);
   justify-content: flex-end;
 }
 

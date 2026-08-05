@@ -1,32 +1,32 @@
 ---
 /**
- * Renders one of scripts/shared/icons.js's glyphs. Always aria-hidden —
- * every call site is expected to carry its own visible text label
- * (requirement 4: "do not depend on icons alone").
+ * Renders one of scripts/shared/icons.js's Phosphor glyphs. Always
+ * aria-hidden — every call site is expected to carry its own visible text
+ * label (brief §5: "do not depend on icons alone").
  */
-import { ICONS } from "../scripts/shared/icons.js";
+import { ICONS, ICONS_FILL } from "../scripts/shared/icons.js";
 
 interface Props {
   name: keyof typeof ICONS;
+  /** "fill" only exists for the handful of icons in ICONS_FILL (an active/
+   * selected state reading as more "on"); falls back to "regular" for any
+   * name that has no filled variant rather than rendering nothing. */
+  weight?: "regular" | "fill";
   size?: number;
   class?: string;
 }
 
-const { name, size = 20, class: className } = Astro.props;
-const path = ICONS[name];
+const { name, weight = "regular", size = 20, class: className } = Astro.props;
+const icon = (weight === "fill" && ICONS_FILL[name]) || ICONS[name];
 ---
 
 <svg
   class={className}
   width={size}
   height={size}
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="1.75"
-  stroke-linecap="round"
-  stroke-linejoin="round"
+  viewBox={icon.viewBox}
+  fill="currentColor"
   aria-hidden="true"
   focusable="false"
-  set:html={path}
+  set:html={icon.inner}
 />

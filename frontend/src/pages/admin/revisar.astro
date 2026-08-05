@@ -15,6 +15,7 @@
  * exist yet.
  */
 import AdminLayout from "../../components/admin/AdminLayout.astro";
+import Icon from "../../components/Icon.astro";
 ---
 
 <AdminLayout title="Revisar resultado">
@@ -54,9 +55,13 @@ import AdminLayout from "../../components/admin/AdminLayout.astro";
 
   <div class="row" id="preview-actions" hidden>
     <a class="btn btn--ghost btn--sm" id="preview-newtab" href="#" target="_blank" rel="noopener">
+      <Icon name="external-link" size={16} />
       Ver PDF en pestaña nueva
     </a>
-    <a class="btn btn--ghost btn--sm" id="preview-download" href="#">Descargar PDF</a>
+    <a class="btn btn--ghost btn--sm" id="preview-download" href="#">
+      <Icon name="download" size={16} />
+      Descargar PDF
+    </a>
   </div>
 
   <div class="actions" id="confirm-actions" hidden>

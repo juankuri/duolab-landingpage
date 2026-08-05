@@ -1,27 +1,82 @@
 /**
- * The whole icon set the admin/patient surfaces need — stroked, currentColor,
- * 24x24 viewBox, matching the conventions LinkButton.astro/WhatsAppButton.astro
- * already use on the landing (stroke-width 1.75, aria-hidden, focusable="false").
+ * The icon set, sourced from @phosphor-icons/core — requested by name in the
+ * original brief, replacing a first pass that shipped 8 hand-rolled SVG
+ * paths instead (docs/09-ux-completion-plan.md §D1 records that as a
+ * deviation this checkpoint corrects).
  *
- * Deliberately not an icon library: 8 glyphs, hand-written, no dependency.
- * Every use of one of these is required to sit beside a visible text label
- * (requirement 4) — this file has no opinion on that, Icon.astro's callers do.
+ * Build-time only: each `?raw` import below is a plain SVG file under
+ * @phosphor-icons/core/assets/{weight}/, resolved and inlined by Vite at
+ * build time into a string constant. Nothing is fetched at runtime, there is
+ * no icon font, and no new UI library is introduced — this is a set of SVG
+ * path strings, the same shape the hand-rolled set already was, just sourced
+ * from a real icon library instead of drawn by hand. `grep -ri phosphor
+ * dist/` after a build finds nothing but inlined path data, the same way
+ * checkpoint A verified pdf.js was never statically bundled.
+ *
+ * Every icon here is `viewBox="0 0 256 256"` — Phosphor's own coordinate
+ * space, not the hand-rolled set's 24x24 — Icon.astro reads the viewBox from
+ * the source rather than assuming one.
+ *
+ * Every use is still required to sit beside a visible text label; this file
+ * has no opinion on that, Icon.astro's callers do.
  */
-export const ICONS = {
-  upload:
-    '<path d="M12 16V4M12 4l-4 4M12 4l4 4M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />',
-  download:
-    '<path d="M12 4v12M12 16l-4-4M12 16l4-4M5 18v0a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v0" />',
-  "external-link":
-    '<path d="M14 5h5v5M19 5l-8 8M8 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2" />',
-  phone:
-    '<path d="M6 3h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2C10.6 19 5 13.4 5 6a2 2 0 0 1 1-3z" />',
-  calendar:
-    '<path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />',
-  folio: '<path d="M9 3h6l3 3v15H6V3z" /><path d="M9 12h6M9 16h6" />',
-  person:
-    '<circle cx="12" cy="8" r="3.25" /><path d="M5 20c1.2-4 4-6 7-6s5.8 2 7 6" />',
-  chevron: '<path d="M9 6l6 6-6 6" />',
+import arrowSquareOut from "@phosphor-icons/core/assets/regular/arrow-square-out.svg?raw";
+import calendarBlank from "@phosphor-icons/core/assets/regular/calendar-blank.svg?raw";
+import caretRight from "@phosphor-icons/core/assets/regular/caret-right.svg?raw";
+import checkCircle from "@phosphor-icons/core/assets/regular/check-circle.svg?raw";
+import clock from "@phosphor-icons/core/assets/regular/clock.svg?raw";
+import downloadSimple from "@phosphor-icons/core/assets/regular/download-simple.svg?raw";
+import filePdf from "@phosphor-icons/core/assets/regular/file-pdf.svg?raw";
+import flask from "@phosphor-icons/core/assets/regular/flask.svg?raw";
+import phone from "@phosphor-icons/core/assets/regular/phone.svg?raw";
+import prohibit from "@phosphor-icons/core/assets/regular/prohibit.svg?raw";
+import sealCheck from "@phosphor-icons/core/assets/regular/seal-check.svg?raw";
+import uploadSimple from "@phosphor-icons/core/assets/regular/upload-simple.svg?raw";
+import userCircle from "@phosphor-icons/core/assets/regular/user-circle.svg?raw";
+
+// `weight="fill"` variants, for an active/selected state where Phosphor's own
+// filled glyphs read as more "on" than the outlined default — used sparingly
+// (the active status glyph, not every icon has one).
+import checkCircleFill from "@phosphor-icons/core/assets/fill/check-circle-fill.svg?raw";
+import sealCheckFill from "@phosphor-icons/core/assets/fill/seal-check-fill.svg?raw";
+
+/** Pulls viewBox and inner markup out of a raw Phosphor SVG source string. */
+function parse(svgSource) {
+  const viewBoxMatch = svgSource.match(/viewBox="([^"]+)"/);
+  const innerMatch = svgSource.match(/<svg[^>]*>([\s\S]*)<\/svg>/);
+  return {
+    viewBox: viewBoxMatch?.[1] ?? "0 0 256 256",
+    inner: innerMatch?.[1] ?? "",
+  };
+}
+
+const REGULAR = {
+  "external-link": arrowSquareOut,
+  calendar: calendarBlank,
+  chevron: caretRight,
+  "check-circle": checkCircle,
+  clock,
+  download: downloadSimple,
+  file: filePdf,
+  laboratory: flask,
+  phone,
+  prohibited: prohibit,
+  published: sealCheck,
+  upload: uploadSimple,
+  person: userCircle,
 };
+
+const FILL = {
+  "check-circle": checkCircleFill,
+  published: sealCheckFill,
+};
+
+export const ICONS = Object.fromEntries(
+  Object.entries(REGULAR).map(([name, source]) => [name, parse(source)]),
+);
+
+export const ICONS_FILL = Object.fromEntries(
+  Object.entries(FILL).map(([name, source]) => [name, parse(source)]),
+);
 
 export const ICON_NAMES = Object.keys(ICONS);

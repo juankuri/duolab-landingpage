@@ -246,11 +246,16 @@ describe("fillPatientCard", () => {
 
     expect(avatar.textContent).toBe("JK");
     expect(name.textContent).toBe("Juan Pablo Kuri");
-    expect(meta.textContent).toBe("1990-01-01 · 9381234567");
     // The name node is visually clamped for a long name (admin.css .clamp-2)
     // — `title` is what makes the full value reachable regardless.
     expect(name.title).toBe("Juan Pablo Kuri");
     expect(meta.title).toBe("1990-01-01 · 9381234567");
+    // The meta line pairs an icon with each value (brief §5: never icon
+    // alone) — birthDate and phoneNumber must both still be reachable as
+    // text, and a calendar + phone icon must both be present.
+    expect(meta.textContent).toContain("1990-01-01");
+    expect(meta.textContent).toContain("9381234567");
+    expect(meta.querySelectorAll("svg")).toHaveLength(2);
   });
 
   it("tolerates a missing avatar/meta node", () => {
