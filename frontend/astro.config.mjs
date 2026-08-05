@@ -12,4 +12,19 @@ export default defineConfig({
       filter: (page) => !page.includes("/admin") && !page.includes("/resultados"),
     }),
   ],
+  // pdfjs-dist is only ever reached through a runtime `await import()` inside
+  // a page <script> (manager.astro, scripts/shared/pdf-viewer.js) — Vite's
+  // cold-start dependency scan doesn't see it, so the first request for it
+  // triggers a re-optimize mid-session and the browser's in-flight request
+  // for the old `?v=` hash 404s ("Failed to fetch dynamically imported
+  // module"). Pre-bundling it here gives it a stable hash from server start.
+  // The worker is excluded from the optimizer so
+  // `new URL(..., import.meta.url)` still resolves to a real, unbundled
+  // asset the browser can load directly.
+  vite: {
+    optimizeDeps: {
+      include: ["pdfjs-dist/build/pdf.mjs"],
+      exclude: ["pdfjs-dist/build/pdf.worker.min.mjs"],
+    },
+  },
 });
