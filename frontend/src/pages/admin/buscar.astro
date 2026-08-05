@@ -62,6 +62,7 @@ import Icon from "../../components/Icon.astro";
 
   <script>
     import { apiJson, withRef } from "../../scripts/admin/api.js";
+    import { debounce } from "../../scripts/admin/debounce.js";
     import { folioRowNode, patientRowNode, setStatusLine } from "../../scripts/admin/render.js";
 
     const $ = (id) => document.getElementById(id);
@@ -97,7 +98,14 @@ import Icon from "../../components/Icon.astro";
       $("patients-list").replaceChildren(...payload.patients.map(patientRowNode));
     };
 
+    // Guards against a slow response from an older query overwriting the
+    // results of a newer one typed while it was in flight — real-time search
+    // fires one request per pause, but nothing stops two from overlapping.
+    let requestId = 0;
+
     const search = async (query) => {
+      const thisRequest = ++requestId;
+
       if (!query) {
         showEmpty("Busca un folio o un paciente", "Escribe un folio, un nombre o un teléfono arriba.", false);
         setStatusLine($("status"), "");
@@ -106,6 +114,7 @@ import Icon from "../../components/Icon.astro";
 
       setStatusLine($("status"), "Buscando…");
       const { ok, payload } = await apiJson(`/search?q=${encodeURIComponent(query)}`);
+      if (thisRequest !== requestId) return; // superseded by a newer query
 
       if (!ok) {
         setStatusLine($("status"), withRef(payload, "No se pudo buscar."), "error");
@@ -116,13 +125,33 @@ import Icon from "../../components/Icon.astro";
       setStatusLine($("status"), "");
     };
 
-    $("search-form").addEventListener("submit", (event) => {
-      event.preventDefault();
-      const query = $("q").value.trim();
+    const syncUrl = (query) => {
       const url = new URL(location.href);
       if (query) url.searchParams.set("q", query);
       else url.searchParams.delete("q");
       history.replaceState(null, "", url);
+    };
+
+    // Real-time search: typing searches automatically after a short pause,
+    // rather than requiring Enter or the button. 250ms is short enough to
+    // feel live, long enough that a normal typing burst produces one
+    // request, not one per keystroke.
+    const debouncedSearch = debounce((query) => {
+      syncUrl(query);
+      search(query);
+    }, 250);
+
+    $("q").addEventListener("input", () => {
+      debouncedSearch($("q").value.trim());
+    });
+
+    // Enter (or the button) must still work, and must not wait out the
+    // debounce — cancel any pending run and search immediately.
+    $("search-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      debouncedSearch.cancel();
+      const query = $("q").value.trim();
+      syncUrl(query);
       search(query);
     });
 
