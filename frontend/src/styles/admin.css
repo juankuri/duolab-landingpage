@@ -176,6 +176,26 @@ body {
   color: var(--text-secondary);
 }
 
+/* An inline text action inside a .tiny hint — "Usar el sugerido" and similar,
+   not a full .btn (that would outweigh the hint it sits inside). */
+.linklike {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-left: 6px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.linklike:disabled {
+  color: var(--text-secondary);
+  cursor: default;
+  text-decoration: none;
+}
+
 .status {
   margin: 0;
   font-size: var(--font-size-label);

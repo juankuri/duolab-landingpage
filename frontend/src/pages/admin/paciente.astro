@@ -87,6 +87,7 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
     import { apiJson, withRef } from "../../scripts/admin/api.js";
     import { fillPatientCard, folioRowNode, setStatusLine } from "../../scripts/admin/render.js";
     import { validateFullName, validatePhoneNumber, validateBirthDate } from "../../scripts/admin/validation.js";
+    import { diffPatientChanges, needsConsequenceConfirmation } from "../../scripts/admin/patient-edit.js";
 
     const $ = (id) => document.getElementById(id);
 
@@ -100,12 +101,6 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
       $("empty-sub").textContent = sub;
       $("empty").hidden = false;
     };
-
-    // Fields that authenticate a public lookup (public-result-service.ts) —
-    // changing either re-keys who can download this patient's published
-    // results, so those two (and only those two) route through the
-    // consequence confirmation before saving.
-    const AUTH_FACTOR_FIELDS = new Set(["phoneNumber", "birthDate"]);
 
     const clearFieldErrors = () => {
       for (const name of ["fullName", "phoneNumber", "birthDate"]) {
@@ -153,12 +148,11 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
 
       if (hasError) return null;
 
-      const changes = {};
-      if (fields.fullName.value !== patient.fullName) changes.fullName = fields.fullName.value;
-      if (fields.phoneNumber.value !== patient.phoneNumber) changes.phoneNumber = fields.phoneNumber.value;
-      if (fields.birthDate.value !== patient.birthDate) changes.birthDate = fields.birthDate.value;
-
-      return changes;
+      return diffPatientChanges(patient, {
+        fullName: fields.fullName.value,
+        phoneNumber: fields.phoneNumber.value,
+        birthDate: fields.birthDate.value,
+      });
     };
 
     const applyPatientUpdate = (updated) => {
@@ -171,17 +165,29 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
       document.title = `${patient.fullName} · DúoLab`;
     };
 
+    let saving = false;
+
     const submitChanges = async (changes) => {
+      if (saving) return; // duplicate-submit guard
+      saving = true;
       setStatusLine($("edit-status"), "Guardando…");
       $("edit-save").disabled = true;
+      $("edit-save").setAttribute("aria-busy", "true");
 
-      const { ok, payload } = await apiJson(`/patients/${patient.patientId}`, {
+      const { ok, status, payload } = await apiJson(`/patients/${patient.patientId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(changes),
       });
 
+      saving = false;
       $("edit-save").disabled = false;
+      $("edit-save").removeAttribute("aria-busy");
+
+      if (status === 401 || status === 403) {
+        setStatusLine($("edit-status"), "Tu sesión venció. Inicia sesión nuevamente para continuar.", "error");
+        return;
+      }
 
       if (!ok) {
         if (payload.fields) {
@@ -189,8 +195,15 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
             const err = $(`edit-${name}-err`);
             if (err) err.textContent = message;
           }
+          setStatusLine($("edit-status"), "Revisa los datos marcados.", "error");
+        } else {
+          setStatusLine(
+            $("edit-status"),
+            withRef(payload, "No pudimos guardar los cambios. Revisa tu conexión e inténtalo de nuevo."),
+            "error",
+          );
         }
-        setStatusLine($("edit-status"), withRef(payload, "No se pudo guardar."), "error");
+        $("edit-status").focus?.();
         return;
       }
 
@@ -221,9 +234,7 @@ import ConfirmSheet from "../../components/admin/ConfirmSheet.astro";
         return;
       }
 
-      const touchesAuthFactor = Object.keys(changes).some((name) => AUTH_FACTOR_FIELDS.has(name));
-
-      if (touchesAuthFactor) {
+      if (needsConsequenceConfirmation(changes)) {
         $("edit-confirm-body").textContent =
           "Esto cambia quién puede descargar los resultados ya publicados de este paciente.";
         const confirmDialog = $("edit-confirm");

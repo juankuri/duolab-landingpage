@@ -55,7 +55,10 @@ import PatientChip from "../../components/admin/PatientChip.astro";
     <div class="field">
       <label for="folio">Folio *</label>
       <input id="folio" name="folio" type="text" autocomplete="off" required />
-      <p class="tiny">Sugerido a partir del nombre — puedes cambiarlo.</p>
+      <p class="tiny">
+        Sugerido a partir del nombre — puedes cambiarlo.
+        <button class="linklike" id="folio-use-suggested" type="button" hidden>Usar el sugerido</button>
+      </p>
       <p class="err" id="err-folio" data-err></p>
     </div>
 
@@ -112,7 +115,7 @@ import PatientChip from "../../components/admin/PatientChip.astro";
 
   <script>
     import { apiJson, withRef } from "../../scripts/admin/api.js";
-    import { suggestFolio } from "../../scripts/admin/folio.js";
+    import { suggestFolio as suggestFolioLocally } from "../../scripts/admin/folio.js";
     import { initials } from "../../scripts/admin/render.js";
     import { createRecord } from "../../scripts/admin/upload.js";
     import { validateCreation } from "../../scripts/admin/validation.js";
@@ -130,6 +133,12 @@ import PatientChip from "../../components/admin/PatientChip.astro";
       : ["fullName", "birthDate", "phoneNumber", "folio"];
     let pendingFile = null;
     let folioTouchedByHand = false;
+    // The folio the server most recently suggested — used to tell "the
+    // employee is still looking at what we offered" from "they typed their
+    // own", which decides whether a 409 retries silently once or shows the
+    // duplicate dialog immediately.
+    let suggestedFolio = null;
+    let suggestionRequestToken = 0;
 
     const setStatus = (message, tone) => {
       const el = $("status");
@@ -153,16 +162,69 @@ import PatientChip from "../../components/admin/PatientChip.astro";
       }
     };
 
+    /* ---------- folio suggestion: instant local guess, then the server's authoritative one ---------- */
+
     // The folio suggestion follows the name until the employee edits the
     // folio field by hand — after that, typing more of the name must not
     // clobber a folio they already chose on purpose.
+    const applySuggestion = (folio) => {
+      suggestedFolio = folio;
+      if (!folioTouchedByHand) $("folio").value = folio;
+      $("folio-use-suggested").hidden = !folio || $("folio").value === folio;
+    };
+
+    /**
+     * `domain/folio.ts` is the authority on the daily sequence — only the
+     * server knows how many folios already exist today, across every
+     * patient. This call fetches that; `suggestFolioLocally` above is only
+     * ever a same-tick placeholder while it's in flight, never trusted for
+     * the actual number.
+     */
+    const requestServerSuggestion = async (query) => {
+      const token = ++suggestionRequestToken;
+      $("folio").setAttribute("aria-busy", "true");
+
+      const { ok, payload } = await apiJson(`/records/folio-suggestion?${query}`);
+
+      // A newer request already landed (the employee kept typing the name) —
+      // this response is stale and must not overwrite what they're seeing.
+      if (token !== suggestionRequestToken) return;
+
+      $("folio").removeAttribute("aria-busy");
+
+      if (ok) applySuggestion(payload.folio);
+      // A failed suggestion isn't fatal — the local guess (below) already
+      // filled the field with everything but the sequence, and the folio
+      // stays editable regardless.
+    };
+
+    let suggestionDebounce = null;
+
     $("fullName").addEventListener("input", () => {
       if (folioTouchedByHand) return;
-      $("folio").value = suggestFolio($("fullName").value);
+
+      const local = suggestFolioLocally($("fullName").value);
+      if (local) $("folio").value = local;
+
+      clearTimeout(suggestionDebounce);
+      if (!$("fullName").value.trim()) return;
+
+      suggestionDebounce = setTimeout(() => {
+        requestServerSuggestion(`name=${encodeURIComponent($("fullName").value)}`);
+      }, 300);
     });
 
     $("folio").addEventListener("input", () => {
-      folioTouchedByHand = true;
+      folioTouchedByHand = $("folio").value !== suggestedFolio;
+      $("folio-use-suggested").hidden = !suggestedFolio || $("folio").value === suggestedFolio;
+    });
+
+    $("folio-use-suggested").addEventListener("click", () => {
+      if (!suggestedFolio) return;
+      $("folio").value = suggestedFolio;
+      folioTouchedByHand = false;
+      $("folio-use-suggested").hidden = true;
+      $("folio").focus();
     });
 
     /* ---------- preview: renders the moment a file is chosen or dropped ---------- */
@@ -220,8 +282,25 @@ import PatientChip from "../../components/admin/PatientChip.astro";
     // either way, so that's also the right place to land here.
     $("dup-dialog").addEventListener("close", () => $("folio").focus());
 
+    let submitting = false;
+
+    const submitCreate = (values) =>
+      createRecord(
+        existingPatientId
+          ? { patientId: existingPatientId, folio: values.folio }
+          : {
+              fullName: values.fullName,
+              birthDate: values.birthDate,
+              phoneNumber: values.phoneNumber,
+              folio: values.folio,
+            },
+        values.pdf,
+        (percent) => ($("progress").value = percent),
+      );
+
     $("create-form").addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (submitting) return; // duplicate-submit guard: a second click mid-request must not fire twice
       clearFieldErrors();
 
       const input = {
@@ -240,33 +319,46 @@ import PatientChip from "../../components/admin/PatientChip.astro";
         return;
       }
 
+      submitting = true;
       $("submit").disabled = true;
+      $("submit").setAttribute("aria-busy", "true");
       $("progress").hidden = false;
       $("progress").value = 0;
       setStatus("Creando…");
 
-      const response = await createRecord(
-        existingPatientId
-          ? { patientId: existingPatientId, folio: values.folio }
-          : {
-              fullName: values.fullName,
-              birthDate: values.birthDate,
-              phoneNumber: values.phoneNumber,
-              folio: values.folio,
-            },
-        values.pdf,
-        (percent) => ($("progress").value = percent),
-      );
+      let response = await submitCreate(values);
 
+      // The folio in the field was our own suggestion, still untouched by
+      // hand, and someone else's create raced it into existing first — the
+      // employee never chose this exact number on purpose, so the fix is a
+      // silent one retry with a fresh suggestion, not the duplicate dialog.
+      if (response.status === 409 && !folioTouchedByHand && values.folio === suggestedFolio) {
+        setStatus("Ese folio se acaba de usar. Generando el siguiente disponible…");
+        const retryQuery = existingPatientId
+          ? `patientId=${encodeURIComponent(existingPatientId)}`
+          : `name=${encodeURIComponent(values.fullName)}`;
+        const { ok: suggestOk, payload: suggestion } = await apiJson(
+          `/records/folio-suggestion?${retryQuery}`,
+        );
+
+        if (suggestOk) {
+          suggestedFolio = suggestion.folio;
+          $("folio").value = suggestion.folio;
+          response = await submitCreate({ ...values, folio: suggestion.folio });
+        }
+      }
+
+      submitting = false;
       $("submit").disabled = false;
+      $("submit").removeAttribute("aria-busy");
 
       if (response.status === 409) {
         lastConflict = response.payload.existingRecord;
         $("dup-body").textContent = lastConflict?.folio
           ? `El folio ${lastConflict.folio} ya tiene un registro${
               lastConflict.patientName ? ` a nombre de ${lastConflict.patientName}` : ""
-            }.`
-          : "Ese folio ya existe.";
+            }. Genera o escribe otro folio para continuar.`
+          : "Ese folio ya existe. Genera o escribe otro folio para continuar.";
         $("dup-dialog").showModal();
         $("progress").hidden = true;
         setStatus("");
@@ -280,13 +372,14 @@ import PatientChip from "../../components/admin/PatientChip.astro";
         return;
       }
 
+      if (response.status === 401 || response.status === 403) {
+        setStatus("Tu sesión venció. Inicia sesión nuevamente para continuar.", "error");
+        $("progress").hidden = true;
+        return;
+      }
+
       if (!response.ok) {
-        setStatus(
-          response.payload?.error
-            ? `${response.payload.error}${response.payload.requestId ? ` (Ref: ${response.payload.requestId})` : ""}`
-            : "No se pudo crear el registro.",
-          "error",
-        );
+        setStatus(withRef(response.payload, "No se pudo crear el registro. Inténtalo de nuevo."), "error");
         $("progress").hidden = true;
         return;
       }
@@ -304,11 +397,17 @@ import PatientChip from "../../components/admin/PatientChip.astro";
 
       $("crumb-title").textContent = "Nuevo folio";
       document.title = "Nuevo folio · DúoLab";
+      setStatus("Cargando datos del paciente…");
 
-      const { ok, payload } = await apiJson(`/patients/${existingPatientId}`);
+      const { ok, status, payload } = await apiJson(`/patients/${existingPatientId}`);
+
+      if (status === 401 || status === 403) {
+        setStatus("Tu sesión venció. Inicia sesión nuevamente para continuar.", "error");
+        return;
+      }
 
       if (!ok) {
-        setStatus(withRef(payload, "No se pudo cargar al paciente."), "error");
+        setStatus(withRef(payload, "No pudimos cargar al paciente. Revisa tu conexión e inténtalo de nuevo."), "error");
         return;
       }
 
@@ -318,6 +417,12 @@ import PatientChip from "../../components/admin/PatientChip.astro";
       $("chip-phone").textContent = patient.phoneNumber;
       $("chip-change").href = "/admin/buscar";
       $("patient-chip").hidden = false;
+      setStatus("");
+
+      // Flow C's folio suggestion: the patient (and their initials) are
+      // already known, so this is `?patientId=`, not `?name=` — no need to
+      // wait on the removed fullName field, which never fires here.
+      requestServerSuggestion(`patientId=${encodeURIComponent(existingPatientId)}`);
     };
 
     if (existingPatientId) initFlowC();
