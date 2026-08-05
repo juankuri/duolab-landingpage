@@ -64,10 +64,15 @@
   --font-weight-medium: 500;
   --font-weight-body: 400;
 
-  /* Spacing scale */
+  /* Spacing scale. The five original steps (xs/sm/md/lg/xl) are untouched;
+     these three fill the gaps components kept hardcoding around them
+     (4px/12px/32px) rather than snapping to the coarser scale. */
+  --space-3xs: 4px;
+  --space-2xs: 12px;
   --space-xs: 8px;
   --space-sm: 16px;
   --space-md: 24px;
+  --space-ml: 32px;
   --space-lg: 48px;
   --space-xl: 96px;
 

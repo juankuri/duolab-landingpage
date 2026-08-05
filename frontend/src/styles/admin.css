@@ -739,7 +739,7 @@ body {
 .field input[type="date"],
 .field input[type="tel"],
 .field input[type="search"],
-#hero-q {
+input[data-admin-search] {
   width: 100%;
   /* 13px vertical padding + the explicit 16px line brings every admin input
      to ~44px tall, matching the patient page's touch targets (which were
