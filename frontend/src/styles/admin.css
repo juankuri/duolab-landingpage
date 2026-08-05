@@ -537,6 +537,23 @@ body {
 }
 
 /*
+ * The constructive counterpart to .btn--danger, for a confirm button whose
+ * action creates rather than destroys — publish, today. Colour carries the
+ * outcome here the same way the status badges do: red for "this takes
+ * something away", green for "this releases something". Functional status,
+ * not brand, so "The One Purple Rule" does not apply (tokens.css).
+ */
+.btn--success {
+  color: var(--text-on-primary);
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.btn--success:hover {
+  background: color-mix(in srgb, var(--color-success) 85%, black);
+}
+
+/*
  * Used by ConfirmSheet.astro's "Cancelar" and a couple of other dismiss
  * buttons (nuevo.astro, folio.astro). It had no rule at all until now, which
  * meant it fell back to plain .btn — a solid primary-colored button visually

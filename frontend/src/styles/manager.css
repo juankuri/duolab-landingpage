@@ -378,20 +378,37 @@
   min-height: 48px;
 }
 
-/* ---------- confirm sheets: full-width stacked actions on a phone ----------
- * ConfirmSheet.astro's own `.actions` (admin.css) is a row justified to the
- * end — fine on desktop, wrong here: two 40-ish-px buttons side by side on a
- * phone is exactly the "destructive next to benign" layout DEC-021 rules
- * out. Overridden for these two sheets specifically, by id rather than by
- * relying on manager.css loading after admin.css (load order between the
- * two is not something to depend on for a rule this load-bearing).
+/* ---------- confirm sheets ----------
+ * Overridden for these two sheets specifically, by id rather than by relying
+ * on manager.css loading after admin.css (load order between the two is not
+ * something to depend on for a rule this load-bearing).
+ *
+ * The two sheets are deliberately NOT laid out the same way, because the two
+ * actions are not the same kind of action:
+ *
+ *   #publish-sheet — constructive and reversible (a published result can be
+ *     revoked afterwards). Side by side, confirm in success green. The cost
+ *     of a misclick is one extra revoke, so the "destructive next to benign"
+ *     hazard DEC-021 guards against does not apply.
+ *
+ *   #revoke-sheet — terminal. docs/01-domain.md: "a revoked file is never
+ *     published again". Stays stacked and full-width, confirm in danger red,
+ *     so the destructive button never sits a thumb-width from Cancelar.
  */
-#publish-sheet .actions,
+#publish-sheet .actions {
+  flex-direction: row;
+}
+
+#publish-sheet .actions .btn {
+  flex: 1;
+  min-height: 56px;
+  font-size: 16px;
+}
+
 #revoke-sheet .actions {
   flex-direction: column;
 }
 
-#publish-sheet .actions .btn,
 #revoke-sheet .actions .btn {
   width: 100%;
   min-height: 56px;

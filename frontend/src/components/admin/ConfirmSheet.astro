@@ -18,9 +18,14 @@ interface Props {
   title: string;
   confirmLabel: string;
   showFile?: boolean;
+  /** What the confirm button is doing, not how loud it should be. "danger"
+   * for anything that destroys or overwrites (revoke, replace); "success"
+   * for a constructive action that a confirmation still gates (publish).
+   * A red "Sí, publicar" tells the manager the opposite of the truth. */
+  tone?: "danger" | "success";
 }
 
-const { id, title, confirmLabel, showFile = false } = Astro.props;
+const { id, title, confirmLabel, showFile = false, tone = "danger" } = Astro.props;
 ---
 
 <dialog class="sheet" id={id} aria-labelledby={`${id}-h`}>
@@ -33,7 +38,7 @@ const { id, title, confirmLabel, showFile = false } = Astro.props;
 
   <div class="actions">
     <button class="btn btn--ghost" id={`${id}-cancel`} type="button">Cancelar</button>
-    <button class="btn btn--danger" id={`${id}-confirm`} type="button" disabled={showFile}>
+    <button class={`btn btn--${tone}`} id={`${id}-confirm`} type="button" disabled={showFile}>
       {confirmLabel}
     </button>
   </div>
