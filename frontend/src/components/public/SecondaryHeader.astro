@@ -1,0 +1,104 @@
+---
+/**
+ * SecondaryHeader — the focused header for pages that are not the marketing
+ * landing: /resultados, the legal pages, /404. Per the approved wireframe
+ * (1b): logo + a small set of plain links, never the full commercial nav and
+ * never a WhatsApp CTA pill.
+ *
+ * Extracted verbatim from resultados.astro's original inline `.bar` — that
+ * page's rendered header must not change, only move into a shared component.
+ *
+ * Props:
+ *   links   { label: string, href: string, icon?: "arrow-left" }[]
+ *           1–2 plain links. The one carrying icon="arrow-left" renders the
+ *           glyph before its label (the /resultados "Volver al inicio" case).
+ */
+import Icon from "../Icon.astro";
+import { isCurrentPath } from "../../scripts/public/nav.js";
+
+interface Props {
+  links: { label: string; href: string; icon?: "arrow-left" }[];
+}
+
+const { links } = Astro.props;
+const here = Astro.url.pathname;
+---
+
+<header class="bar">
+  <a class="bar__brand" href="/">
+    <img src="/logo/logo-mark.svg" alt="" width="28" height="28" />
+    <span class="bar__name">dúolab</span>
+  </a>
+  <nav class="bar__nav" aria-label="Navegación secundaria">
+    {
+      links.map((link) => (
+        <a
+          class="bar__link"
+          href={link.href}
+          aria-current={isCurrentPath(here, link.href) ? "page" : undefined}
+        >
+          {link.icon === "arrow-left" && <Icon name="arrow-left" size={16} />}
+          {link.label}
+        </a>
+      ))
+    }
+  </nav>
+</header>
+
+<style>
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-surface-soft);
+  }
+
+  .bar__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .bar__name {
+    font-weight: var(--font-weight-heading);
+    color: var(--color-primary);
+  }
+
+  .bar__nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+  }
+
+  .bar__link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3xs);
+    color: var(--color-primary);
+    font-size: var(--font-size-label);
+    text-decoration: none;
+    /* Comfortable to hit on a phone without turning the header into a
+       toolbar. */
+    padding: var(--space-xs) var(--space-3xs);
+  }
+
+  .bar__link:hover {
+    text-decoration: underline;
+  }
+
+  .bar__link:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  .bar__link[aria-current="page"] {
+    font-weight: var(--font-weight-medium);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+  }
+</style>

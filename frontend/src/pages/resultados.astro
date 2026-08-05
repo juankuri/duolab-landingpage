@@ -25,6 +25,8 @@
  */
 import Icon from "../components/Icon.astro";
 import WhatsAppButton from "../components/landing/WhatsAppButton.astro";
+import PublicFooter from "../components/public/PublicFooter.astro";
+import SecondaryHeader from "../components/public/SecondaryHeader.astro";
 import content from "../config/site.js";
 import "../styles/clients/duolab.css";
 
@@ -55,16 +57,7 @@ const whatsappMessage =
   <body>
     <a class="skip-link" href="#main">Saltar al contenido</a>
 
-    <header class="bar">
-      <a class="bar__brand" href="/">
-        <img src="/logo/logo-mark.svg" alt="" width="28" height="28" />
-        <span class="bar__name">dúolab</span>
-      </a>
-      <!-- The logo alone was the only way back, which reads as decoration
-           rather than navigation. An explicit, labelled link costs nothing
-           and is the difference between "I'm stuck here" and "I can leave". -->
-      <a class="bar__back" href="/"><Icon name="arrow-left" size={16} /> Volver al inicio</a>
-    </header>
+    <SecondaryHeader links={[{ label: "Volver al inicio", href: "/", icon: "arrow-left" }]} />
 
     <main class="wrap" id="main">
       <section class="card" aria-labelledby="lookup-h">
@@ -172,6 +165,8 @@ const whatsappMessage =
         </div>
       </section>
     </main>
+
+    <PublicFooter />
 
     <script>
       // Bundled, not is:inline — import.meta.env is only substituted at build
@@ -561,44 +556,9 @@ const whatsappMessage =
         top: var(--space-xs);
       }
 
-      .bar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--space-sm);
-        padding: var(--space-sm) var(--space-md);
-        background: var(--color-surface);
-        border-bottom: 1px solid var(--color-surface-soft);
-      }
-
-      .bar__back {
-        display: inline-flex;
-        align-items: center;
-        gap: var(--space-3xs);
-        color: var(--color-primary);
-        font-size: var(--font-size-label);
-        text-decoration: none;
-        /* Comfortable to hit on a phone without turning the header into a
-           toolbar. */
-        padding: var(--space-xs) var(--space-3xs);
-      }
-
-      .bar__back:hover {
-        text-decoration: underline;
-      }
-
-      .bar__brand {
-        display: flex;
-        align-items: center;
-        gap: var(--space-xs);
-        text-decoration: none;
-        color: inherit;
-      }
-
-      .bar__name {
-        font-weight: var(--font-weight-heading);
-        color: var(--color-primary);
-      }
+      /* The .bar* rules that used to live here moved into
+         components/public/SecondaryHeader.astro along with the markup —
+         same header, now shared with the legal pages and /404. */
 
       /* Mobile-first: a single column that never exceeds a comfortable
          reading/typing width, centered once there's room for it. */
