@@ -74,7 +74,20 @@ Three environments — local, staging, production — mapped to branches, with s
 
 Local development supports two equivalent flows — `docker compose up` (documented default) and `pnpm install && pnpm dev` (native, fully supported). Do not treat Docker as mandatory or as a replacement for the native flow; keep both working when changing dev tooling.
 
-Deploys are manual (`pnpm run deploy:staging` / `pnpm run deploy:production`) until the runbook in `backend/README.md` has been run end to end at least once. Do not add deploy automation before that.
+Deploys are manual (`pnpm run deploy:staging` / `pnpm run deploy:production`) until the runbook in `backend/README.md` has been run end to end at least once. Do not add deploy automation before that. Manual here means *the developer runs them* — see the workflow rules below.
+
+## Git and Deploy Workflow
+
+These are hard rules, not defaults. They hold for every task unless the developer says otherwise in the same conversation.
+
+- Feature branches come off `develop`. Never commit directly to `develop` or `main`.
+- **Never `git push`.** Pushing is always the developer's action, on every branch, without exception.
+- **Never touch `main`** — no checkout, no merge, no commit.
+- **Never run a deploy command**: `pnpm run deploy`, `deploy:staging`, `deploy:production`, `wrangler deploy`, or any equivalent. Deploying is the developer's action.
+- Do not include AI attribution in commit messages or PR bodies — no `Co-Authored-By`, no generated-with footers.
+- Commit messages are a one-line summary plus a few lines at most, never multi-paragraph.
+- Every commit must build and pass tests on its own. A branch's history is a sequence of working states, not a sequence of drafts.
+- A feature branch lands on `develop` with `git merge --ff-only`, and only after the Definition of Done passes. Stop there.
 
 ## Calidad y pruebas
 
