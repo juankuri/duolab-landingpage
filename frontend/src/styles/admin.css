@@ -234,7 +234,11 @@ body {
   transition: top var(--duration-fast) var(--ease-out);
 }
 
-.skip-link:focus {
+/* :focus-visible, not :focus — every admin page load arrives via a
+   Cloudflare Access redirect, which can land initial DOM focus here with no
+   keyboard interaction at all. :focus alone showed this pill on every
+   single admin page load, not just a real Tab press. */
+.skip-link:focus-visible {
   top: 8px;
 }
 

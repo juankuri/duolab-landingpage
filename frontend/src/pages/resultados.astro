@@ -552,7 +552,11 @@ const whatsappMessage =
         transition: top var(--duration-fast) var(--ease-out);
       }
 
-      .skip-link:focus {
+      /* :focus-visible, not :focus — a page reached via a redirect (e.g.
+         back from a Cloudflare Access login) can land initial DOM focus on
+         the first focusable element without any keyboard interaction, and
+         :focus alone would show this pill on every such load. */
+      .skip-link:focus-visible {
         top: var(--space-xs);
       }
 
@@ -605,6 +609,11 @@ const whatsappMessage =
         .reassurance,
         .help {
           max-width: 26rem;
+          /* Capping the width without centering left these flush against
+             the card's left edge, with the extra room the wider .card
+             gained sitting as dead space on the right — the opposite of
+             what widening the shell was for. */
+          margin-inline: auto;
         }
       }
 

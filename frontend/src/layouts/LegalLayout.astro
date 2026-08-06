@@ -141,7 +141,10 @@ const canonicalUrl = new URL(canonicalPath, Astro.site).toString();
     transition: top var(--duration-fast) var(--ease-out);
   }
 
-  .skip-link:focus {
+  /* :focus-visible, not :focus — a page reached via a redirect can land
+     initial DOM focus here without any keyboard interaction, and :focus
+     alone would show this pill on every such load. */
+  .skip-link:focus-visible {
     top: 8px;
   }
 

@@ -102,7 +102,10 @@ const whatsappHelpUrl = `https://wa.me/${whatsapp.phoneNumber}?text=${encodeURIC
     font-weight: 600;
   }
 
-  .skip-link:focus {
+  /* :focus-visible, not :focus — a page reached via a redirect can land
+     initial DOM focus here without any keyboard interaction, and :focus
+     alone would show this pill on every such load. */
+  .skip-link:focus-visible {
     top: var(--space-xs);
   }
 
