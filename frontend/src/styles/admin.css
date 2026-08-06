@@ -405,10 +405,16 @@ body {
   white-space: nowrap;
 }
 
+/* Flow F hostile data: a 200-char filename with no spaces (folio.astro's
+   resultRow) had no wrap control here and forced the whole row — and the
+   page — wider than the viewport, even at desktop width. .frow__name
+   ellipsizes on one line by design (it's the identity), but .frow__meta's
+   filename/date/size string has nowhere to hide, so it wraps instead. */
 .frow__meta {
   margin: 3px 0 0;
   font-size: 11px;
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }
 
 .pdfic {
