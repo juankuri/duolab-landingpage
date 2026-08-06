@@ -12,14 +12,13 @@ export const publicRoutes = new Hono<AppEnv>();
 
 // Applies to every response from this sub-app. DEC-014: a patient-facing
 // response must never be cached at the edge or in the browser, since a
-// revoke has to take effect immediately. Referrer-Policy keeps the download
-// URL (which carries the token) out of any Referer header a linked resource
-// might send; nosniff is defence in depth around the PDF response.
+// revoke has to take effect immediately. Referrer-Policy and nosniff are set
+// globally now (http/middleware/security-headers.ts, DEC-030) — no-store is
+// the one header still specific to this route, so it's the only one left
+// here.
 publicRoutes.use("*", async (c, next) => {
   await next();
   c.header("Cache-Control", "no-store");
-  c.header("Referrer-Policy", "no-referrer");
-  c.header("X-Content-Type-Options", "nosniff");
 });
 
 publicRoutes.post("/results/lookup", async (c) => {

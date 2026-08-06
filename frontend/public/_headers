@@ -1,0 +1,28 @@
+# Headers for every static asset response (the pages, /admin/*, /resultados,
+# fonts, the favicon). wrangler's assets binding serves these *before* the
+# Worker script runs (DEC-020), so Hono middleware never sees these requests —
+# see backend/src/http/middleware/security-headers.ts for the Worker-side twin
+# of this file, which covers /records, /api/public/*, /health and the 404
+# passthrough instead.
+#
+# The Content-Security-Policy here carries ONLY frame-ancestors. Every other
+# CSP directive (script-src, style-src, object-src, etc.) is set per-page by
+# Astro's own `security.csp` (astro.config.mjs) as a <meta> tag, hashed
+# against that page's actual inline scripts/styles on every build. A browser
+# enforces two CSPs as their INTERSECTION, not a merge — keeping the resource
+# directives in exactly one place is what keeps this policy readable instead
+# of two overlapping, driftable lists. frame-ancestors is here specifically
+# because a <meta> CSP cannot carry it at all (the directive is ignored
+# outside a real header) — this file exists for that one directive, not out
+# of a general preference for headers over meta tags. See DEC-030.
+#
+# No `preload` on HSTS: preload is a submission to browser vendors that is
+# effectively irreversible, and is the developer's call to make, not
+# something this file ships silently.
+/*
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()

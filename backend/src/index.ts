@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import type { AppContext, AppEnv } from "./env";
 import { onError } from "./http/errors";
 import { isLocalDev, requireAccess } from "./http/middleware/auth";
+import { securityHeaders } from "./http/middleware/security-headers";
 import { files } from "./http/routes/files";
 import { me } from "./http/routes/me";
 import { patients } from "./http/routes/patients";
@@ -18,6 +19,10 @@ app.use("*", async (c, next) => {
   c.set("requestId", crypto.randomUUID().slice(0, 8));
   await next();
 });
+
+// See security-headers.ts for what this covers and what it deliberately
+// doesn't. Mounted early so it wraps onError responses and app.notFound too.
+app.use("*", securityHeaders);
 
 // The admin UI runs on the Astro dev server (:4321) and calls this Worker on
 // :8787, so local requests are cross-origin. The origin callback returns null

@@ -74,4 +74,39 @@ export default defineConfig({
       exclude: ["pdfjs-dist/build/pdf.worker.min.mjs"],
     },
   },
+  // Per-page CSP as a build-time <meta> tag (DEC-030). Astro digests every
+  // inline <script>/<style> this build actually emits — the nav hamburger and
+  // WhatsApp float on /, the search shortcut on /admin and /admin/manager —
+  // plus every emitted JS/CSS chunk, so the allowed set can't drift from what
+  // a page really ships. Confirmed build-only: astro dev never injects this
+  // meta tag, so split local dev (frontend :4321 calling the Worker on :8787)
+  // is unaffected and needs no dev-mode carve-out here.
+  //
+  // frame-ancestors is deliberately absent — a <meta> CSP ignores it, so that
+  // directive lives in the real header instead (frontend/public/_headers).
+  // Splitting the policy across two mechanisms only for that one directive
+  // keeps every other directive in exactly one place.
+  security: {
+    csp: {
+      algorithm: "SHA-256",
+      scriptDirective: { resources: ["'self'"] },
+      styleDirective: { resources: ["'self'"] },
+      directives: [
+        "default-src 'self'",
+        "img-src 'self' data:",
+        "connect-src 'self'",
+        // The Location section's embedded map (Location.astro).
+        "frame-src https://www.google.com",
+        // The employee PDF preview (<object> fed a blob: URL, blob-preview.js)
+        // and the manager's canvas viewer both read a blob: URL; nothing here
+        // is ever a network URL a token could leak into (DEC-022).
+        "object-src 'self' blob:",
+        // pdf.js's worker, resolved via new URL(..., import.meta.url) and
+        // loaded as a blob: Worker by pdf.js internally (manager.astro).
+        "worker-src 'self' blob:",
+        "base-uri 'none'",
+        "form-action 'self'",
+      ],
+    },
+  },
 });

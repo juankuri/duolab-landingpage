@@ -430,3 +430,79 @@ URL. The actual mechanism is `frontend/src/config/features.js`'s
 - `frontend/test/legal-gating.test.js` pins all three points, and
   `docs/04-backlog.md` records the one commit that removes the flag once real,
   approved copy lands.
+
+## DEC-030: Security headers, split across two mechanisms because DEC-020 forces it
+
+Status: Accepted
+
+Before this decision the product shipped no security headers anywhere except
+`X-Content-Type-Options: nosniff` on `/api/public/*`. An admin panel handling
+PHI-adjacent data with no `frame-ancestors` was a live clickjacking surface,
+and with no CSP an XSS in one component had no second line of defense — the
+200-character hostile filename from Flow F is exactly the kind of value that
+reaches rendered markup.
+
+**Two mechanisms, not one, because of what DEC-020 already established.**
+wrangler's assets binding serves a static page (`/`, `/admin/*`, `/resultados`)
+*before* the Worker script ever runs — that is what `not_found_handling: "none"`
+is a carve-out from, not the normal path. Headers on those responses therefore
+cannot come from Hono middleware at all; they come from
+`frontend/public/_headers`, copied verbatim into `dist/` and parsed by
+wrangler/Cloudflare. Everything that *does* reach the Worker — `/records`,
+`/api/public/*`, `/health`, and the `app.notFound` HTML passthrough
+(DEC-029) — is covered by `backend/src/http/middleware/security-headers.ts`
+instead, mounted globally right after the `requestId` middleware so it wraps
+`onError` responses too. Confirmed against a real `wrangler dev` serving a
+real build: the asset paths carry `_headers`' set, the Worker paths carry the
+middleware's, and the 404 passthrough — Worker-served, but an HTML body —
+carries both the middleware's headers *and* the page's own CSP `<meta>`.
+
+**The header `Content-Security-Policy` carries only `frame-ancestors`.**
+Every other directive is set per-page by Astro's `security.csp`
+(`astro.config.mjs`) as a `<meta http-equiv>` tag, which Astro rebuilds every
+build from the actual inline scripts/styles and emitted chunks that page
+ships — so the allowed set cannot drift from what the page really contains.
+The problem: a `<meta>` CSP **ignores `frame-ancestors` entirely** per spec,
+so the one directive that stops clickjacking cannot live there. Rather than
+duplicate the whole resource-directive list into both places — two lists
+that could disagree, enforced as an *intersection* if they ever did — the
+header carries exactly the one directive the meta tag cannot, and nothing
+else. The split is confusing enough to need a comment in both files pointing
+at each other and at this decision.
+
+**Verified before writing the config, not assumed:** `astro dev` never
+injects the CSP `<meta>` tag — confirmed by probing a real dev server with a
+throwaway `security.csp` — so the directive list needed no dev-mode carve-out
+for split local dev (frontend `:4321` calling the Worker on `:8787`); this
+was the one real risk (`connect-src 'self'` would have broken every fetch in
+that setup) and it does not apply.
+
+**`script-src`/`style-src` include `'self'` alongside Astro's own hashes.**
+Without it, the emitted `/_astro/*.js` chunks and pdf.js's dynamic `import()`
+would depend on hash-matching semantics for content Astro doesn't hash
+(chunks loaded by URL, not inlined). This does mean any same-origin JS file
+is trusted by origin — accepted because there is no path that puts
+attacker-controlled bytes at a same-origin JS URL: uploads are PDFs, proxied
+through the Worker with a pinned `content-type`, `nosniff`, and
+`Content-Disposition: attachment` (DEC-012), never served as script.
+
+**`object-src 'self' blob:'` and `worker-src 'self' blob:'` are load-bearing,
+not defaults.** `<object type="application/pdf">` fed a `blob:` URL
+(`shared/blob-preview.js`, DEC-022) is how `/admin/nuevo` and `/admin/revisar`
+preview PDFs; the manager's own canvas viewer and pdf.js's worker (resolved
+via `new URL(..., import.meta.url)` in `manager.astro`) both need `blob:`
+too. `frame-src https://www.google.com` is the one third-party origin in the
+product — the embedded map on `/` (`Location.astro`) — and is named
+explicitly rather than left to a broader default.
+
+**HSTS ships without `preload`.** Preload is a submission to browser vendors
+that is effectively irreversible once accepted; that is the developer's call
+to make deliberately, not something a header file ships as a side effect of
+this change.
+
+**Cost, stated plainly:** a new external resource on any page — a font host,
+an analytics script, a second embed — now requires an edit to the directive
+list in `astro.config.mjs`, or it is silently blocked and shows up as a CSP
+console error, not a broken feature ticket. That friction is the entire point
+of the change; a security header that costs nothing to add usually protects
+nothing either.
