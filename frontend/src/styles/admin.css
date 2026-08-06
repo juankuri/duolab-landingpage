@@ -638,6 +638,12 @@ body {
      the screen edge; capping at 90vw keeps it on-screen instead. */
   width: 210px;
   max-width: 90vw;
+  /* Same reasoning as the width cap above, for the vertical axis: a menu
+     opened near the bottom of a short viewport (a phone in landscape, a
+     laptop with the devtools pane open) could run off-screen with no way to
+     reach the lower items. */
+  max-height: 70vh;
+  overflow-y: auto;
   z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
@@ -776,6 +782,15 @@ input[data-admin-search] {
 .field input:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 1px;
+}
+
+/* The hero/buscar search bars: an input sitting in a .row next to a submit
+   button. Was an inline style on both pages — a hardcoded floor no
+   stylesheet could ever override — moved here so the 480px block below can
+   actually relax it on a narrow phone. */
+input[data-admin-search] {
+  flex: 1;
+  min-width: 240px;
 }
 
 .err {
@@ -968,14 +983,18 @@ input[data-admin-search] {
   justify-content: flex-end;
 }
 
-@media (max-width: 640px) {
-  .topbar {
-    flex-wrap: wrap;
-  }
-
-  .topbar__search {
-    order: 3;
-    max-width: none;
+/*
+ * Employee screens are desktop-first by design (file header), and the only
+ * mobile block used to be the 640px one below — which left the 641-900px gap
+ * (a small laptop, a split-screen tablet) with the same fixed-row layout as
+ * a 1280px desktop: .card and .frow squeeze avatar + name + meta into a
+ * sliver instead of wrapping. This block is the floor for that gap; the
+ * 640px block below only adds what still needs a narrower viewport
+ * specifically (the topbar, the search input order).
+ */
+@media (max-width: 900px) {
+  .screen {
+    padding: var(--space-sm);
   }
 
   .card {
@@ -986,9 +1005,6 @@ input[data-admin-search] {
     text-align: left;
   }
 
-  /* Employee screens are desktop-first by design, but a folio/patient row
-     still needs a floor: at narrow widths the tally chips wrap under the
-     name instead of squeezing it into an unreadable sliver. */
   .frow {
     flex-wrap: wrap;
   }
@@ -1000,6 +1016,23 @@ input[data-admin-search] {
 
   .tally {
     flex-basis: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
+  .topbar__search {
+    order: 3;
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  input[data-admin-search] {
+    min-width: 0;
   }
 }
 
