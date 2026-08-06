@@ -54,6 +54,8 @@ These exist because they close a real privacy or security gap (see `docs/03-deci
 - **Non-enumeration** (`backend/test/public-lookup.test.ts`): every failure mode of the public lookup — malformed input, wrong folio, wrong phone, wrong birth date, unpublished, revoked — collapses to the identical `404 LOOKUP_FAILED`.
 - **No patient data in logs** (`backend/test/public-lookup.test.ts`): a `console.error` spy across a lookup asserts phone and birth date never appear in any logged value.
 - **Live revocation** (DEC-014, `backend/test/public-download.test.ts`): a still-unexpired download token stops working the instant the file it points to is revoked or replaced — checked against `PUBLISHED` live, in the same query, never from a value trusted from an earlier read.
+- **`ENVIRONMENT` never ships in `wrangler.jsonc`** (DEC-030's context, `backend/test/wrangler-config.test.ts`): the local Cloudflare Access bypass (`isLocalDev()`, `backend/src/http/middleware/auth.ts`) is inert in production only because `ENVIRONMENT` lives exclusively in the gitignored `backend/.dev.vars`. If this ever fails, the fix is removing the key from `wrangler.jsonc`, not loosening the test — it means the auth bypass is live somewhere it shouldn't be.
+- **No `innerHTML`/`outerHTML`/`insertAdjacentHTML`/`document.write`/`set:html` on request-derived data** (`frontend/test/no-inner-html.test.js`): admin markup is built with `textContent`, which cannot execute a patient name or filename a request supplied. The test allowlists the handful of existing uses by file and exact line, all sourced from build-time-constant SVG data (DEC-028) or a `JSON.stringify()`'d literal — a future use on any other line, or a changed expression on an allowlisted line, fails it.
 
 ## Manual QA scripts
 

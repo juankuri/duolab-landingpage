@@ -15,5 +15,7 @@ declare namespace Cloudflare {
     DOWNLOAD_TOKEN_SECRET: string;
     /** Supplied by vitest.config.ts, applied by test/setup.ts. */
     TEST_MIGRATIONS: import("@cloudflare/vitest-pool-workers").D1Migration[];
+    /** Supplied by vitest.config.ts — workerd has no node:fs to read this itself. */
+    TEST_WRANGLER_CONFIG_SOURCE: string;
   }
 }

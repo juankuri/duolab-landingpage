@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
@@ -5,6 +7,12 @@ import { defineConfig } from "vitest/config";
 // database/migrations are the schema's single source of truth, so tests run
 // against the real files rather than a copy that could drift from them.
 const migrations = await readD1Migrations("../database/migrations");
+
+// Same reason: the whole suite runs inside workerd, which has no node:fs, so
+// a test that needs to inspect wrangler.jsonc's own source text
+// (test/wrangler-config.test.ts) reads it here in Node and gets it injected
+// as a binding instead.
+const wranglerConfigSource = readFileSync("./wrangler.jsonc", "utf8");
 
 // Tests run inside workerd with real D1 and R2 bindings backed by Miniflare,
 // not mocks. Repository SQL and storage calls are therefore exercised for
@@ -28,6 +36,7 @@ export default defineConfig({
           // the tests assert.
           DEV_ROLE: "employee",
           TEST_MIGRATIONS: migrations,
+          TEST_WRANGLER_CONFIG_SOURCE: wranglerConfigSource,
           // Fixed test-fixture values, not real secrets: local dev and
           // deploy get their own via backend/.dev.vars and `wrangler secret
           // put` respectively, neither of which is checked into git.
