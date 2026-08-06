@@ -211,7 +211,11 @@ const canonicalUrl = new URL(canonicalPath, Astro.site).toString();
   @media (min-width: 768px) {
     .legal__grid {
       display: grid;
-      grid-template-columns: 200px 1fr;
+      /* A flat 200px left ~530px of body at exactly 768px — the tightest
+         point on the site. minmax lets the sidebar give back width down to
+         160px there, instead of holding 200px regardless of how little
+         room is left. */
+      grid-template-columns: minmax(160px, 200px) 1fr;
       gap: var(--space-lg);
       align-items: start;
     }
