@@ -133,23 +133,4 @@ const localBusinessSchema = {
     color: var(--color-primary);
   }
 
-  /* Visually hidden until focused — lets a keyboard user skip the sticky
-     header and jump straight to <main> (WCAG 2.4.1). */
-  .skip-link {
-    position: absolute;
-    top: -40px;
-    left: 8px;
-    z-index: var(--z-toast);
-    padding: 10px 16px;
-    background: var(--color-primary);
-    color: var(--text-on-primary);
-    border-radius: var(--radius-sm);
-    text-decoration: none;
-    font-weight: 600;
-    transition: top var(--duration-fast) var(--ease-out);
-  }
-
-  .skip-link:focus {
-    top: 8px;
-  }
 </style>

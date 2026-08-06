@@ -50,3 +50,17 @@ describe("root-relative asset references resolve to a real file in public/", () 
     }
   });
 });
+
+describe("pages that render their own <html> import the brand token stylesheet", () => {
+  // The regression this exists for: 404.astro built its own <head> like every
+  // other top-level page, but never imported styles/clients/duolab.css. Its
+  // scoped <style> block was correct CSS — every var(--color-*), var(--space-*)
+  // just resolved to nothing, so the page rendered unstyled. Nothing caught it:
+  // astro check doesn't evaluate custom properties, and no test rendered the page.
+  const files = astroFiles().filter((f) => readFileSync(f, "utf8").includes("<html"));
+
+  it.each(files.map((f) => [f.slice(SRC.length + 1), f]))("%s", (_label, file) => {
+    const source = readFileSync(file, "utf8");
+    expect(source).toMatch(/import\s+["']..?\/(?:..\/)*styles\/clients\/duolab\.css["'];?/);
+  });
+});
