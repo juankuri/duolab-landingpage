@@ -50,6 +50,133 @@
 - Configure the Cloudflare Access application (six destinations, see DEC-020) and the real `CLOUDFLARE_ACCESS_AUDIENCE`.
 - Seed the real staff addresses into `users` on the remote database — an Access-verified address with no row gets 403 (DEC-006).
 
+## Bugs and UX review (2026-08)
+
+A product review pass raised the items below. Checked against the current
+code before filing — several were already fixed and are marked ✅ with the
+evidence; the rest are genuinely open.
+
+**Bugs / correcciones**
+
+- Corregir visualización del PDF desde "NEW" (el estado inicial de un
+  resultado recién subido) — no reproducido en esta pasada, necesita pasos
+  exactos para diagnosticar.
+- Error en `/admin/manager`: falla el import dinámico de
+  `pdfjs-dist_build_pdf__mjs.js`. No reproducido en esta sesión (el flujo de
+  manager se probó con datos hostiles pero no se ejercitó el visor PDF a
+  fondo) — necesita repetirse con el visor abierto y la consola visible.
+- Campo de búsqueda pierde estilos después de buscar — no reproducido; el
+  campo (`input[data-admin-search]`, `frontend/src/styles/admin.css`) se
+  revisó esta sesión por otro motivo (el `min-width` inline se movió a CSS)
+  y no mostró pérdida de estilos en esa prueba, pero esa prueba no cubrió
+  "después de buscar" específicamente.
+- REVOCAR en móvil da error "undefined" + falta feedback + falta "deshacer"
+  (10s) — no reproducido; `revokeConfirmBody`/`revokedExplanation`
+  (`frontend/src/scripts/admin/manager.js`) no muestran un fallo obvio en
+  lectura de código, pero eso no descarta un error en tiempo de ejecución.
+  Falta "deshacer" es real y sencillo de confirmar: no existe ningún texto
+  ni lógica de deshacer en `manager.js` ni `manager.astro`.
+- Botón "ver" reemplaza la página en vez de abrir nueva pestaña — **parcialmente
+  vigente**: en `/admin/folio` (`folio.astro:193,199`) ya abre con
+  `window.open(..., "_blank", "noopener")`, correcto. `/admin/manager` mantiene
+  el visor **dentro** de la página a propósito (DEC-022: "un visor PDF que
+  nunca abandona la página") — si el reporte es sobre manager, es una decisión
+  de producto ya tomada, no un bug; confirmar con quien reportó cuál pantalla
+  vio.
+- Header logo "[duolab] + duolab" no tiene sentido — **confirmado, real**.
+  `frontend/public/logo/logo-mark.svg` es el wordmark completo (paths
+  vectoriales del texto "dúolab", viewBox 494×130, sin `<text>` — el texto ya
+  está dibujado). `AdminLayout.astro`'s topbar renderiza ese mismo SVG *más*
+  un `<span class="topbar__name">dúolab</span>` al lado — el texto aparece
+  visualmente dos veces. El landing (`Header.astro`) no tiene este problema:
+  usa el mismo SVG pero sin texto hermano, solo `alt={brand}` (no visible).
+  Fix: quitar `topbar__name`'s texto duplicado o usar un logo-mark real (sin
+  texto) en el topbar.
+
+**Performance**
+
+- Optimizar página (carga lenta para todos los roles) — no perfilado esta
+  sesión; necesita una pasada con Lighthouse/WebPageTest o el panel de
+  Network real, no una suposición.
+
+**UI consistency**
+
+- Reemplazar emojis por iconos (todo el sitio) — **ya hecho**: no se encontró
+  ningún emoji en `frontend/src` (`grep` sin resultados). El sistema de
+  iconos (DEC-028, `components/Icon.astro`) ya cubre el sitio. Verificar con
+  quien reportó si vio esto en una build vieja.
+- Corregir espaciados/márgenes/paddings — consistencia general. Sigue abierto
+  y es amplio; no acotado a una pantalla — necesita ejemplos concretos
+  (capturas o rutas) antes de convertirse en una tarea accionable.
+- Placeholders más claros (ej. JPKR → ABCD) — **ya hecho**: tanto
+  `resultados.astro:91` como `admin/nuevo.astro:70` ya usan
+  `placeholder="ABCD-010126-0001"`.
+- "resultados" → "tus resultados" — **ya hecho**: el `<h1>` en
+  `resultados.astro:64` ya dice "Consulta tus resultados aquí" y el
+  `<title>` ya dice "Consulta tus resultados". Si el reporte es sobre otro
+  texto (un link de nav, un footer), señalar cuál.
+
+**Funcionalidad**
+
+- Búsqueda automática en tiempo real (sin botón "Buscar") — abierto, cambio
+  de flujo real, no un bug.
+- ¿Qué pasa cuando se actualizan datos del paciente? (definir
+  comportamiento) — abierto; `PATCH /patients/:patientId` existe (DEC-026)
+  pero el comportamiento esperado en pantallas relacionadas (folios ya
+  publicados con el nombre viejo, por ejemplo) no está definido en
+  `docs/01-domain.md`. Necesita una decisión de producto, no una
+  implementación a ciegas.
+- No mostrar al usuario cuándo se publicó un resultado — contradice
+  directamente lo ya implementado: `.result__expiry`/publishedAt se muestran
+  hoy en `/resultados` a propósito (ver `resultados.astro`). Si la intención
+  es ocultarlo, es un cambio de decisión de producto, no un bug — confirmar
+  el motivo antes de tocarlo.
+- Footer: Aviso de Privacidad, Términos de uso, datos de contacto — **ya
+  hecho, condicionado**: `PublicFooter.astro` ya tiene la columna Legal
+  (gateada por `LEGAL_ENABLED`, ver `docs/10-public-site-restructure-plan.md`)
+  y el `wa-float`/WhatsApp como contacto. Si falta un teléfono/email visible
+  fuera de WhatsApp, señalar cuál.
+- Mensaje de error único y genérico para búsquedas fallidas — **ya hecho**:
+  verificado en vivo esta sesión (folio incorrecto, teléfono incorrecto,
+  fecha incorrecta y folio real sin nada publicado devuelven el mismo
+  `{"error":"No encontramos un resultado con esos datos.","code":"LOOKUP_FAILED"}`).
+
+**Seguridad / cumplimiento**
+
+- Rate limiting — **ya hecho** (DEC-015, ver Patient Portal arriba).
+  **Bloqueo progresivo — sigue abierto**: hoy son ventanas fijas de 10 min
+  con presupuesto IP+folio (`backend/src/services/rate-limiter.ts`), sin
+  escalamiento tras repetidos abusos. Es un plan aparte, ya priorizado en la
+  propuesta de hardening de seguridad de esta sesión.
+- Respuestas de error genéricas (no dar pistas) — **ya hecho**, ver arriba.
+- `Cache-Control: no-store` en consulta y descarga — **ya hecho**:
+  confirmado en `backend/src/http/routes/public/index.ts:20`.
+- `X-Robots-Tag: noindex, noarchive` — **abierto**. Hoy solo existe
+  `<meta name="robots" content="noindex">` en el HTML de `/resultados`,
+  `/404` y las páginas legales — sin el header HTTP, que cubre también
+  respuestas no-HTML. Ya está en el primer punto de la propuesta de
+  hardening de headers de seguridad de esta sesión; añadir ahí, no aparte.
+- No exponer nombres/teléfonos/fechas de nacimiento/folios completos en
+  URLs, logs, Sentry, analítica — **parcialmente abierto**. No hay Sentry ni
+  analítica en el código (nada que revisar ahí). El token de descarga sí
+  viaja en la ruta de la URL (`/api/public/results/<token>/download/...`),
+  lo que llega a logs de proxy igual que un query param — ya señalado como
+  riesgo aceptado (TTL de 5 min, alcance por folio) en el análisis de
+  seguridad de esta sesión; revisar si folios/teléfonos/nombres aparecen en
+  algún log del Worker (`console.error` en `backend/src/http/errors.ts` solo
+  registra el error, no el payload — confirmar que ningún handler hace
+  `console.log` del body en una ruta pública).
+- Procedimiento de respuesta a incidentes (detección, contención, evaluación,
+  notificación, documentación) — abierto, ya priorizado (4c en la propuesta
+  de hardening: runbook de rotación de secretos + respuesta a incidentes en
+  `backend/README.md`).
+- Acuerdos de confidencialidad con empleados — abierto, no técnico, no es
+  trabajo de código.
+- Vacíos identificados: cumplimiento documental, retención, evidencia de
+  consentimiento, contratos con proveedores, respuesta a incidentes — todos
+  abiertos, no técnicos, necesitan a alguien con autoridad legal/de negocio,
+  no un agente.
+
 ## Later
 
 - **Approved legal copy for `/aviso-de-privacidad` and `/terminos-de-uso`.**
