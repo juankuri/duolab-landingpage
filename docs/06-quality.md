@@ -38,7 +38,7 @@ In this order. A step skipped is a step reported as skipped, not silently droppe
   - `backend/src/http/**` — statements 80 / branches 70.
   - `frontend/src/scripts/admin/{status,folio,render,validation,session,manager,pdf-view}.js` and `frontend/src/scripts/public/lookup.js` — statements 85 / branches 75.
 - **Known gap, not hidden:** `backend/src/data/users.repo.ts` has no direct test (0% today, only exercised indirectly through `auth.ts`). The rest of `src/data/**` clears the threshold comfortably on its own coverage, which is what keeps the directory-wide number at 85/75 despite this one file — `users.repo.ts` itself is the gap, not the directory threshold. Add a direct test for it the day someone touches that file for another reason, not as a separate project.
-- **Current measured baseline, to beat, not to fall below (as of the public-site restructure, `docs/10-public-site-restructure-plan.md`):** backend 335 tests, statements 94.43 / branches 88.54 overall. Frontend 271 tests, statements 95.83 / branches 91.76.
+- **Current measured baseline, to beat, not to fall below (as of the security-hardening pass, `docs/03-decisions.md` DEC-030/DEC-031):** backend 344 tests, statements 94.59 / branches 88.98 overall. Frontend 284 tests, statements 95.83 / branches 91.76.
 
 ## What a new unit test needs
 
@@ -60,6 +60,11 @@ These exist because they close a real privacy or security gap (see `docs/03-deci
 ## Manual QA scripts
 
 Run against `wrangler dev` (backend) + `astro dev --background` (frontend), one D1 and one R2, both local via Miniflare.
+
+**Flow H — Security headers and CSP** (DEC-030), run against a real `wrangler dev` serving a real `pnpm run build` output, not `astro dev` alone — the CSP `<meta>` tag and `frontend/public/_headers` are both build/asset artifacts.
+1. `curl -sI` an asset path (`/`, `/admin/`) and a Worker path (`/health`, a `POST /api/public/results/lookup`) → confirm all six headers (`Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Strict-Transport-Security`, `Permissions-Policy`) on both, and `Cache-Control: no-store` still present on the public route alongside them.
+2. Open DevTools console on every page (`/`, `/resultados`, `/404`, `/admin`, `/admin/manager`, `/admin/nuevo`, `/admin/revisar`, `/admin/folio`, `/admin/buscar`, `/admin/paciente`, both legal pages under `LEGAL_ENABLED=1`) → confirm **zero CSP violations**, exercising specifically: the mobile hamburger and WhatsApp float on `/`, the `/` search shortcut on `/admin`, the Google Maps embed, the `<object>`+`blob:` PDF preview on `/admin/nuevo`/`/admin/revisar`, and the pdf.js worker on `/admin/manager`.
+3. View source on each page → confirm the CSP `<meta>` tag is present and its hashes differ from another page's (proof it was rebuilt per-page, not copied).
 
 **Flow A — Alta (create patient + folio + first result)**
 1. From the admin home, start a new patient with a folio, valid phone, valid birth date, and a PDF.

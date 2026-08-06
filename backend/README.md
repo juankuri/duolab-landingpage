@@ -104,6 +104,28 @@ pnpm wrangler r2 object delete duolab-results/records/<recordId>/<fileId>.pdf
 
 There is no automated reconciliation sweep. Add one if these start appearing at a rate this can't keep up with.
 
+## Rotating the two self-generated secrets
+
+`RATE_LIMIT_KEY_SECRET` and `DOWNLOAD_TOKEN_SECRET` (DEC-015) are self-generated application secrets, not Cloudflare resource ids — rotating either is a normal `wrangler secret put` per environment, not a first-time experiment to figure out during an incident. Both environments' secrets are already independently generated (DEC-025); rotating one never needs to touch the other.
+
+```sh
+wrangler secret put RATE_LIMIT_KEY_SECRET --env staging      # or drop --env staging for production
+wrangler secret put DOWNLOAD_TOKEN_SECRET --env staging      # must decode to exactly 32 bytes
+```
+
+**What each rotation actually breaks, so it's known before it happens rather than discovered after:**
+
+- **`DOWNLOAD_TOKEN_SECRET`** — every outstanding download token stops decrypting the instant the new secret is live. The token TTL is five minutes (DEC-015), so the realistic worst case is a patient mid-download whose token expires early; re-running the lookup on `/resultados` mints a new one immediately. Nothing else depends on this secret.
+- **`RATE_LIMIT_KEY_SECRET`** — every HMAC fingerprint changes, so every in-flight rate-limit budget resets to zero. The old fingerprinted rows in `public_lookup_attempts` become orphans (never matched again) until their window ages out on its own; nothing reads them by anything other than a fresh fingerprint, so they're inert, not a leak.
+- **The format trap** (DEC-015): `DOWNLOAD_TOKEN_SECRET` must decode to exactly 32 bytes and fails loudly at first use, not silently, if it doesn't. A rotation with a malformed value takes the download route down immediately — confirm with one lookup + one download against the target environment right after rotating, before considering it done.
+
+**If a secret is suspected compromised:**
+
+1. Rotate the affected secret in the affected environment first — don't touch the other environment's value, since a shared secret would turn a staging leak into a production one and they are already independent.
+2. Confirm the rotation took: one lookup + one download against that environment (the format trap above is the most likely way a rotation itself goes wrong).
+3. What to tell a patient, if asked: their previous download link stopped working; running the lookup again on `/resultados` gets them a new one. No data was exposed by the rotation itself — only by whatever caused the secret to be suspected.
+4. What is **not** affected: Cloudflare Access identity and the JWTs it issues are Cloudflare-side and rotate independently of anything in this repo; a `DOWNLOAD_TOKEN_SECRET`/`RATE_LIMIT_KEY_SECRET` compromise says nothing about whether Access itself was involved.
+
 ## Deploying
 
 One Worker serves both the built frontend and the API on a single origin (DEC-020). This is true in every environment (DEC-025), so both runbooks below share the same shape — staging is not a lighter version of this, it is a rehearsal of it against separate resources. `pnpm run deploy:staging` / `pnpm run deploy:production` build the frontend with an empty `PUBLIC_API_BASE` and then deploy the matching Worker — run one of those rather than `wrangler deploy` directly, or the Worker ships whatever `frontend/dist` happened to be lying around, built against the wrong API base. The bare `pnpm run deploy` refuses to run; there is deliberately no unqualified deploy.

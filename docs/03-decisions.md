@@ -506,3 +506,36 @@ list in `astro.config.mjs`, or it is silently blocked and shows up as a CSP
 console error, not a broken feature ticket. That friction is the entire point
 of the change; a security header that costs nothing to add usually protects
 nothing either.
+
+## DEC-031: Cloudflare Access identity is the only authorization boundary — accepted, not assumed
+
+Status: Accepted
+
+`requireAccess` (`backend/src/http/middleware/auth.ts`) resolves a role once
+per request from the `users` table and everything downstream trusts it for
+the rest of the request. There is no per-row ownership check beyond role, and
+no audit log of who touched which patient record. A compromised or
+misconfigured Access policy — or an Access application accidentally left off
+a path (DEC-020's six-destination cost) — is therefore a total bypass with
+nothing underneath it to catch the request.
+
+This was true before this decision; what changed is that it is now a
+recorded, conscious tradeoff rather than an implicit one nobody wrote down.
+
+**Accepted under this threat model:** a single-digit lab staff, all behind
+one Cloudflare Access application, where `confirmed_by` and `published_by`
+already record who acted (DEC-013) even without a full audit trail of reads.
+Defense-in-depth below the identity layer — per-row ownership checks, a
+`file_events` audit table — is real engineering cost for a threat (an
+insider with valid Access credentials, or a misconfigured policy) that is not
+the primary risk at this scale.
+
+**The trigger to revisit is already named, and it's the same one DEC-007
+names for a different reason:** the first time someone has to answer "who
+looked at this, and when" for a real complaint, not "who published this" —
+`confirmed_by`/`published_by` already answer the second question.
+
+**No roles-model change.** This decision does not introduce a third role or
+alter EMPLOYEE/MANAGER's relationship (DEC-013); it only states, in writing,
+what the existing two-role model does and doesn't protect against once
+Access has verified an identity.

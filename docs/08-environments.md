@@ -78,6 +78,37 @@ are set with `wrangler secret put --env <name>` and exist only in Cloudflare.
 `backend/.dev.vars` is gitignored, never deployed, and its contents are never
 printed into documentation, logs or issue threads.
 
+## Cross-checking the live Access dashboard
+
+Everything above about "the Access path policy" is a claim this repo makes about
+Cloudflare dashboard configuration — nothing in the codebase can verify the live
+dashboard actually matches it. This is a manual checklist to run by hand per
+environment, not something a test suite here can cover.
+
+**Per environment (staging, production), confirm in the Cloudflare Access dashboard:**
+
+- The Access application's protected paths are exactly `/admin*`, `/records*`,
+  `/files*`, `/me`, `/search*`, `/patients*` — no more, no fewer.
+- `/api/public/*` and the landing (`/`, `/resultados`, the legal pages, `/404`)
+  are **not** covered by any Access application.
+- The session lifetime and refresh behavior configured for the application —
+  this is pure dashboard config, `requireAccess` only verifies whatever JWT it's
+  handed and has no opinion on how long that JWT is valid for or how it refreshes.
+  Not verified as of this writing; record what's found here once checked.
+
+**What each kind of drift actually looks like, so a finding can be read correctly:**
+
+- **A protected path missing from the policy** fails loud, not open: no
+  `Cf-Access-Jwt-Assertion` header reaches the Worker, `requireAccess` sees no
+  token, and the route answers `401` to everyone, staff included. This is a
+  broken feature to fix, not a silent exposure — the Worker's own
+  `requireAccess` middleware is a second boundary regardless of what Access
+  does (DEC-031 states plainly that it's the *only* one below Access itself).
+- **`/api/public/*` accidentally included** makes the patient flow unreachable
+  from a browser without an Access session — exactly the failure staging's
+  policy is shaped to catch before it ever reaches production (see "What is
+  identical everywhere" above).
+
 ## Local development
 
 Two supported paths, deliberately equivalent:
