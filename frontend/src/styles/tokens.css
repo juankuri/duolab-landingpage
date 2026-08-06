@@ -6,6 +6,20 @@
  * assigns the real brand values to these same names. Components MUST reference
  * only the names below via var(), never a client-specific value — this keeps the
  * section components reusable across client engagements (Constitution Principle V).
+ *
+ * Breakpoints: 640px and 768px are the two standard breakpoints across the
+ * codebase. CSS custom properties don't work inside @media conditions, so
+ * these are not tokens here — just the convention: new responsive rules
+ * should land on one of these two, not invent a third.
+ *
+ * Three deliberate exceptions, left as-is because moving them to 640/768
+ * would change the rendered layout, not just its label:
+ *   - Hero.astro (559px): full-width CTA buttons below this width; the
+ *     640/768 pair would widen that zone into 560-639px, a visible change.
+ *   - WhatsAppFloat.astro (767px): already the mobile side of a 768 pair
+ *     (max-width:767 / min-width:768 elsewhere) — no gap to close.
+ *   - resultados.astro (480px): a padding bump on narrow phones, unrelated
+ *     to the 640/768 layout breakpoints.
  */
 
 :root {
