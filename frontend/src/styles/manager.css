@@ -415,6 +415,29 @@
   font-size: 17px;
 }
 
+/*
+ * Desktop cap. AdminLayout's .screen (admin.css) already centers content at
+ * max-width:900px, so this page was never truly edge-to-edge — but 900px is
+ * still too wide for a single-column card queue, and it let the full-width
+ * action buttons below the fold grow to match: a 900px-wide "Publicar"
+ * button on a manager's desktop monitor. Narrower cap here, same touch
+ * targets (min-height stays 44-56px throughout) — width is the only thing
+ * that changes.
+ */
+@media (min-width: 768px) {
+  #mgr-queue,
+  #mgr-detail {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .mgr-actionbar,
+  .mgr-success__actions {
+    max-width: 420px;
+    margin: 0 auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mgr-tab,
   .mgr-card {
