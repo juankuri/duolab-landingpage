@@ -7,6 +7,7 @@ declare namespace Cloudflare {
   interface Env {
     DB: D1Database;
     RESULTS_BUCKET: R2Bucket;
+    ASSETS: Fetcher;
     CLOUDFLARE_ACCESS_TEAM_DOMAIN: string;
     CLOUDFLARE_ACCESS_AUDIENCE: string;
     ENVIRONMENT?: string;

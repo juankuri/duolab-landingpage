@@ -21,7 +21,13 @@
   // those paths would silently shadow the endpoint behind it.
   "assets": {
     "directory": "../frontend/dist",
-    "not_found_handling": "none"
+    "not_found_handling": "none",
+    // Lets src/index.ts's app.notFound reach into the built frontend and
+    // serve dist/404.html for a browser navigation, while keeping
+    // not_found_handling "none" so /records, /files, /api/* etc. still fall
+    // through to the Worker instead of being shadowed by SPA/404 fallback
+    // behavior. See DEC-029.
+    "binding": "ASSETS"
   },
   "d1_databases": [
     {

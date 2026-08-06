@@ -348,3 +348,85 @@ Status: Accepted
 **Every icon still requires a visible text label beside it** — this is unchanged from the hand-rolled set's contract and is not something the icon source can enforce; it stays a convention each call site follows (`Icon.astro`'s `aria-hidden="true"` and `render.js#iconNode`'s matching attribute make that the only sane default).
 
 **Domain gap, not papered over:** the original brief asks for icons covering email, address, doctor and ID — none of those have a column in `database/migrations/0002_records.sql`. Adding icons for fields the schema does not have would either sit unused or imply data the product does not collect; `docs/04-backlog.md` records the fields as an open product question rather than this decision inventing them.
+
+## DEC-029: A real 404 status for the public site, and the two mechanisms that make it safe
+
+Status: Accepted — `docs/10-public-site-restructure-plan.md`
+
+Two problems, one plan: the public site needed `/`, `/resultados`, two legal
+pages and `/404` behind one consistent nav/footer, and an unrouted path in
+production had to stop returning raw JSON to a browser. Neither is a domain or
+auth change; both required verifying an assumption before writing code.
+
+### The 404 mechanism, verified rather than assumed
+
+`wrangler.jsonc`'s `assets.not_found_handling: "none"` is load-bearing: any
+other value would answer `/records`, `/files`, `/api/public/*` etc. with a
+fallback page instead of running the API (the file's own comment says so).
+That meant a route that swallows the difference between "an internal Worker
+path with no handler" and "a browser typo" could not simply flip that setting
+— the fix had to live entirely inside `app.notFound`.
+
+Verified against a real `env.ASSETS` binding in the test pool (not read off
+documentation alone — see the deleted scratch probe this decision is written
+from) before writing `backend/src/index.ts`'s branch:
+
+- **`env.ASSETS.fetch()` applies the *same* `not_found_handling` to its own
+  lookups**, per Cloudflare's docs. That sounded like it could reintroduce the
+  exact problem being solved — but requesting `/404.html` directly, once
+  built, is a *direct hit* on a real file; `not_found_handling` only governs
+  what happens when nothing matches, which this call never triggers. Confirmed
+  by a probe test that got `200` for `/404.html` and a clean `404` (not a
+  silent fallback) for a path with no asset at all.
+- **A plain `fetch()` never sends `Accept: text/html`.** Every existing caller
+  in this repo (the admin UI's `api.js`, `/resultados`'s `lookup.js`, this
+  suite's own `helpers.ts#request`) calls `fetch()` with no explicit `Accept`
+  header, which resolves to a wildcard — never `text/html`. The branch keys on
+  that header, confirmed against the actual default rather than assumed, so
+  every existing JSON caller is provably unaffected.
+- **Passing only a `URL` to `ASSETS.fetch()` always resolves as `GET`,
+  regardless of the original request's method.** That meant a `HEAD`
+  navigation to an unknown path would otherwise get a body-bearing `Response`
+  back from the asset lookup and forward that body verbatim — a `HEAD`
+  response must carry none. Handled explicitly: `c.req.method === "HEAD" ?
+  null : page.body`. A probe confirmed a `HEAD` request against the real page
+  comes back with a zero-length body.
+- **`page.ok` is the fallback trigger, not a try/catch.** If
+  `frontend/dist/404.html` doesn't exist — local dev before a build, or this
+  backend suite, which this repo's own Definition of Done runs *before* the
+  frontend build — the branch falls through to the pre-existing JSON `404`.
+  Never a `200`, never a throw. `backend/test/not-found.test.ts` asserts this
+  in whichever build state actually exists at test time rather than assuming
+  one, after an earlier version of that test broke the moment `dist/404.html`
+  was genuinely built.
+- **API routing is unaffected.** `backend/test/not-found.test.ts` re-asserts
+  after the change that `/records`, `/files`, `/me`, `/search`, `/patients`,
+  `/health` and `/api/public/results/lookup` all still reach their real
+  handlers — a 404 there would mean the branch shadowed a route instead of
+  only catching what nothing else claims.
+
+`backend/src/env.ts` declares `ASSETS: Fetcher` by hand, same as every other
+binding — this repo hand-maintains its `Bindings` type rather than depending on
+the gitignored `wrangler types` output, and `backend/test/env.d.ts` needed the
+same addition for the test pool's `Cloudflare.Env` ambient type.
+
+### Placeholder legal pages are gated, not merely `noindex`
+
+No legal copy exists anywhere in the repository. `/aviso-de-privacidad` and
+`/terminos-de-uso` ship with structure only — every section is a visible
+`[PENDIENTE]` placeholder. `noindex` alone was judged insufficient: it is a
+request to crawlers, not an access control, and does nothing about a typed
+URL. The actual mechanism is `frontend/src/config/features.js`'s
+`LEGAL_ENABLED`, off unless a build explicitly sets it:
+
+- The two pages live under `src/pages/_legal/`, which Astro does not route on
+  its own (a leading underscore excludes a directory from file-based
+  routing).
+- `astro.config.mjs` injects both routes with `injectRoute` only when the flag
+  is on, so an unflagged build emits neither page's HTML at all.
+- `PublicFooter.astro`'s Legal column renders only under the same flag.
+- Only `build:staging`/`deploy:staging` sets `LEGAL_ENABLED=1`;
+  `deploy:production` does not, so forgetting to touch anything fails safe.
+- `frontend/test/legal-gating.test.js` pins all three points, and
+  `docs/04-backlog.md` records the one commit that removes the flag once real,
+  approved copy lands.

@@ -1,0 +1,167 @@
+---
+/**
+ * /404 — builds to dist/404.html, served by the Worker's app.notFound
+ * (backend/src/index.ts) with a real 404 status for a browser navigation to
+ * any unrouted path. See docs/03-decisions.md DEC-029 for the mechanism and
+ * what its verification found.
+ *
+ * Hierarchy per the approved wireframe (1f) and the product's locked
+ * decision: one primary way home, one secondary route to results, WhatsApp as
+ * a help link — never a third, equally-weighted CTA.
+ */
+import LinkButton from "../components/landing/LinkButton.astro";
+import PublicFooter from "../components/public/PublicFooter.astro";
+import SecondaryHeader from "../components/public/SecondaryHeader.astro";
+import content from "../config/site.js";
+
+const { notFound, whatsapp } = content;
+
+const whatsappHelpUrl = `https://wa.me/${whatsapp.phoneNumber}?text=${encodeURIComponent(
+  whatsapp.messages.find((m) => m.context === "resultados")?.text ??
+    whatsapp.messages[0].text,
+)}`;
+---
+
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="preload"
+      href="/fonts/plus-jakarta-sans-variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <title>Página no encontrada · DúoLab</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Saltar al contenido</a>
+
+    <SecondaryHeader
+      links={[
+        { label: "Inicio", href: "/" },
+        { label: "Consultar resultados", href: "/resultados" },
+      ]}
+    />
+
+    <main class="wrap" id="main">
+      <section class="card" aria-labelledby="nf-h">
+        <p class="nf-code" aria-hidden="true">{notFound.code}</p>
+        <h1 id="nf-h" class="nf-h">{notFound.headline}</h1>
+        <p class="nf-body">{notFound.body}</p>
+
+        <div class="nf-actions">
+          <LinkButton variant="primary" href={notFound.primaryCta.href} label={notFound.primaryCta.label} />
+          <LinkButton variant="outline" href={notFound.secondaryCta.href} label={notFound.secondaryCta.label} />
+        </div>
+
+        <p class="nf-help">
+          <a href={whatsappHelpUrl} target="_blank" rel="noopener noreferrer">
+            {notFound.helpLabel}
+          </a>
+        </p>
+      </section>
+    </main>
+
+    <PublicFooter />
+  </body>
+</html>
+
+<style is:global>
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background: var(--color-surface-muted);
+    line-height: 1.5;
+  }
+</style>
+
+<style>
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: var(--space-xs);
+    z-index: var(--z-toast);
+    padding: var(--space-2xs) var(--space-sm);
+    background: var(--color-primary);
+    color: var(--text-on-primary);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .skip-link:focus {
+    top: var(--space-xs);
+  }
+
+  .wrap {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-xl) var(--space-md);
+  }
+
+  .card {
+    width: 100%;
+    max-width: 24rem;
+    text-align: center;
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-soft);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .nf-code {
+    margin: 0 0 var(--space-xs);
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-display);
+    font-size: var(--font-size-display);
+    color: var(--color-secondary);
+  }
+
+  .nf-h {
+    margin: 0 0 var(--space-xs);
+    font-size: var(--font-size-title);
+  }
+
+  .nf-body {
+    margin: 0 0 var(--space-md);
+    color: var(--text-secondary);
+  }
+
+  .nf-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .nf-actions :global(.link-button) {
+    width: 100%;
+  }
+
+  .nf-help {
+    margin: var(--space-md) 0 0;
+    font-size: var(--font-size-label);
+  }
+
+  .nf-help a {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3xs);
+    color: var(--color-primary);
+    text-decoration: underline;
+    /* A help link, not a third CTA — lighter weight than the two buttons
+       above keeps it visually subordinate. */
+    font-weight: var(--font-weight-body);
+  }
+</style>

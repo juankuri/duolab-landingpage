@@ -5,6 +5,12 @@ import type { Role } from "./domain/roles";
 export type Bindings = {
   DB: D1Database;
   RESULTS_BUCKET: R2Bucket;
+  // The built frontend, bound so app.notFound (index.ts) can serve
+  // dist/404.html for a browser navigation that matched no route. Real
+  // Fetcher type from @cloudflare/workers-types — this repo hand-declares its
+  // bindings rather than using the generated worker-configuration.d.ts, so it
+  // has to be added here explicitly (see DEC-029).
+  ASSETS: Fetcher;
   CLOUDFLARE_ACCESS_TEAM_DOMAIN: string;
   CLOUDFLARE_ACCESS_AUDIENCE: string;
   // Set to "local" only via backend/.dev.vars (never deployed). Enables the
