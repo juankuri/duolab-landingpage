@@ -583,6 +583,31 @@ const whatsappMessage =
         }
       }
 
+      /*
+       * Above 768px the card was still capped at 26rem — a narrow column
+       * centered in whitespace, whether the page was showing the lookup
+       * form or a successful result with a file list. The form legitimately
+       * wants a narrow measure (three short fields, one button); the
+       * result's file list does not, especially with real filenames. Widen
+       * the shell, then cap the form-and-copy elements back to the
+       * original measure so only the result content gets the extra room.
+       */
+      @media (min-width: 768px) {
+        .card {
+          max-width: 640px;
+        }
+
+        .card__h,
+        .card__lead,
+        #lookup-required,
+        #lookup-form,
+        .status,
+        .reassurance,
+        .help {
+          max-width: 26rem;
+        }
+      }
+
       .card__h {
         margin: 0 0 var(--space-xs);
         font-size: var(--font-size-title);
