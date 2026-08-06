@@ -38,7 +38,7 @@ In this order. A step skipped is a step reported as skipped, not silently droppe
   - `backend/src/http/**` — statements 80 / branches 70.
   - `frontend/src/scripts/admin/{status,folio,render,validation,session,manager,pdf-view}.js` and `frontend/src/scripts/public/lookup.js` — statements 85 / branches 75.
 - **Known gap, not hidden:** `backend/src/data/users.repo.ts` has no direct test (0% today, only exercised indirectly through `auth.ts`). The rest of `src/data/**` clears the threshold comfortably on its own coverage, which is what keeps the directory-wide number at 85/75 despite this one file — `users.repo.ts` itself is the gap, not the directory threshold. Add a direct test for it the day someone touches that file for another reason, not as a separate project.
-- **Current measured baseline, to beat, not to fall below (as of checkpoint E):** backend 328 tests, statements 94.02 / branches 88.19 overall (per-directory: domain 98.5/95.1, data 92.6/84.8, http 94.5/90.4). Frontend 200 tests, statements 94.08 / branches 87.81.
+- **Current measured baseline, to beat, not to fall below (as of the public-site restructure, `docs/10-public-site-restructure-plan.md`):** backend 335 tests, statements 94.43 / branches 88.54 overall. Frontend 271 tests, statements 95.83 / branches 91.76.
 
 ## What a new unit test needs
 
@@ -110,6 +110,20 @@ Run against `wrangler dev` (backend) + `astro dev --background` (frontend), one 
 3. `/admin/folio?f=CFRM-251275-01` — 15 results on one folio. Confirm the list renders all of them without breaking the tally or the layout.
 4. `/admin/folio?f=PCAL-090988-01` — a 200-character filename. Confirm it truncates rather than pushing the row's other content off-screen.
 5. Any screen showing an optional or caller-supplied value that could legitimately be absent — confirm it renders an explicit "—" (`.data-empty`, `render.js#formatValue`), never a blank cell indistinguishable from "still loading".
+
+**Flow G — Sitio público** (`docs/10-public-site-restructure-plan.md`), the public IA pass: `/`, `/resultados`, the two legal pages (staging only), `/404`.
+
+1. Header logo renders as the wordmark image on `/`, not its `alt` text (regression check for the dead `/clients/duolab/logo/…` path).
+2. Servicios / Cómo funciona / Ubicación each scroll to the right section on `/`, heading clear of the sticky header.
+3. `Resultados` is visible and tappable in the mobile header **without** opening the hamburger; the hamburger still opens/closes with `aria-expanded` in sync.
+4. The same `PublicFooter` renders on all public pages; the current page's link carries `aria-current="page"` and is never removed.
+5. Keyboard-only pass: skip link → header → main → footer, no trap, focus always visible.
+6. Legal pages (`LEGAL_ENABLED=1` only): breadcrumb, TOC sidebar ≥768px / collapsible `<details>` below it, anchors jump correctly, body is plain `<h2>`/`<p>`/`<ul>` — no card wrapper.
+7. **A plain `pnpm run build` (flag off) emits neither legal route and no Legal footer column** — confirm in `dist/` directly, not just via the gating test.
+8. An unknown URL in a browser (staging) shows the `/404` page and DevTools reports status `404`, not `200`; the same unknown path under `/api/*` still returns JSON `404`.
+9. `/admin` is unreachable from any public page and absent from every nav and footer.
+10. View source: `noindex` present on `/resultados`, both legal pages and `/404`; absent on `/`.
+11. **Flow E, re-run in full** — the actual regression gate for `/resultados`, since its header/footer moved into shared components while its script did not change.
 
 ## Loading and error states
 
