@@ -687,6 +687,20 @@ const pageTitle = `${microscopio.headline} — ${business.name}`;
     -webkit-user-drag: none;
   }
 
+  /* The usage photo is portrait inside a landscape frame, so object-fit
+     letterboxes it and rounding the frame would not touch the picture.
+     Shrink-wrap the <img> to the picture and round the image itself. */
+  .mv-prod-slide[data-mini-slide="1"] {
+    display: flex;
+    justify-content: center;
+  }
+
+  .mv-prod-slide[data-mini-slide="1"] img {
+    width: auto;
+    max-width: 100%;
+    border-radius: var(--radius-lg, 16px);
+  }
+
   .mv-prod-arrow {
     position: absolute;
     top: 50%;
