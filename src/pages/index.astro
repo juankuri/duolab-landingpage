@@ -21,6 +21,8 @@ import Faq from "../components/landing/Faq.astro";
 import ReviewUs from "../components/landing/ReviewUs.astro";
 import FinalCta from "../components/landing/FinalCta.astro";
 import Footer from "../components/landing/Footer.astro";
+import PromoSpotlight from "../components/landing/PromoSpotlight.astro";
+import ProductPromo from "../components/landing/ProductPromo.astro";
 import WhatsAppFloat from "../components/landing/WhatsAppFloat.astro";
 
 const {
@@ -37,6 +39,7 @@ const {
   socialProof,
   reviewUs,
   finalCta,
+  microscopio,
 } = content;
 
 // Header nav: smooth-scroll anchors into the footer's info blocks (single-page).
@@ -92,6 +95,15 @@ const childCare = {
       slogan={footerSlogan}
     />
 
+    <PromoSpotlight
+      photo={microscopio.mainPhoto}
+      eyebrow={microscopio.landingBand.eyebrow}
+      title={microscopio.landingBand.title}
+      microcopy={microscopio.landingBand.microcopy}
+      href={microscopio.landingBand.href}
+      linkLabel={microscopio.landingBand.linkLabel}
+    />
+
     <SocialProof
       trustSignals={socialProof.trustSignals}
       testimonials={socialProof.testimonials}
@@ -134,6 +146,14 @@ const childCare = {
       phoneDisplay={phoneDisplay}
       whatsappDisplay={whatsappDisplay}
       directionsUrl={hero.secondaryCta.href}
+    />
+
+    <ProductPromo
+      photo={microscopio.mainPhoto}
+      title={microscopio.landingBand.title}
+      microcopy={microscopio.landingBand.microcopy}
+      href={microscopio.landingBand.href}
+      linkLabel={microscopio.landingBand.linkLabel}
     />
 
     <Faq
