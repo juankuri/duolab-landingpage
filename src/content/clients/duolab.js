@@ -15,6 +15,7 @@
  *  E.164 digits, country code 52 + 9383830700. Not a placeholder. */
 const WHATSAPP_NUMBER = "529381156464";
 const PHONE_NUMBER = "529383830700";
+const WHATSAPP_NUMBER_MICROSCOPIO = "529381239228"; // Dedicated to the microscopio module.
 
 const SITE_ORIGIN = "https://laboratoriosduolab.com";
 
@@ -67,6 +68,10 @@ const content = {
             {
                 context: "services",
                 text: "Hola, tengo una indicación médica y quisiera saber la preparación, disponibilidad y tiempo de entrega del estudio.",
+            },
+            {
+                context: "microscopio",
+                text: "Hola, me interesa el Microscopio DúoLab. ¿Podría darme más información?",
             },
         ],
     },
@@ -180,6 +185,125 @@ const content = {
         },
         ctaMessageContext: "services",
         ctaLabel: "Consultar un estudio",
+    },
+
+    // Microscopio DúoLab — retirable product module: own route (/microscopio),
+    // a promo section on the landing, and a footer link. No price shown on the
+    // page by client decision — price is a WhatsApp conversation.
+    microscopio: {
+        eyebrow: "Producto exclusivo de DúoLab",
+        headline: "Microscopio DúoLab",
+        valueLine:
+            "Se observa desde la cámara de tu celular, así que varios pueden ver la muestra al mismo tiempo.",
+        openingParagraph:
+            "En un microscopio común mira una persona a la vez, con el ojo pegado al ocular. Este se usa con la cámara de tu celular: la imagen aparece en la pantalla, y ahí el grupo completo puede ver y analizar las muestras. Amplificación de 60x a 70x, en un equipo que cabe hasta en una mochila.",
+
+        mainPhoto: {
+            src: "/microscopio/00-hero-render-948.webp",
+            srcsetWebp: "/microscopio/00-hero-render-480.webp 480w, /microscopio/00-hero-render-948.webp 948w",
+            srcsetAvif: "/microscopio/00-hero-render-480.avif 480w, /microscopio/00-hero-render-948.avif 948w",
+            alt: "Microscopio DúoLab en render de estudio, fondo transparente, con acento de marca morado",
+        },
+        // Segunda foto real (no render) para la cuadrícula de detalle en
+        // /microscopio: el ensamble físico de cerca. Ojo: NO es una foto de un
+        // celular montado en uso — esa foto sigue pendiente (ver caption.md /
+        // notas de sesión); no inventar esa toma con esta imagen.
+        usagePhoto: {
+            src: "/microscopio/01-uso-producto-960.webp",
+            srcsetWebp: "/microscopio/01-uso-producto-480.webp 480w, /microscopio/01-uso-producto-960.webp 960w, /microscopio/01-uso-producto-1440.webp 1440w",
+            srcsetAvif: "/microscopio/01-uso-producto-480.avif 480w, /microscopio/01-uso-producto-960.avif 960w, /microscopio/01-uso-producto-1440.avif 1440w",
+            alt: "Ensamble del Microscopio DúoLab, base y soporte de cerca",
+        },
+        /** Galería "" — una muestra distinta por foto.
+         *  @type {{ src: string, srcsetWebp: string, srcsetAvif: string, alt: string, caption: string }[]} */
+        photos: [
+            {
+                src: "/microscopio/02-hoja-vena-960.webp",
+                srcsetWebp: "/microscopio/02-hoja-vena-480.webp 480w, /microscopio/02-hoja-vena-960.webp 960w, /microscopio/02-hoja-vena-1440.webp 1440w",
+                srcsetAvif: "/microscopio/02-hoja-vena-480.avif 480w, /microscopio/02-hoja-vena-960.avif 960w, /microscopio/02-hoja-vena-1440.avif 1440w",
+                alt: "Nervadura de una hoja de buganvilia, vista con el Microscopio DúoLab, en tonos magenta",
+                caption: "Hoja de buganvilia, sin editar.",
+            },
+            {
+                src: "/microscopio/03-insecto-960.webp",
+                srcsetWebp: "/microscopio/03-insecto-480.webp 480w, /microscopio/03-insecto-960.webp 960w, /microscopio/03-insecto-1440.webp 1440w",
+                srcsetAvif: "/microscopio/03-insecto-480.avif 480w, /microscopio/03-insecto-960.avif 960w, /microscopio/03-insecto-1440.avif 1440w",
+                alt: "Larva de decápodo teñida de rojo, vista completa con el Microscopio DúoLab",
+                caption: "Larva de decápodo, teñida para verse mejor.",
+            },
+            {
+                src: "/microscopio/04-corte-tallo-960.webp",
+                srcsetWebp: "/microscopio/04-corte-tallo-480.webp 480w, /microscopio/04-corte-tallo-960.webp 960w, /microscopio/04-corte-tallo-1440.webp 1440w",
+                srcsetAvif: "/microscopio/04-corte-tallo-480.avif 480w, /microscopio/04-corte-tallo-960.avif 960w, /microscopio/04-corte-tallo-1440.avif 1440w",
+                alt: "Corte transversal de un tallo, con un patrón interno parecido a una telaraña",
+                caption: "Corte de tallo: así se ve por dentro.",
+            },
+            {
+                src: "/microscopio/08-medusa-960.webp",
+                srcsetWebp: "/microscopio/08-medusa-480.webp 480w, /microscopio/08-medusa-960.webp 960w, /microscopio/08-medusa-1440.webp 1440w",
+                srcsetAvif: "/microscopio/08-medusa-480.avif 480w, /microscopio/08-medusa-960.avif 960w, /microscopio/08-medusa-1440.avif 1440w",
+                alt: "Aurelia aurita (medusa) vista con el Microscopio DúoLab, tonos magenta",
+                caption: "Aurelia aurita, medusa.",
+            },
+            {
+                src: "/microscopio/06-tejido-animal-960.webp",
+                srcsetWebp: "/microscopio/06-tejido-animal-480.webp 480w, /microscopio/06-tejido-animal-960.webp 960w, /microscopio/06-tejido-animal-1440.webp 1440w",
+                srcsetAvif: "/microscopio/06-tejido-animal-480.avif 480w, /microscopio/06-tejido-animal-960.avif 960w, /microscopio/06-tejido-animal-1440.avif 1440w",
+                alt: "Corte de tejido animal mostrando fibras musculares en tonos rosados",
+                caption: "Tejido muscular, corte de laboratorio.",
+            },
+            {
+                src: "/microscopio/09-cana-azucar-960.webp",
+                srcsetWebp: "/microscopio/09-cana-azucar-480.webp 480w, /microscopio/09-cana-azucar-960.webp 960w, /microscopio/09-cana-azucar-1440.webp 1440w",
+                srcsetAvif: "/microscopio/09-cana-azucar-480.avif 480w, /microscopio/09-cana-azucar-960.avif 960w, /microscopio/09-cana-azucar-1440.avif 1440w",
+                alt: "Fibras de caña de azúcar vistas con el Microscopio DúoLab, tonos café",
+                caption: "Caña de azúcar, fibra vegetal.",
+            },
+        ],
+
+        includes: ["Manual de indicaciones", "Portaobjetos", "Frascos para insectos"],
+        excludesSamples: {
+            body: "El equipo llega listo para usarse, pero sin muestras. En la sucursal tenemos muestras de exposición ya fijadas para que veas ideas de uso antes de decidir.",
+            cta: { href: "/#ubicacion", label: "Ver ubicación →" }, // #ubicacion lives on the home page, not here.
+        },
+        audience: [
+            "Laboratorios escolares",
+            "Laboratorios universitarios",
+            "Microbiología",
+            "Exposiciones y ponencias",
+            "De 10 años en adelante",
+        ],
+        specs: [
+            { label: "Color", value: "Negro Xolo MM" },
+            { label: "Distancia focal", value: "~1 mm" },
+            { label: "Amplificación", value: "60x – 70x" },
+            {
+                label: "Materiales",
+                value: "Base de plástico poliláctico, acrílico y lentes de asféricas de polímero óptico",
+            },
+        ],
+        availability: {
+            unitsAvailable: 10, // Fixed value (client decision), not dynamically edited.
+            unitsNote: "Hay 10 ejemplares disponibles hasta diciembre.",
+            deliveryNote:
+                "Hacemos entregas en toda la isla. Puedes recogerlo en DúoLab, Plaza Perla del Golfo local 21, o coordinamos la entrega por WhatsApp.",
+            outOfStockNote:
+                "Cuando se agotan, se fabrica por encargo. Escríbenos y te decimos el tiempo de entrega.",
+        },
+        ctaMessageContext: "microscopio",
+        ctaLabel: "¡Pregunta por más información!",
+        // The one WhatsApp line for this page — dedicated to the product, not the
+        // lab's general number.
+        whatsappNumber: WHATSAPP_NUMBER_MICROSCOPIO,
+
+        // Promo band on the landing, between Ubicación and FAQ.
+        landingBand: {
+            eyebrow: "Exclusivo de DúoLab",
+            title: "Microscopio DúoLab",
+            microcopy: "¡Se observa desde el celular, para que varios vean a la vez!",
+            href: "/microscopio",
+            linkLabel: "Ver el microscopio",
+        },
     },
 
     // SECCIÓN 5 — Cómo funciona (copy.md, spec FR-007 intent). Rendered as a

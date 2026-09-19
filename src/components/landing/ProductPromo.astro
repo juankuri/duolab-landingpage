@@ -1,0 +1,121 @@
+---
+/**
+ * ProductPromo — a single link band promoting a retail product on the landing
+ * page (not a full section). Extracted for reuse: any product DúoLab sells
+ * outside its core clinical services (e.g. the microscopio module) gets one
+ * of these bands instead of a bespoke section, so it can be dropped from the
+ * page by removing one component call.
+ *
+ * Contract:
+ *   photo      { src: string | null, alt: string }  required — placeholder-safe
+ *   title      string   required
+ *   microcopy  string   required
+ *   href       string   required — internal route to the product page
+ *   linkLabel  string   required
+ */
+interface Props {
+  photo: {
+    src: string | null;
+    alt: string;
+    srcsetWebp?: string;
+    srcsetAvif?: string;
+  };
+  title: string;
+  microcopy: string;
+  href: string;
+  linkLabel: string;
+}
+
+const { photo, title, microcopy, href, linkLabel } = Astro.props;
+---
+
+<div class="product-promo">
+  <a class="product-promo__link" href={href}>
+    <div class="product-promo__photo" aria-hidden={!photo.src}>
+      {
+        photo.src ? (
+          <picture>
+            {photo.srcsetAvif && <source type="image/avif" srcset={photo.srcsetAvif} sizes="84px" />}
+            {photo.srcsetWebp && <source type="image/webp" srcset={photo.srcsetWebp} sizes="84px" />}
+            <img src={photo.src} alt={photo.alt} />
+          </picture>
+        ) : (
+          <span>{photo.alt}</span>
+        )
+      }
+    </div>
+    <div class="product-promo__copy">
+      <p class="product-promo__title">{title}</p>
+      <p class="product-promo__microcopy">{microcopy}</p>
+      <span class="product-promo__cta">{linkLabel} →</span>
+    </div>
+  </a>
+</div>
+
+<style>
+  .product-promo {
+    padding-block: var(--space-md);
+    padding-inline: var(--space-md);
+    background-color: var(--color-surface);
+  }
+
+  .product-promo__link {
+    display: flex;
+    gap: var(--space-md);
+    align-items: center;
+    max-width: 640px;
+    margin-inline: auto;
+    padding: var(--space-md);
+    background-color: var(--color-surface-soft);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: box-shadow var(--duration-fast) var(--ease-out);
+  }
+
+  .product-promo__link:hover,
+  .product-promo__link:focus-visible {
+    box-shadow: var(--shadow-cta-hover);
+  }
+
+  .product-promo__photo {
+    flex: none;
+    width: 84px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    font-size: 0.625rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .product-promo__photo picture,
+  .product-promo__photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .product-promo__title {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-title);
+    font-size: 1rem;
+  }
+
+  .product-promo__microcopy {
+    margin: 2px 0 var(--space-xs);
+    color: var(--text-secondary);
+    font-size: var(--font-size-label);
+    line-height: 1.4;
+  }
+
+  .product-promo__cta {
+    color: var(--color-primary);
+    font-weight: var(--font-weight-title);
+    font-size: var(--font-size-label);
+  }
+</style>

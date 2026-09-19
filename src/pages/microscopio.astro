@@ -1,0 +1,1022 @@
+---
+import Layout from "../layouts/Layout.astro";
+import content from "../content/clients/duolab.js";
+
+import Footer from "../components/landing/Footer.astro";
+import WhatsAppButton from "../components/landing/WhatsAppButton.astro";
+import WhatsAppFloat from "../components/landing/WhatsAppFloat.astro";
+
+const { seo, business, whatsapp, hero, finalCta, microscopio } = content;
+
+// Display-only business phone — same value the landing passes to its Footer.
+const phoneDisplay = "938 383 0700";
+
+const waMessage =
+  whatsapp.messages.find((m: { context: string }) => m.context === microscopio.ctaMessageContext)?.text ??
+  whatsapp.messages[0].text;
+
+const pageTitle = `${microscopio.headline} — ${business.name}`;
+---
+
+<Layout
+  seo={{ ...seo, title: pageTitle, canonicalUrl: `${seo.canonicalUrl}microscopio` }}
+  business={business}
+>
+  <!-- ── 1. HERO ─────────────────────────────────────────────────── -->
+  <section
+    class="mv-hero"
+    aria-label="Galería de muestras"
+    data-stage
+  >
+    <!-- Inner stage: clipped image area, 74vh -->
+    <div class="mv-stage">
+      <!-- Slideshow layers -->
+      <div class="mv-slides" aria-hidden="true">
+        {
+          microscopio.photos.map(
+            (
+              photo: { src: string; srcsetWebp: string; srcsetAvif: string; alt: string },
+              i: number,
+            ) => (
+              <picture
+                class="mv-slide"
+                class:list={{ "is-active": i === 0 }}
+                data-slide={i}
+              >
+                <source type="image/avif" srcset={photo.srcsetAvif} sizes="100vw" />
+                <source type="image/webp" srcset={photo.srcsetWebp} sizes="100vw" />
+                <img src={photo.src} alt={photo.alt} />
+              </picture>
+            ),
+          )
+        }
+      </div>
+
+      <!-- Gradient overlay -->
+      <div class="mv-overlay" aria-hidden="true"></div>
+
+      <!-- Nav -->
+      <nav class="mv-nav" aria-label="Principal">
+        <a href="/" class="mv-nav__logo" aria-label="DúoLab — inicio">
+          <img src="/clients/duolab/logo/logo-full.svg" alt="DúoLab" />
+        </a>
+        <div class="mv-nav__spacer"></div>
+        <div class="mv-nav__links">
+          <a href="/#horarios">Horarios</a>
+          <a href="/#ubicacion">Ubicación</a>
+          <a href="/#contacto">Contacto</a>
+          <WhatsAppButton
+            phoneNumber={microscopio.whatsappNumber}
+            message={waMessage}
+            label="Escríbenos"
+            variant="primary"
+          />
+        </div>
+        <div class="mv-nav__mobile">
+          <button
+            type="button"
+            class="mv-nav__burger"
+            aria-label="Abrir menú"
+            aria-expanded="false"
+            data-burger
+          >
+            <span aria-hidden="true">☰</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Mobile menu drawer -->
+      <div class="mv-drawer" aria-hidden="true" data-drawer>
+        <a href="/#horarios" data-close-drawer>Horarios</a>
+        <a href="/#ubicacion" data-close-drawer>Ubicación</a>
+        <a href="/#contacto" data-close-drawer>Contacto</a>
+        <WhatsAppButton
+          phoneNumber={microscopio.whatsappNumber}
+          message={waMessage}
+          label="Escríbenos por WhatsApp"
+          variant="primary"
+        />
+      </div>
+
+      <!-- Copy — absolute, anchored to bottom-left of stage -->
+      <div class="mv-copy">
+        <p class="mv-copy__eyebrow">{microscopio.eyebrow}</p>
+        <h1 class="mv-copy__title">{microscopio.headline}</h1>
+        <p class="mv-copy__lead">{microscopio.valueLine}</p>
+        <div class="mv-copy__cta">
+          <WhatsAppButton
+            phoneNumber={microscopio.whatsappNumber}
+            message={waMessage}
+            label={microscopio.ctaLabel}
+            variant="primary"
+          />
+          <span class="mv-copy__meta">{microscopio.availability.unitsNote}</span>
+        </div>
+      </div>
+    </div><!-- /mv-stage -->
+
+    <!-- Caption bar — below the stage div, still inside dark section -->
+    <div class="mv-caption">
+      <div class="mv-caption__info">
+        <span class="mv-caption__label" data-counter>
+          Muestra 1 / {microscopio.photos.length} · tomada con el microscopio
+        </span>
+        <span class="mv-caption__name" data-caption-name>
+          {microscopio.photos[0]?.caption ?? ""}
+        </span>
+      </div>
+      <div class="mv-caption__nav">
+        <button
+          type="button"
+          class="mv-caption__btn"
+          aria-label="Muestra anterior"
+          data-prev
+        ><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M13 4L7 10l6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button
+          type="button"
+          class="mv-caption__btn mv-caption__btn--next"
+          aria-label="Muestra siguiente"
+          data-next
+        ><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
+
+    <!-- Thumbnail strip -->
+    <ul class="mv-thumbs" aria-label="Muestras">
+      {
+        microscopio.photos.map(
+          (
+            photo: { src: string; alt: string; caption?: string },
+            i: number,
+          ) => (
+            <li>
+              <button
+                type="button"
+                class="mv-thumb"
+                class:list={{ "is-active": i === 0 }}
+                aria-label={photo.caption ?? photo.alt}
+                aria-selected={i === 0}
+                data-thumb={i}
+              >
+                <img src={photo.src} alt="" />
+              </button>
+            </li>
+          ),
+        )
+      }
+    </ul>
+  </section>
+
+  <main>
+    <!-- ── 2. PRODUCT DETAIL SECTION ──────────────────────────────── -->
+    <section class="mv-sec">
+      <div class="mv-wrap">
+        <div class="mv-grid">
+
+          <!-- Left column: product photo carousel with arrow buttons -->
+          <div class="mv-left" data-mini-carousel>
+            <div class="mv-prod">
+              <div class="mv-prod-track" data-mini-track>
+                <picture class="mv-prod-slide" data-mini-slide="0">
+                  <source type="image/avif" srcset={microscopio.mainPhoto.srcsetAvif} sizes="(min-width:768px) 45vw, 100vw" />
+                  <source type="image/webp" srcset={microscopio.mainPhoto.srcsetWebp} sizes="(min-width:768px) 45vw, 100vw" />
+                  <img src={microscopio.mainPhoto.src} alt={microscopio.mainPhoto.alt} />
+                </picture>
+                <picture class="mv-prod-slide" data-mini-slide="1">
+                  <source type="image/avif" srcset={microscopio.usagePhoto.srcsetAvif} sizes="(min-width:768px) 45vw, 100vw" />
+                  <source type="image/webp" srcset={microscopio.usagePhoto.srcsetWebp} sizes="(min-width:768px) 45vw, 100vw" />
+                  <img src={microscopio.usagePhoto.src} alt={microscopio.usagePhoto.alt} />
+                </picture>
+              </div>
+              <button class="mv-prod-arrow mv-prod-arrow--prev" aria-label="Foto anterior" data-mini-prev style="display:none"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M13 4L7 10l6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <button class="mv-prod-arrow mv-prod-arrow--next" aria-label="Foto siguiente" data-mini-next><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            </div>
+            <!-- Pill dots -->
+            <div class="mv-prod-dots" role="tablist" aria-label="Imagen del producto">
+              <button class="mv-prod-dot is-active" role="tab" aria-selected="true"  aria-label="Imagen 1" data-mini-dot="0"></button>
+              <button class="mv-prod-dot"            role="tab" aria-selected="false" aria-label="Imagen 2" data-mini-dot="1"></button>
+            </div>
+          </div>
+
+          <!-- Right column: facts with border-top separators -->
+          <div class="mv-facts">
+            <div>
+              <h2 class="mv-h2">Qué llega en la caja</h2>
+              <p class="mv-includes">
+                {microscopio.includes.join(", ")}.{" "}
+                <strong>No incluye muestras</strong> — en la sucursal tenemos muestras de exposición ya fijadas para que veas ideas de uso.{" "}
+                <a href={microscopio.excludesSamples.cta.href} class="mv-link">{microscopio.excludesSamples.cta.label}</a>
+              </p>
+            </div>
+
+            <div>
+              <h2 class="mv-h2">Ficha técnica</h2>
+              <dl class="mv-specs">
+                {
+                  microscopio.specs.map((spec: { label: string; value: string }) => (
+                    <>
+                      <dt>{spec.label}</dt>
+                      <dd>{spec.value}</dd>
+                    </>
+                  ))
+                }
+              </dl>
+            </div>
+
+            <div>
+              <h2 class="mv-h2">Para quién es</h2>
+              <p class="mv-audience">
+                Laboratorios escolares y universitarios, área de microbiología, exposiciones y ponencias. De 10 años en adelante.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 3. CLOSING CTA BAND ─────────────────────────────────────── -->
+    <section class="mv-cta-band" aria-labelledby="mv-cta-heading">
+      <div class="mv-wrap">
+        <div class="mv-band">
+          <div>
+            <h2 class="mv-cta-band__title" id="mv-cta-heading">
+              {microscopio.availability.unitsNote}
+            </h2>
+            <p class="mv-cta-band__body">{microscopio.availability.deliveryNote}</p>
+          </div>
+          <div class="mv-band__ctas">
+            <WhatsAppButton
+              phoneNumber={microscopio.whatsappNumber}
+              message={waMessage}
+              label="Preguntar por WhatsApp"
+              variant="primary"
+            />
+            <a href={`tel:+52${phoneDisplay.replace(/\s/g, "")}`} class="mv-band__phone">
+              o llama al {phoneDisplay}
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer
+    business={business}
+    phoneDisplay={phoneDisplay}
+    slogan=""
+    mapUrl={hero.secondaryCta.href}
+    cta={{
+      phoneNumber: whatsapp.phoneNumber,
+      message: whatsapp.messages.find((m: { context: string }) => m.context === finalCta.ctaMessageContext)?.text ?? whatsapp.messages[0].text,
+      label: finalCta.ctaLabel,
+    }}
+  />
+
+  <WhatsAppFloat
+    cta={{
+      phoneNumber: microscopio.whatsappNumber,
+      message: waMessage,
+      label: finalCta.ctaLabel,
+    }}
+  />
+</Layout>
+
+<style>
+  /* ── Hero outer section (dark background, contains stage + caption + thumbs) ── */
+  .mv-hero {
+    background: var(--color-text-primary, #142129);
+    color: #fff;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Stage: clipped image area, fills remaining height after caption + thumbs ── */
+  .mv-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Slides */
+  .mv-slides {
+    position: absolute;
+    inset: 0;
+  }
+
+  .mv-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1.2s ease-in-out;
+  }
+
+  .mv-slide.is-active {
+    opacity: 1;
+  }
+
+  .mv-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    display: block;
+  }
+
+  /* Gradient overlay */
+  .mv-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(20, 33, 41, 0.48) 0%,
+      rgba(20, 33, 41, 0.10) 32%,
+      rgba(20, 33, 41, 0.72) 100%
+    );
+    pointer-events: none;
+  }
+
+  /* ── Nav ─────────────────────────────────────────────────────────── */
+  .mv-nav {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 20px 24px;
+  }
+
+  .mv-nav__logo img {
+    height: 28px;
+    filter: brightness(0) invert(1);
+    display: block;
+  }
+
+  .mv-nav__spacer { flex: 1; }
+
+  .mv-nav__links {
+    display: none;
+    align-items: center;
+    gap: 26px;
+    font-size: 0.9375rem;
+  }
+
+  .mv-nav__links a {
+    color: rgba(255, 255, 255, 0.86);
+    text-decoration: none;
+  }
+
+  .mv-nav__links a:hover { color: #fff; }
+
+  .mv-nav__results {
+    color: #fff !important;
+    font-weight: 600;
+  }
+
+  .mv-nav__links :global(.wa-button) {
+    background: #fff;
+    color: var(--color-primary, #6b21a8);
+    padding: 10px 20px;
+    border-radius: var(--radius-pill, 999px);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+  }
+
+  .mv-nav__mobile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .mv-nav__results-pill {
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-decoration: none;
+    border: 1.5px solid rgba(255, 255, 255, 0.5);
+    padding: 9px 14px;
+    border-radius: var(--radius-pill, 999px);
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .mv-nav__burger {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: #fff;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  /* ── Mobile drawer ─────────────────────────────────────────────── */
+  .mv-drawer {
+    position: absolute;
+    top: 84px;
+    left: 24px;
+    right: 24px;
+    background: #fff;
+    border-radius: var(--radius-lg, 16px);
+    padding: 8px;
+    display: none;
+    flex-direction: column;
+    z-index: 20;
+  }
+
+  .mv-drawer.is-open { display: flex; }
+
+  .mv-drawer a {
+    padding: 14px 16px;
+    color: var(--text-primary);
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-secondary, #e5e0f0);
+  }
+
+  .mv-drawer a:last-of-type { border-bottom: none; }
+
+  .mv-drawer :global(.wa-button) {
+    margin: 8px;
+    padding: 14px;
+    text-align: center;
+    background: var(--color-primary, #6b21a8);
+    color: #fff;
+    border-radius: var(--radius-pill, 999px);
+    font-weight: 600;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* ── Copy — absolute, bottom-left of stage ──────────────────────── */
+  .mv-copy {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    z-index: 3;
+    padding: 24px 24px 16px;
+    max-width: 620px;
+    color: #fff;
+  }
+
+  .mv-copy__eyebrow {
+    margin: 0 0 12px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-lila-medio, #c4b5fd);
+  }
+
+  .mv-copy__title {
+    margin: 0 0 14px;
+    font-family: var(--font-heading, inherit);
+    font-weight: 800;
+    font-size: 2.125rem;
+    line-height: 1.1;
+    text-wrap: pretty;
+  }
+
+  .mv-copy__lead {
+    margin: 0 0 22px;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .mv-copy__cta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .mv-copy__meta {
+    font-size: 0.9375rem;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  /* ── Caption bar ─────────────────────────────────────────────────── */
+  .mv-caption {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(20, 33, 41, 0.28);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .mv-caption__info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .mv-caption__label {
+    font-size: 0.8125rem;
+    color: var(--color-lila-medio, #c4b5fd);
+    margin-bottom: 2px;
+  }
+
+  .mv-caption__name {
+    font-size: 1rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mv-caption__nav {
+    display: flex;
+    gap: 10px;
+    flex: none;
+  }
+
+  .mv-caption__btn {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-pill, 999px);
+    background: rgba(255, 255, 255, 0.18);
+    border: 1.5px solid rgba(255, 255, 255, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .mv-caption__btn--next {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: transparent;
+    color: var(--color-primary, #6b21a8);
+  }
+
+  .mv-caption__btn:hover { background: rgba(255, 255, 255, 0.32); }
+  .mv-caption__btn--next:hover { background: #fff; }
+
+  /* ── Thumbnails ─────────────────────────────────────────────────── */
+  .mv-thumbs {
+    list-style: none;
+    margin: 0;
+    padding: 6px 24px 20px;
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    background: rgba(20, 33, 41, 0.22);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .mv-thumbs::-webkit-scrollbar { display: none; }
+
+  .mv-thumbs li {
+    flex: 0 0 auto;
+    width: 84px;
+    aspect-ratio: 4 / 3;
+  }
+
+  .mv-thumb {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius-sm, 6px);
+    overflow: hidden;
+    cursor: pointer;
+    padding: 0;
+    border: 2px solid transparent;
+    opacity: 0.6;
+    transition: opacity 0.15s ease, border-color 0.15s ease;
+  }
+
+  .mv-thumb.is-active {
+    opacity: 1;
+    border-color: #fff;
+  }
+
+  .mv-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* ── Shared wrap ─────────────────────────────────────────────────── */
+  .mv-wrap {
+    max-width: 1120px;
+    margin-inline: auto;
+    padding-inline: 24px;
+  }
+
+  /* ── Product section ────────────────────────────────────────────── */
+  .mv-sec {
+    padding-block: 48px;
+  }
+
+  .mv-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+    align-items: stretch;
+  }
+
+  /* Product carousel */
+  .mv-left {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .mv-prod {
+    position: relative;
+    border-radius: var(--radius-lg, 16px);
+    overflow: hidden;
+    background: transparent;
+    aspect-ratio: 4 / 3;
+    touch-action: pan-y;
+    cursor: grab;
+  }
+
+  .mv-prod:active { cursor: grabbing; }
+
+  .mv-prod-track {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .mv-prod-slide {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mv-prod-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .mv-prod-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-pill, 999px);
+    background: rgba(255, 255, 255, 0.82);
+    border: 1.5px solid rgba(255, 255, 255, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary, #6b21a8);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .mv-prod-arrow:hover { background: #fff; }
+  .mv-prod-arrow--prev { left: 12px; }
+  .mv-prod-arrow--next { right: 12px; }
+
+  /* Pill dots */
+  .mv-prod-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .mv-prod-dot {
+    height: 8px;
+    width: 8px;
+    border-radius: var(--radius-pill, 999px);
+    background: var(--color-lila-medio, #c4b5fd);
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: width 0.15s ease, background 0.15s ease;
+  }
+
+  .mv-prod-dot.is-active {
+    width: 22px;
+    background: var(--color-primary, #6b21a8);
+  }
+
+  .mv-prod-dot:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 3px;
+  }
+
+  /* Right column: fact blocks with border-top separators */
+  .mv-facts > * + * {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-subtle, #e5e0f0);
+  }
+
+  .mv-h2 {
+    margin: 0 0 10px;
+    font-family: var(--font-heading, inherit);
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .mv-includes {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .mv-link {
+    color: var(--color-primary);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .mv-link:hover { text-decoration: underline; }
+
+  .mv-specs {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px 20px;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .mv-specs dt { color: var(--text-secondary); }
+
+  .mv-specs dd {
+    margin: 0;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .mv-audience {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* ── Closing CTA band ───────────────────────────────────────────── */
+  .mv-cta-band {
+    background: var(--color-primary);
+    color: #fff;
+    padding-block: 48px;
+  }
+
+  .mv-band {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .mv-cta-band__title {
+    margin: 0 0 10px;
+    font-family: var(--font-heading, inherit);
+    font-size: 1.625rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .mv-cta-band__body {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.88);
+    margin: 0;
+  }
+
+  .mv-band__ctas {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .mv-band__ctas :global(.wa-button) {
+    background: #fff;
+    color: var(--color-primary);
+    padding: 16px 30px;
+    border-radius: var(--radius-pill, 999px);
+    font-weight: 600;
+    text-decoration: none;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mv-band__phone {
+    color: #fff;
+    font-size: 0.9375rem;
+    text-decoration: none;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .mv-band__phone:hover { text-decoration: underline; }
+
+  /* ── Responsive ─────────────────────────────────────────────────── */
+  @media (min-width: 768px) {
+    .mv-nav { padding: 24px 48px; }
+    .mv-nav__links { display: flex; }
+    .mv-nav__mobile { display: none; }
+
+    .mv-copy {
+      padding: 48px 48px 16px;
+      font-size: inherit;
+    }
+
+    .mv-copy__title { font-size: 3.25rem; }
+    .mv-copy__lead { font-size: 1.125rem; }
+
+    .mv-caption { padding: 16px 48px; }
+
+    .mv-thumbs {
+      padding: 6px 48px 24px;
+    }
+
+    .mv-thumbs li {
+      flex: 1 1 0;
+      width: auto;
+    }
+
+    .mv-wrap { padding-inline: 48px; }
+
+    .mv-sec { padding-block: 96px; }
+
+    .mv-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+      gap: 48px;
+    }
+
+    .mv-prod {
+      aspect-ratio: auto;
+      height: 100%;
+      min-height: 440px;
+    }
+
+    .mv-band {
+      grid-template-columns: 1fr auto;
+      gap: 48px;
+      align-items: center;
+    }
+  }
+</style>
+
+<script>
+  // Slideshow — crossfade on prev/next/thumb/keyboard
+  const stage = document.querySelector<HTMLElement>("[data-stage]");
+  if (stage) {
+    const slides = Array.from(stage.querySelectorAll<HTMLElement>("[data-slide]"));
+    const thumbs = Array.from(stage.querySelectorAll<HTMLButtonElement>("[data-thumb]"));
+    const counterEl = stage.querySelector<HTMLElement>("[data-counter]");
+    const captionNameEl = stage.querySelector<HTMLElement>("[data-caption-name]");
+    const total = slides.length;
+    const captions = thumbs.map((t) => t.getAttribute("aria-label") ?? "");
+
+    let current = 0;
+
+    const go = (n: number) => {
+      current = ((n % total) + total) % total;
+
+      slides.forEach((s, i) => s.classList.toggle("is-active", i === current));
+      thumbs.forEach((t, i) => {
+        t.classList.toggle("is-active", i === current);
+        t.setAttribute("aria-selected", i === current ? "true" : "false");
+      });
+
+      if (counterEl) counterEl.textContent = `Muestra ${current + 1} / ${total} · tomada con el microscopio`;
+      if (captionNameEl) captionNameEl.textContent = captions[current] ?? "";
+    };
+
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const startAuto = () => { if (timer) return; timer = setInterval(() => go(current + 1), 3300); };
+    const stopAuto  = () => { if (timer) { clearInterval(timer); timer = null; } };
+
+    stage.addEventListener("mouseenter", stopAuto);
+    stage.addEventListener("mouseleave", startAuto);
+    stage.addEventListener("focusin", stopAuto);
+    stage.addEventListener("focusout", startAuto);
+    startAuto();
+
+    stage.querySelector("[data-prev]")?.addEventListener("click", () => { stopAuto(); go(current - 1); startAuto(); });
+    stage.querySelector("[data-next]")?.addEventListener("click", () => { stopAuto(); go(current + 1); startAuto(); });
+    thumbs.forEach((t, i) => t.addEventListener("click", () => { stopAuto(); go(i); startAuto(); }));
+
+    stage.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") { e.preventDefault(); stopAuto(); go(current + 1); startAuto(); }
+      if (e.key === "ArrowLeft")  { e.preventDefault(); stopAuto(); go(current - 1); startAuto(); }
+    });
+  }
+
+  // Mobile burger
+  const burger = document.querySelector<HTMLButtonElement>("[data-burger]");
+  const drawer = document.querySelector<HTMLElement>("[data-drawer]");
+
+  burger?.addEventListener("click", () => {
+    const open = drawer?.classList.toggle("is-open");
+    burger.setAttribute("aria-expanded", open ? "true" : "false");
+    burger.querySelector("span")!.textContent = open ? "✕" : "☰";
+    drawer?.setAttribute("aria-hidden", open ? "false" : "true");
+  });
+
+  document.querySelectorAll("[data-close-drawer]").forEach((link) => {
+    link.addEventListener("click", () => {
+      drawer?.classList.remove("is-open");
+      burger?.setAttribute("aria-expanded", "false");
+      if (burger) burger.querySelector("span")!.textContent = "☰";
+      drawer?.setAttribute("aria-hidden", "true");
+    });
+  });
+
+  // Product carousel — sliding track with arrow buttons + pill dots
+  const miniCarousel = document.querySelector<HTMLElement>("[data-mini-carousel]");
+  if (miniCarousel) {
+    const track = miniCarousel.querySelector<HTMLElement>("[data-mini-track]")!;
+    const dots  = miniCarousel.querySelectorAll<HTMLButtonElement>("[data-mini-dot]");
+    const total = dots.length;
+    let current = 0;
+
+    const prevBtn = miniCarousel.querySelector<HTMLButtonElement>("[data-mini-prev]");
+    const nextBtn = miniCarousel.querySelector<HTMLButtonElement>("[data-mini-next]");
+
+    const goTo = (index: number, animate = true) => {
+      current = Math.max(0, Math.min(index, total - 1));
+      track.style.transition = animate ? "transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94)" : "none";
+      track.style.transform = `translateX(-${current * 100}%)`;
+      dots.forEach((d, i) => {
+        d.classList.toggle("is-active", i === current);
+        d.setAttribute("aria-selected", String(i === current));
+      });
+      if (prevBtn) prevBtn.style.display = current === 0 ? "none" : "flex";
+      if (nextBtn) nextBtn.style.display = current === total - 1 ? "none" : "flex";
+    };
+
+    dots.forEach((dot, i) => dot.addEventListener("click", () => goTo(i)));
+    prevBtn?.addEventListener("click", () => goTo(current - 1));
+    nextBtn?.addEventListener("click", () => goTo(current + 1));
+
+    // Touch + mouse drag
+    const viewport = miniCarousel.querySelector<HTMLElement>(".mv-prod") ?? miniCarousel;
+    let startX = 0, dragging = false;
+
+    const dragStart = (x: number) => { startX = x; dragging = true; };
+    const dragMove  = (x: number) => {
+      if (!dragging) return;
+      const dx = x - startX;
+      track.style.transition = "none";
+      track.style.transform = `translateX(calc(-${current * 100}% + ${dx}px))`;
+    };
+    const dragEnd = (x: number) => {
+      if (!dragging) return;
+      dragging = false;
+      const dx = x - startX;
+      if (dx < -50)     goTo(current + 1);
+      else if (dx > 50) goTo(current - 1);
+      else              goTo(current);
+    };
+
+    viewport.addEventListener("touchstart", (e) => dragStart((e as TouchEvent).touches[0].clientX), { passive: true });
+    viewport.addEventListener("touchmove",  (e) => dragMove((e as TouchEvent).touches[0].clientX),  { passive: true });
+    viewport.addEventListener("touchend",   (e) => dragEnd((e as TouchEvent).changedTouches[0].clientX), { passive: true });
+    viewport.addEventListener("mousedown",  (e) => { e.preventDefault(); dragStart(e.clientX); });
+    window.addEventListener("mousemove",    (e) => dragMove(e.clientX));
+    window.addEventListener("mouseup",      (e) => dragEnd(e.clientX));
+  }
+</script>
